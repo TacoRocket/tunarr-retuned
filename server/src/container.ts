@@ -26,6 +26,7 @@ import { MutexMap } from '@/util/mutexMap.js';
 import { search } from '@tunarr/shared/util';
 import type { Factory } from 'inversify';
 import { Container, ContainerModule } from 'inversify';
+import type { ScheduleSeedGrowth } from './stream/ScheduleSeedGrowth.ts';
 import type { DeepPartial } from 'ts-essentials';
 import { App } from './App.ts';
 import { SettingsDBFactory } from './db/SettingsDBFactory.ts';
@@ -95,6 +96,22 @@ const RootModule = new ContainerModule(({ bind }) => {
     .inTransientScope();
 
   bind<typeof LoggerFactory>(KEYS.LoggerFactory).toConstantValue(LoggerFactory);
+
+  // Fork: seed-channel growth after playback. Scheduler.ts loads this
+  // container, so it is imported when first used rather than at startup.
+  bind<ScheduleSeedGrowth>(KEYS.ScheduleSeedGrowth).toConstantValue(
+    async (channelId, historyId, at) => {
+      const { GlobalScheduler } = await import('./services/Scheduler.ts');
+      GlobalScheduler.scheduleOneOffTask(
+        KEYS.SeedChannelGrowthTaskFactory,
+        at,
+        {
+          channelId,
+          historyId,
+        },
+      );
+    },
+  );
 
   bind(ServerContext).toSelf().inSingletonScope();
 

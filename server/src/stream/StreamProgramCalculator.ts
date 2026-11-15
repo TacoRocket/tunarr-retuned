@@ -35,6 +35,7 @@ import type { IFillerPicker } from '../services/interfaces/IFillerPicker.ts';
 import { WrappedError } from '../types/errors.ts';
 import { devAssert } from '../util/debug.ts';
 import { isNonEmptyString } from '../util/index.js';
+import type { ScheduleSeedGrowth } from './ScheduleSeedGrowth.ts';
 import { wereThereTooManyAttempts } from './StreamThrottler.js';
 
 // A lookup this close to a program's end starts the next program instead,
@@ -98,6 +99,10 @@ export type CurrentLineupItemResult = {
 @injectable()
 export class StreamProgramCalculator {
   @InjectLogger() declare private readonly logger: Logger;
+  // Fork: seed-channel growth after a play. Injected rather than imported so
+  // this module does not pull in the task scheduler (see ScheduleSeedGrowth).
+  @inject(KEYS.ScheduleSeedGrowth)
+  declare private readonly scheduleSeedGrowth: ScheduleSeedGrowth;
 
   constructor(
     @inject(KEYS.FillerListDB) private fillerDB: IFillerListDB,
@@ -343,15 +348,10 @@ export class StreamProgramCalculator {
             fillerListId,
           });
           if (play && lineup.seedGrowth && lineupItem.type === 'program') {
-            // Scheduler loads the DI container; loading it during repository
-            // initialization creates a cycle through this calculator.
-            const { GlobalScheduler } = await import(
-              '../services/Scheduler.ts'
-            );
-            GlobalScheduler.scheduleOneOffTask(
-              KEYS.SeedChannelGrowthTaskFactory,
+            await this.scheduleSeedGrowth(
+              channelUuid,
+              play.uuid,
               new Date(Math.max(Date.now() + 100, playedAt.getTime())),
-              { channelId: channelUuid, historyId: play.uuid },
             );
           }
         }
