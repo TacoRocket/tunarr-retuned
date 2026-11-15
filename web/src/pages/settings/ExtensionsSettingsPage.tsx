@@ -1,5 +1,6 @@
 import { AddExtensionDialog } from '@/components/settings/extensions/AddExtensionDialog.tsx';
 import { ExtensionAdminAccess } from '@/components/settings/extensions/ExtensionAdminAccess.tsx';
+import { ExtensionAuthorGuide } from '@/components/settings/extensions/ExtensionAuthorGuide.tsx';
 import { ExtensionEditDialog } from '@/components/settings/extensions/ExtensionEditDialog.tsx';
 import { ExtensionSourcesDialog } from '@/components/settings/extensions/ExtensionSourcesDialog.tsx';
 import { ExtensionStatusPill } from '@/components/settings/extensions/ExtensionStatusPill.tsx';
@@ -288,6 +289,8 @@ export default function ExtensionsSettingsPage() {
           <AddCard onClick={() => setAdding(true)} />
         </Box>
       )}
+
+      <ExtensionAuthorGuide apiVersion={store.apiVersion} />
 
       <AddExtensionDialog
         open={adding}
