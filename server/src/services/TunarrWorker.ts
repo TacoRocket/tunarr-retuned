@@ -10,7 +10,6 @@ import type {
   WorkerScheduleTimeSlotsRequest,
   WorkerSuccessReply,
   WorkerTimeSlotScheduleReply,
-  WorkerPgsOcrRequest,
 } from '../types/worker_schemas.ts';
 import { WorkerInput, type WorkerEvent } from '../types/worker_schemas.ts';
 import { InjectLogger } from '../util/inject.ts';
@@ -18,12 +17,12 @@ import type { Logger } from '../util/logging/LoggerFactory.ts';
 import { SlotSchedulerService } from './scheduling/RandomSlotSchedulerService.ts';
 import { TimeSlotSchedulerService } from './scheduling/TimeSlotSchedulerService.ts';
 import { MeilisearchService } from './MeilisearchService.ts';
-import { prepareCachedPgsSubtitle } from './subtitles/PgsSubtitlePreparation.ts';
+import { PgsOcrJobs } from './worker/PgsOcrJobs.ts';
 
 @injectable()
 export class TunarrWorker {
   #queue: PQueue;
-  #ocrJobs = new Map<string, AbortController>();
+  #ocr: PgsOcrJobs;
 
   @InjectLogger() declare private readonly logger: Logger;
 
@@ -38,6 +37,12 @@ export class TunarrWorker {
     // TODO: Make this configurable
     this.#queue = new PQueue({
       concurrency: 2,
+    });
+    this.#ocr = new PgsOcrJobs(this.#queue, {
+      sendSuccessReply: (requestId, data) =>
+        this.sendSuccessReply(requestId, data),
+      replyWithError: (requestId, error) =>
+        this.replyWithError(requestId, error),
     });
   }
 
@@ -57,11 +62,11 @@ export class TunarrWorker {
       }
 
       if (parsed.data.type === 'cancel') {
-        this.#ocrJobs.get(parsed.data.requestId)?.abort();
+        this.#ocr.cancel(parsed.data.requestId);
         return;
       }
       if (parsed.data.type === 'pgs-ocr') {
-        this.queueOcr(parsed.data);
+        this.#ocr.queueOcr(parsed.data);
         return;
       }
       const request = parsed.data;
@@ -87,53 +92,6 @@ export class TunarrWorker {
         })
         .catch(console.error);
     });
-  }
-
-  private queueOcr(request: WorkerPgsOcrRequest) {
-    const controller = new AbortController();
-    this.#ocrJobs.set(request.requestId, controller);
-    let running = false;
-    controller.signal.addEventListener(
-      'abort',
-      () => {
-        if (!running) {
-          this.#ocrJobs.delete(request.requestId);
-          this.replyWithError(
-            request.requestId,
-            new Error('PGS OCR canceled before starting'),
-          );
-        }
-      },
-      { once: true },
-    );
-    this.#queue
-      .add(async () => {
-        // PQueue checks a queued signal only when capacity becomes available.
-        // Reply to queued cancellation above; leave only this inert queue entry.
-        if (controller.signal.aborted) return;
-        running = true;
-        try {
-          const result = await prepareCachedPgsSubtitle({
-            ...request.request,
-            signal: controller.signal,
-            onProgress: (message) =>
-              parentPort?.postMessage({
-                type: 'progress',
-                requestId: request.requestId,
-                message,
-              }),
-          });
-          this.sendSuccessReply(request.requestId, { type: 'pgs-ocr', result });
-        } finally {
-          this.#ocrJobs.delete(request.requestId);
-        }
-      })
-      .catch((error: unknown) => {
-        this.replyWithError(
-          request.requestId,
-          error instanceof Error ? error : new Error(String(error)),
-        );
-      });
   }
 
   private async handleTimeSlots(req: WorkerScheduleTimeSlotsRequest) {

@@ -458,7 +458,10 @@ export class TunarrWorkerPool implements IWorkerPool {
 
     const generation = this.#generation;
     this.logger.info(`Starting worker ${idx}`);
-    const worker = this.subprocessService.createWorker();
+    const worker = this.subprocessService.createWorker(
+      {},
+      idx === OCR_WORKER_INDEX ? 'ocr' : 'scheduling',
+    );
 
     const pooled: PooledWorker = { worker, ready: false, retiring: false };
     this.#pool[idx] = pooled;

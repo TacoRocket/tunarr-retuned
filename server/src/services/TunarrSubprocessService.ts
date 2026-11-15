@@ -5,14 +5,26 @@ import { container } from '../container.ts';
 import { globalOptions, serverOptions } from '../globals.ts';
 import { isDev } from '../util/index.ts';
 import { MeilisearchService } from './MeilisearchService.ts';
-import { schedulingWorkerEntry } from './worker/schedulingWorkerEntryPath.ts';
+import {
+  ocrWorkerEntry,
+  schedulingWorkerEntry,
+} from './worker/schedulingWorkerEntryPath.ts';
 
 @injectable()
 export class TunarrSubprocessService {
   constructor() {}
 
-  createWorker(opts: WorkerOptions = {}) {
-    return new TsWorker(schedulingWorkerEntry(process.argv[1]!), {
+  // `role` picks the entry: the pool's dedicated OCR slot runs the OCR
+  // worker, every other slot the scheduling worker.
+  createWorker(
+    opts: WorkerOptions = {},
+    role: 'scheduling' | 'ocr' = 'scheduling',
+  ) {
+    const entry =
+      role === 'ocr'
+        ? ocrWorkerEntry(process.argv[1]!)
+        : schedulingWorkerEntry(process.argv[1]!);
+    return new TsWorker(entry, {
       ...opts,
       argv: workerArgv(),
     });

@@ -79,6 +79,8 @@ const result = await esbuild.build({
     bundle: 'src/index.ts',
     // Scheduling worker threads run this instead of re-executing bundle.cjs.
     'tunarr-worker': 'src/services/worker/schedulingWorkerEntry.ts',
+    // The pool's dedicated OCR slot runs this.
+    'tunarr-ocr-worker': 'src/services/worker/ocrWorkerEntry.ts',
   },
   outExtension: {
     '.js': '.cjs',
