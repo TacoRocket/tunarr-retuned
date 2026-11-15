@@ -3207,7 +3207,7 @@ export type GetChannelsResponses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -3280,6 +3280,10 @@ export type GetChannelsResponses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3404,6 +3408,10 @@ export type CreateChannelV2Data = {
              * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
              */
             subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+            /**
+             * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+             */
+            hlsSegmentType?: 'mpegts' | 'fmp4';
             /**
              * New channels use ErsatzTV next. Omit this field or set it to true.
              */
@@ -3545,7 +3553,7 @@ export type CreateChannelV2Responses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -3618,6 +3626,10 @@ export type CreateChannelV2Responses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -3794,7 +3806,7 @@ export type GetChannelsByNumberV2Responses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -3867,6 +3879,10 @@ export type GetChannelsByNumberV2Responses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4005,6 +4021,10 @@ export type PutApiChannelsByIdData = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext?: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4137,7 +4157,7 @@ export type PutApiChannelsByIdResponses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -4210,6 +4230,10 @@ export type PutApiChannelsByIdResponses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4369,7 +4393,7 @@ export type ClearChannelOffsetResponses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -4442,6 +4466,10 @@ export type ClearChannelOffsetResponses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -4622,7 +4650,7 @@ export type SetChannelOffsetResponses = {
         streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
         transcodeConfigId: string;
         sessions?: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -4695,6 +4723,10 @@ export type SetChannelOffsetResponses = {
          * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
          */
         subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+        /**
+         * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+         */
+        hlsSegmentType?: 'mpegts' | 'fmp4';
         useEtvNext: boolean;
         subtitlePreferences?: Array<{
             langugeCode: string;
@@ -6954,7 +6986,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
                     transcodeConfigId: string;
                     sessions?: Array<{
-                        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+                        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
                         state: string;
                         numConnections: number;
                         connections: Array<{
@@ -7027,6 +7059,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                      * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
                      */
                     subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+                    /**
+                     * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+                     */
+                    hlsSegmentType?: 'mpegts' | 'fmp4';
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -7427,7 +7463,7 @@ export type GetApiChannelsByIdScheduleResponses = {
                     streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
                     transcodeConfigId: string;
                     sessions?: Array<{
-                        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+                        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
                         state: string;
                         numConnections: number;
                         connections: Array<{
@@ -7500,6 +7536,10 @@ export type GetApiChannelsByIdScheduleResponses = {
                      * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
                      */
                     subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+                    /**
+                     * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+                     */
+                    hlsSegmentType?: 'mpegts' | 'fmp4';
                     useEtvNext: boolean;
                     subtitlePreferences?: Array<{
                         langugeCode: string;
@@ -14986,7 +15026,7 @@ export type GetApiSessionsResponses = {
      */
     200: {
         [key: string]: Array<{
-            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+            type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
             state: string;
             numConnections: number;
             connections: Array<{
@@ -15055,7 +15095,7 @@ export type DeleteApiChannelsByIdSessionsResponses = {
      * Default Response
      */
     200: {
-        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
         state: string;
         numConnections: number;
         connections: Array<{
@@ -15127,7 +15167,7 @@ export type GetApiChannelsByIdSessionsResponses = {
      * Default Response
      */
     200: Array<{
-        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+        type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
         state: string;
         numConnections: number;
         connections: Array<{
@@ -16136,7 +16176,7 @@ export type PostApiTroubleshootResponses = {
             streamMode: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2';
             transcodeConfigId: string;
             sessions?: Array<{
-                type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat';
+                type: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts' | 'hls_concat' | 'hls_slower_concat' | 'mpegts_concat' | 'hls_direct_concat' | 'hls_direct_v2_concat' | 'etv_next_concat' | 'etv_next_mpegts_concat';
                 state: string;
                 numConnections: number;
                 connections: Array<{
@@ -16209,6 +16249,10 @@ export type PostApiTroubleshootResponses = {
              * Subtitle delivery while transcoding. Global follows the WebVTT default; burn and sidecar override it. Omitted updates preserve the saved choice.
              */
             subtitleDelivery?: 'global' | 'burn' | 'sidecar';
+            /**
+             * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
+             */
+            hlsSegmentType?: 'mpegts' | 'fmp4';
             useEtvNext: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -19612,7 +19656,7 @@ export type GetStreamChannelsByIdM3U8Data = {
         id: string | number;
     };
     query?: {
-        mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next';
+        mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts';
         reportingSessionId?: string;
         /**
          * For hls and hls_direct_v2, return the variant playlist instead of the master. For etv_next, drop the subtitle rendition. The .ts wrapper uses this so ffmpeg reads only the muxed streams.
@@ -19635,7 +19679,7 @@ export type HeadStreamChannelsByIdM3U8Data = {
         id: string | number;
     };
     query?: {
-        mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next';
+        mode?: 'hls' | 'hls_slower' | 'mpegts' | 'hls_direct' | 'hls_direct_v2' | 'etv_next' | 'etv_next_mpegts';
         reportingSessionId?: string;
         /**
          * For hls and hls_direct_v2, return the variant playlist instead of the master. For etv_next, drop the subtitle rendition. The .ts wrapper uses this so ffmpeg reads only the muxed streams.

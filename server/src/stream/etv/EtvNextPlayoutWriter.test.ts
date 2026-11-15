@@ -33,6 +33,7 @@ import {
 } from './EtvNextPlayoutWriter.ts';
 import { PlayoutItemSchema } from './generated/playout.ts';
 import { CreditSqueezeAdPlanner } from './CreditSqueezeAdPlanner.ts';
+import { EtvNextBreakAirings } from './EtvNextBreakAirings.ts';
 
 dayjs.extend(duration);
 
@@ -77,6 +78,7 @@ function makeWriter({
   watermarkFails = false,
   channelContext = channel,
   creditAds = { select: vi.fn() },
+  breakAirings = new EtvNextBreakAirings(),
 }: {
   items: StreamLineupItem[];
   streamFails?: boolean;
@@ -88,6 +90,7 @@ function makeWriter({
   watermarkFails?: boolean;
   channelContext?: ChannelOrm;
   creditAds?: Pick<CreditSqueezeAdPlanner, 'select'>;
+  breakAirings?: EtvNextBreakAirings;
 }) {
   let call = 0;
   const programCalculator = {
@@ -155,6 +158,7 @@ function makeWriter({
     streamSelector as never,
     watermarkResolver as never,
     creditAds as never,
+    breakAirings,
   );
 
   // The logger is normally supplied by the DI decorator.
@@ -1448,5 +1452,120 @@ describe('moving credit advertisements', () => {
     expect(Date.parse(pod.start) - startMs).toBe(10000);
     expect(pod.source).toMatchObject({ path: '/media/pod.mkv' });
     expect(pod.credit_squeeze).toBeUndefined();
+  });
+});
+
+// An fMP4 channel's HLS worker and its MPEG-TS copy each ask what plays. They
+// deliver one airing, so a break's pick is made once and both get it.
+describe('one break pick for every worker of a channel', () => {
+  const adItem = (streamDuration: number, uuid = 'ad-1'): StreamLineupItem =>
+    ({
+      type: 'commercial',
+      program: { uuid, mediaSourceId: 'src-1', duration: 30_000 },
+      fillerListId: 'ads',
+      infiniteLoop: false,
+      programBeginMs: startMs,
+      duration: 300_000,
+      streamDuration,
+      startOffset: 0,
+    }) as unknown as StreamLineupItem;
+
+  // What the calculator answers once the ad's play is recorded and its repeat
+  // cooldown refuses it.
+  const fallbackItem = {
+    type: 'fallback',
+    program: { uuid: 'fallback-1', mediaSourceId: 'src-1', duration: 600_000 },
+    infiniteLoop: false,
+    programBeginMs: startMs,
+    duration: 300_000,
+    streamDuration: 288_000,
+    startOffset: 0,
+  } as unknown as StreamLineupItem;
+
+  const twoWorkers = () => {
+    const breakAirings = new EtvNextBreakAirings();
+    return {
+      hls: makeWriter({ items: [adItem(30_000)], breakAirings }),
+      copy: makeWriter({ items: [fallbackItem], breakAirings }),
+    };
+  };
+
+  test('a worker joining mid-ad gets that ad at the elapsed position', async () => {
+    const { hls, copy } = twoWorkers();
+
+    await hls.writer.resolveDynamicItem({ channel, startMs });
+    const { item } = await copy.writer.resolveDynamicItem({
+      channel,
+      startMs: startMs + 12_000,
+    });
+
+    expect(copy.programCalculator.getCurrentLineupItem).not.toHaveBeenCalled();
+    expect(
+      copy.streamDetailsFetcher.getStream.mock.calls[0]?.[0].lineupItem.uuid,
+    ).toBe('ad-1');
+    expect(item.source).toMatchObject({ in_point_ms: 12_000 });
+    expect(Date.parse(item.finish)).toBe(startMs + 30_000);
+  });
+
+  test('the pick is made, and its play recorded, once whichever worker asks first', async () => {
+    const breakAirings = new EtvNextBreakAirings();
+    const hls = makeWriter({ items: [adItem(30_000)], breakAirings });
+    const copy = makeWriter({ items: [adItem(30_000, 'ad-2')], breakAirings });
+
+    await copy.writer.resolveDynamicItem({ channel, startMs });
+    await hls.writer.resolveDynamicItem({ channel, startMs: startMs + 5_000 });
+
+    expect(copy.programCalculator.getCurrentLineupItem).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(hls.programCalculator.getCurrentLineupItem).not.toHaveBeenCalled();
+    expect(
+      hls.streamDetailsFetcher.getStream.mock.calls[0]?.[0].lineupItem.uuid,
+    ).toBe('ad-2');
+  });
+
+  // The fallback clip and the offline screen come straight off the schedule
+  // and can span hours. Keeping them would hold an edited lineup back from a
+  // worker that starts later.
+  test('a fallback answer is not kept, so a later worker reads the schedule itself', async () => {
+    const { hls, copy } = twoWorkers();
+
+    await copy.writer.resolveDynamicItem({ channel, startMs });
+    await hls.writer.resolveDynamicItem({ channel, startMs: startMs + 5_000 });
+
+    expect(hls.programCalculator.getCurrentLineupItem).toHaveBeenCalledTimes(1);
+    expect(
+      hls.streamDetailsFetcher.getStream.mock.calls[0]?.[0].lineupItem.uuid,
+    ).toBe('ad-1');
+  });
+
+  test('concurrent first asks share one pick', async () => {
+    const { hls, copy } = twoWorkers();
+
+    const [a, b] = await Promise.all([
+      hls.writer.resolveDynamicItem({ channel, startMs }),
+      copy.writer.resolveDynamicItem({ channel, startMs }),
+    ]);
+
+    expect(
+      hls.programCalculator.getCurrentLineupItem.mock.calls.length +
+        copy.programCalculator.getCurrentLineupItem.mock.calls.length,
+    ).toBe(1);
+    expect(b.item.source).toEqual(a.item.source);
+    expect(b.item.finish).toBe(a.item.finish);
+  });
+
+  test('an ask after the ad ends gets a fresh pick', async () => {
+    const { hls, copy } = twoWorkers();
+
+    await hls.writer.resolveDynamicItem({ channel, startMs });
+    await copy.writer.resolveDynamicItem({
+      channel,
+      startMs: startMs + 30_000,
+    });
+
+    expect(copy.programCalculator.getCurrentLineupItem).toHaveBeenCalledTimes(
+      1,
+    );
   });
 });

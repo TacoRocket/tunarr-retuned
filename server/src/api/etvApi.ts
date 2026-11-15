@@ -229,8 +229,11 @@ export class EtvNextApiController implements ApiController {
             );
           }
 
+          // The session the token was minted for: an fMP4 channel's MPEG-TS
+          // copy resolves too, and its watchdog must hear its own answers.
           const session = req.serverCtx.sessionManager.getEtvNextSession(
             grant.channelUuid,
+            grant.sessionType,
           );
           session?.seedWatch.replaceFrom(
             Date.parse(item.start),
@@ -266,7 +269,7 @@ export class EtvNextApiController implements ApiController {
           );
 
           req.serverCtx.sessionManager
-            .getEtvNextSession(grant.channelUuid)
+            .getEtvNextSession(grant.channelUuid, grant.sessionType)
             ?.stop()
             .catch((stopError: unknown) => {
               this.logger.error(

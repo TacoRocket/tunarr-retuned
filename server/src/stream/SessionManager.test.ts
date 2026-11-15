@@ -14,6 +14,8 @@ import type { ConcatSessionFactory } from './ConcatSession.ts';
 import type { SessionConcatStreamMode } from '@tunarr/types/schemas';
 import { SessionConcatStreamModes } from '@tunarr/types/schemas';
 import type { HlsSessionOptions } from './hls/HlsSession.ts';
+import type { EtvNextSessionType } from './etv/EtvNextRouting.ts';
+import type { EtvNextSessionProvider } from './etv/EtvNextSession.ts';
 
 // Mock modules that create circular dependency chains through Inversify
 vi.mock('@/services/EventService.js', () => ({
@@ -28,6 +30,7 @@ vi.mock('@/services/OnDemandChannelService.js', () => ({
 const { SessionManager } = await import('./SessionManager.ts');
 const { BaseHlsSession } = await import('./hls/BaseHlsSession.ts');
 const { ConcatSession } = await import('./ConcatSession.ts');
+const { Session } = await import('./Session.ts');
 
 // ---------------------------------------------------------------------------
 // Stub session: a minimal HlsSession-like object that lets us control
@@ -78,6 +81,17 @@ class StubHlsSession extends BaseHlsSession<HlsSessionOptions> {
 
   // Use the real Session.isStale() implementation so staleness
   // tests exercise the actual threshold logic.
+}
+
+/** Stands in for an `ersatztv-channel` worker session of either type. */
+class StubEtvNextSession extends Session<{ sessionType?: EtvNextSessionType }> {
+  get sessionType(): EtvNextSessionType {
+    return this.sessionOptions.sessionType ?? 'etv_next';
+  }
+
+  protected override async startInternal() {}
+
+  protected override async stopInternal() {}
 }
 
 /** A session whose stream never becomes ready. */
@@ -131,6 +145,9 @@ function makeSessionManager(
     options: HlsSessionOptions,
   ) => StubHlsSession,
   concatSessionFactory: ConcatSessionFactory = vi.fn(),
+  etvNextSessionFactory: (
+    ...args: Parameters<EtvNextSessionProvider>
+  ) => StubEtvNextSession = vi.fn(),
 ) {
   const channelDB: Partial<IChannelDB> = {
     getChannelOrm: vi.fn().mockResolvedValue(makeChannel()),
@@ -158,7 +175,7 @@ function makeSessionManager(
     hlsFactory,
     vi.fn(), // hlsSlowerSessionFactory — not used in these tests
     concatSessionFactory,
-    vi.fn(), // etvNextSessionFactory
+    etvNextSessionFactory,
     eventService,
     settingsDB,
   ) as SessionManager;
@@ -249,6 +266,312 @@ describe('SessionManager', () => {
 
       expect(second.isSuccess()).toBe(true);
       expect(created).toHaveLength(2);
+    });
+  });
+
+  // An fMP4 channel's continuous MPEG-TS stream reads its own MPEG-TS worker
+  // session, so the channel can run two workers whose audiences come and go
+  // independently.
+  describe('the two worker sessions of an fMP4 channel', () => {
+    const startBoth = async () => {
+      const manager = makeSessionManager(
+        (channel, options) => new StubHlsSession(channel, options),
+        vi.fn(),
+        (channel, options) => new StubEtvNextSession(channel, options),
+      );
+      const hls = (
+        await manager.getOrCreateEtvNextSession(
+          channelUuid,
+          'viewer',
+          connection,
+        )
+      ).get();
+      const copy = (
+        await manager.getOrCreateEtvNextSession(
+          channelUuid,
+          'wrapper',
+          connection,
+          { sessionType: 'etv_next_mpegts' },
+        )
+      ).get();
+      return { manager, hls, copy };
+    };
+
+    it('keeps the HLS session and the MPEG-TS copy apart', async () => {
+      const { manager, hls, copy } = await startBoth();
+
+      expect(copy).not.toBe(hls);
+      expect(manager.getEtvNextSession(channelUuid)).toBe(hls);
+      expect(manager.getEtvNextSession(channelUuid, 'etv_next_mpegts')).toBe(
+        copy,
+      );
+    });
+
+    it('ending the HLS session leaves the copy and its stream running', async () => {
+      const { manager, hls, copy } = await startBoth();
+      const copyStream = {
+        sessionType: 'etv_next_mpegts_concat',
+        stop: vi.fn(() => Promise.resolve()),
+      };
+      (
+        manager as unknown as {
+          addSession: (id: string, t: string, s: unknown) => void;
+        }
+      ).addSession(channelUuid, 'etv_next_mpegts_concat', copyStream);
+
+      // A worker that exits ends its session this way.
+      hls.emit('stop');
+
+      expect(manager.getEtvNextSession(channelUuid)).toBeUndefined();
+      expect(manager.getEtvNextSession(channelUuid, 'etv_next_mpegts')).toBe(
+        copy,
+      );
+      expect(copy.state).toBe('started');
+      expect(copyStream.stop).not.toHaveBeenCalled();
+    });
+
+    it('ending the copy leaves the HLS session running', async () => {
+      const { manager, hls, copy } = await startBoth();
+
+      await manager.endSession(copy);
+
+      expect(manager.getEtvNextSession(channelUuid, 'etv_next_mpegts')).toBe(
+        undefined,
+      );
+      expect(manager.getEtvNextSession(channelUuid)).toBe(hls);
+      expect(hls.state).toBe('started');
+    });
+  });
+
+  // An on-demand channel's clock pauses when its last viewer leaves. On an
+  // fMP4 channel the HLS viewer is on `etv_next` and the tuner-style viewer is
+  // on the MPEG-TS copy's concat session, so neither session alone knows
+  // whether anyone is still watching.
+  describe('on-demand pause across an fMP4 channel’s two workers', () => {
+    class StubWorkerConcatSession extends ConcatSession {
+      protected override async startInternal() {
+        this.state = 'started';
+      }
+
+      protected override async stopInternal() {
+        this.state = 'stopped';
+      }
+    }
+
+    // Starts without FFmpeg but tears down as production does, `stop` event
+    // included.
+    class TearDownConcatSession extends ConcatSession {
+      protected override async startInternal() {
+        this.state = 'started';
+      }
+    }
+
+    const hlsViewer = { ip: '10.0.0.2', userAgent: 'TiviMate/5.0' };
+    const tunerViewer = { ip: '10.0.0.3', userAgent: 'PlexMediaServer/1.0' };
+    const wrapper = { ip: '127.0.0.1', userAgent: 'Tunarr HLS wrapper' };
+
+    const watchBoth = async (
+      TunerSession: typeof ConcatSession = StubWorkerConcatSession,
+    ) => {
+      const manager = makeSessionManager(
+        (channel, options) => new StubHlsSession(channel, options),
+        (channel, options) => new TunerSession(channel, options, vi.fn()),
+        (channel, options) => new StubEtvNextSession(channel, options),
+      );
+      const hls = (
+        await manager.getOrCreateEtvNextSession(
+          channelUuid,
+          'hls-viewer',
+          hlsViewer,
+        )
+      ).get();
+      // The wrapper's own loopback request to the MPEG-TS copy.
+      await manager.getOrCreateEtvNextSession(channelUuid, 'wrapper', wrapper, {
+        sessionType: 'etv_next_mpegts',
+      });
+      const tuner = (
+        await manager.getOrCreateConcatSession(
+          channelUuid,
+          'tuner-viewer',
+          tunerViewer,
+          { sessionType: 'etv_next_mpegts_concat', audioOnly: false },
+        )
+      ).get();
+      const { pauseChannel } = (
+        manager as unknown as {
+          onDemandChannelService: { pauseChannel: ReturnType<typeof vi.fn> };
+        }
+      ).onDemandChannelService;
+      return { manager, hls, tuner, pauseChannel };
+    };
+
+    it('keeps the clock running when the HLS viewer leaves and a tuner still watches', async () => {
+      const { hls, pauseChannel } = await watchBoth();
+
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).not.toHaveBeenCalled();
+    });
+
+    it('keeps the clock running when the tuner leaves and an HLS viewer still watches', async () => {
+      const { tuner, pauseChannel } = await watchBoth();
+
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).not.toHaveBeenCalled();
+    });
+
+    it('pauses once, at the HLS viewer’s last heartbeat, when it is the last to leave', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, tuner, pauseChannel } = await watchBoth();
+
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+      vi.setSystemTime(1_050_000);
+      hls.recordHeartbeat('hls-viewer');
+      vi.setSystemTime(1_090_000);
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
+    });
+
+    it('pauses once, when the tuner left, when it is the last to leave', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, tuner, pauseChannel } = await watchBoth();
+
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+      vi.setSystemTime(1_070_000);
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_070_000);
+    });
+
+    // An HLS viewer only leaves when the sweep notices it, well after its last
+    // request, so a tuner can disconnect in between and still be the last one
+    // who watched.
+    it('pauses where the tuner stopped when an idle HLS viewer is swept after it', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, tuner, pauseChannel } = await watchBoth();
+
+      vi.setSystemTime(1_010_000);
+      hls.recordHeartbeat('hls-viewer');
+      vi.setSystemTime(1_050_000);
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(pauseChannel).not.toHaveBeenCalled();
+      vi.setSystemTime(1_075_000);
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
+    });
+
+    // The empty tuner session stops itself five seconds after its viewer
+    // leaves, and stopping asks the pause check again.
+    it('does not count the tuner session’s own teardown as viewing', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, tuner, pauseChannel } = await watchBoth(
+        TearDownConcatSession,
+      );
+
+      vi.setSystemTime(1_010_000);
+      hls.recordHeartbeat('hls-viewer');
+      vi.setSystemTime(1_050_000);
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(6_000);
+      expect(tuner.stoppingOrStopped).toBe(true);
+      expect(pauseChannel).not.toHaveBeenCalled();
+      vi.setSystemTime(1_075_000);
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
+    });
+
+    // The copy's wrapper keeps asking for segments until its concat session
+    // is torn down, some seconds after the tuner has gone.
+    it('does not count the wrapper’s own requests as viewing', async () => {
+      vi.setSystemTime(1_000_000);
+      const { manager, hls, tuner, pauseChannel } = await watchBoth();
+      const copy = manager.getSession(channelUuid, 'etv_next_mpegts');
+
+      vi.setSystemTime(1_010_000);
+      hls.recordHeartbeat('hls-viewer');
+      vi.setSystemTime(1_050_000);
+      tuner.removeConnection('tuner-viewer');
+      vi.setSystemTime(1_060_000);
+      copy?.recordHeartbeat('wrapper');
+      copy?.removeConnection('wrapper');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(pauseChannel).not.toHaveBeenCalled();
+      vi.setSystemTime(1_075_000);
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
+    });
+  });
+
+  // The worker reaps itself a few seconds after the last heartbeat. If that
+  // beats the sweep that removes the viewer's stale connection, the stopped
+  // session still lists it, and nothing sweeps a session that is gone.
+  describe('on-demand pause when a session stops before its last viewer is swept', () => {
+    const viewer = { ip: '10.0.0.2', userAgent: 'TiviMate/5.0' };
+
+    const watch = async () => {
+      const manager = makeSessionManager(
+        (channel, options) => new StubHlsSession(channel, options),
+        undefined,
+        (channel, options) => new StubEtvNextSession(channel, options),
+      );
+      const hls = (
+        await manager.getOrCreateEtvNextSession(channelUuid, 'viewer', viewer)
+      ).get();
+      const { pauseChannel } = (
+        manager as unknown as {
+          onDemandChannelService: { pauseChannel: ReturnType<typeof vi.fn> };
+        }
+      ).onDemandChannelService;
+      return { manager, hls, pauseChannel };
+    };
+
+    it('pauses at the viewer’s last heartbeat', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, pauseChannel } = await watch();
+      vi.setSystemTime(1_050_000);
+      hls.recordHeartbeat('viewer');
+      vi.setSystemTime(1_140_000);
+
+      hls.emit('stop');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
+    });
+
+    it('does not pause while the channel’s other worker still has a viewer', async () => {
+      const { manager, hls, pauseChannel } = await watch();
+      await manager.getOrCreateEtvNextSession(
+        channelUuid,
+        'other-viewer',
+        { ip: '10.0.0.4', userAgent: 'VLC/3.0' },
+        { sessionType: 'etv_next_mpegts' },
+      );
+
+      hls.emit('stop');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).not.toHaveBeenCalled();
     });
   });
 

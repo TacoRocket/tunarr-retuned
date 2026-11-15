@@ -2,7 +2,12 @@ import type { ChannelOrm } from '@/db/schema/Channel.js';
 import type { BaseHlsSession } from '@/stream/hls/BaseHlsSession.js';
 import { HlsPlaylistCreator } from '@/stream/hls/HlsPlaylistCreator.js';
 import type { HlsSession } from '@/stream/hls/HlsSession.js';
-import { routesToEtvNext } from '@/stream/etv/EtvNextRouting.js';
+import type { EtvNextSessionType } from '@/stream/etv/EtvNextRouting.js';
+import {
+  concatSessionTypeFor,
+  etvNextWritesFmp4,
+  routesToEtvNext,
+} from '@/stream/etv/EtvNextRouting.js';
 import { SubtitleWindowRegex } from '@/stream/hls/HlsSubtitlePlaylist.js';
 import { VideoStream } from '@/stream/VideoStream.js';
 import type { Result } from '@/types/result.js';
@@ -66,6 +71,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
     req: FastifyRequest,
     res: FastifyReply,
     channelId: string,
+    sessionType: EtvNextSessionType,
     file: string,
     timeline: SeedWatchTimeline,
   ) {
@@ -86,7 +92,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       if (agent === hlsWrapperUserAgent) {
         const wrapper = req.serverCtx.sessionManager.getSession(
           channelId,
-          'etv_next_concat',
+          `${sessionType}_concat`,
         );
         const viewers = wrapper && wrapperViewers.get(wrapper);
         const active =
@@ -225,9 +231,11 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           },
           {
             audioOnly: req.query.audioOnly,
-            sessionType: routesToEtvNext(mode, channel.useEtvNext ?? false)
-              ? 'etv_next_concat'
-              : `${mode}_concat`,
+            sessionType: concatSessionTypeFor(
+              mode,
+              channel,
+              req.serverCtx.sessionManager.getEtvNextSession(channel.uuid),
+            ),
           },
         );
 
@@ -267,7 +275,8 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       );
 
       if (
-        session.sessionType === 'etv_next_concat' &&
+        (session.sessionType === 'etv_next_concat' ||
+          session.sessionType === 'etv_next_mpegts_concat') &&
         lineup.seedGrowth?.rolling
       ) {
         const viewers =
@@ -371,9 +380,13 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
       // and no segment accounting to keep — files are served as found. Its
       // WebVTT already carries an X-TIMESTAMP-MAP computed against its own
       // output offset, so Tunarr must not inject a second one.
-      if (req.params.sessionType === 'etv_next') {
+      if (
+        req.params.sessionType === 'etv_next' ||
+        req.params.sessionType === 'etv_next_mpegts'
+      ) {
         const etvSession = req.serverCtx.sessionManager.getEtvNextSession(
           req.params.id,
+          req.params.sessionType,
         );
 
         if (isUndefined(etvSession) || etvSession.stoppingOrStopped) {
@@ -416,6 +429,7 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           req,
           res,
           req.params.id,
+          req.params.sessionType,
           req.params.file,
           etvSession.seedWatch,
         );
@@ -581,11 +595,30 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
 
       const channelUsesEtvNext = channel.useEtvNext ?? false;
 
-      if (mode === 'etv_next') {
+      if (mode === 'etv_next' || mode === 'etv_next_mpegts') {
         if (!channelUsesEtvNext) {
           return res
             .status(400)
             .send('The ErsatzTV next backend is not enabled for this channel.');
+        }
+        // A copy starts only where the tuner route sends a viewer to one:
+        // while the channel's worker writes fMP4. Anywhere else it would be a
+        // second worker writing what the first already writes. One already
+        // running keeps serving, since its wrapper re-reads this playlist for
+        // as long as it runs, even after the setting changes.
+        const sessions = req.serverCtx.sessionManager;
+        const runningCopy = sessions.getEtvNextSession(
+          channelId,
+          'etv_next_mpegts',
+        );
+        if (
+          mode === 'etv_next_mpegts' &&
+          !(runningCopy && !runningCopy.stoppingOrStopped) &&
+          !etvNextWritesFmp4(channel, sessions.getEtvNextSession(channelId))
+        ) {
+          return res
+            .status(400)
+            .send('This channel already writes MPEG-TS segments.');
         }
       } else if (routesToEtvNext(mode, channelUsesEtvNext)) {
         mode = 'etv_next';
@@ -689,8 +722,11 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
         case 'mpegts':
           return res.status(400).send();
         case 'etv_next':
+        case 'etv_next_mpegts':
           sessionResult = await req.serverCtx.sessionManager
-            .getOrCreateEtvNextSession(channelId, req.ip, connectionDetails)
+            .getOrCreateEtvNextSession(channelId, req.ip, connectionDetails, {
+              sessionType: mode,
+            })
             .then((result) =>
               result.map((session) => {
                 session.recordHeartbeat(req.ip);

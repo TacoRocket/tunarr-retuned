@@ -9,9 +9,14 @@ import {
   isEmpty,
   isNil,
   isUndefined,
+  keys,
+  max,
   maxBy,
   omitBy,
+  pickBy,
   once,
+  sumBy,
+  uniq,
   values,
 } from 'lodash-es';
 import { ChannelNotFoundError, TypedError } from '../types/errors.js';
@@ -24,6 +29,7 @@ import type {
   EtvNextSessionOptions,
   EtvNextSessionProvider,
 } from './etv/EtvNextSession.js';
+import type { EtvNextSessionType } from './etv/EtvNextRouting.js';
 import { Session } from './Session.js';
 import type { HlsSession, HlsSessionOptions } from './hls/HlsSession.js';
 import {
@@ -60,6 +66,13 @@ export class SessionManager {
 
   #sessionLocker = new MutexMap();
   #sessions: Record<SessionKey, Session> = {};
+  /**
+   * Per channel, the latest moment a viewer was seen watching since the last
+   * pause. A pause is stamped with the connection that happened to clear
+   * last, and an idle HLS viewer is only swept long after its last request,
+   * so a tuner that disconnected in between is the one who watched furthest.
+   */
+  #lastViewerActivity = new Map<string, number>();
 
   constructor(
     @inject(KEYS.ChannelDB) private channelDB: IChannelDB,
@@ -152,8 +165,11 @@ export class SessionManager {
     return this.getSession(id, mode) as Maybe<HlsSession>;
   }
 
-  getEtvNextSession(id: string): Maybe<EtvNextSession> {
-    return this.getSession(id, 'etv_next') as Maybe<EtvNextSession>;
+  getEtvNextSession(
+    id: string,
+    sessionType: EtvNextSessionType = 'etv_next',
+  ): Maybe<EtvNextSession> {
+    return this.getSession(id, sessionType) as Maybe<EtvNextSession>;
   }
 
   /**
@@ -300,6 +316,10 @@ export class SessionManager {
    * factories do. The worker reaps itself on a stale heartbeat file at 90s, so
    * a larger value set for the other backends would let the file clock end
    * sessions first. An explicit option still wins.
+   *
+   * `options.sessionType` picks which of the channel's worker sessions: an
+   * fMP4 channel's MPEG-TS copy is keyed apart from its HLS session, so each
+   * starts, idles out and stops on its own audience.
    */
   async getOrCreateEtvNextSession(
     channelId: string,
@@ -311,7 +331,7 @@ export class SessionManager {
       channelId,
       token,
       connection,
-      'etv_next',
+      options?.sessionType ?? 'etv_next',
       (channel) =>
         this.etvNextSessionFactory(channel, {
           transcodeDirectory:
@@ -427,7 +447,9 @@ export class SessionManager {
               this.shutdownChildSessions(channelId, sessionType);
             }
             if (session) {
-              this.pauseChannelIfNecessary(session, connection).catch(() => {});
+              this.pauseChannelIfNecessary(session, connection, true).catch(
+                () => {},
+              );
             }
             this.eventService.push({
               type: 'stream',
@@ -544,14 +566,35 @@ export class SessionManager {
     });
   }
 
+  /**
+   * `sessionStopped`: the session has ended, so nobody is watching it any
+   * more. Its worker can stop a few seconds before the sweep that removes its
+   * last viewer's stale connection, and nothing sweeps a session that is gone,
+   * so that connection must not count as a viewer.
+   */
   private async pauseChannelIfNecessary(
     session: Session,
     lastConnection: StreamConnectionDetails,
+    sessionStopped = false,
   ) {
     try {
       const now = +dayjs();
       let sessionToCheck = session;
-      let pauseTime = lastConnection.lastHeartbeat ?? now;
+      const stoppedHeartbeat = sessionStopped
+        ? max(
+            keys(pickBy(session.connections(), isViewer)).map((token) =>
+              session.lastHeartbeat(token),
+            ),
+          )
+        : undefined;
+      // Whether this check stands for somebody watching. A session that
+      // stopped with no viewer left on it has only its own teardown to
+      // report: its stop handler is handed the connection that opened it,
+      // not one that just left.
+      const sawViewer = sessionStopped
+        ? stoppedHeartbeat !== undefined
+        : isViewer(lastConnection);
+      let pauseTime = stoppedHeartbeat ?? lastConnection.lastHeartbeat ?? now;
       if (session.isConcatSession()) {
         const underlyingType = sessionTypeFromConcatType(session.sessionType);
         const underlyingSession = this.getSession(
@@ -574,14 +617,33 @@ export class SessionManager {
         pauseTime = now;
       }
 
-      const nonTunarrConnections = filter(
-        sessionToCheck.connections(),
-        (conn) => !(conn.userAgent?.includes('Tunarr') ?? false),
-      ).length;
+      // Count viewers on every session the channel has, not just this one. An
+      // fMP4 channel's HLS viewers are on `etv_next` while its tuner-style
+      // viewers are on the MPEG-TS copy's concat session, and both watch the
+      // same clock. The session that just ended may already be out of the
+      // map, so it is counted too.
+      const channelSessions = uniq([
+        session,
+        sessionToCheck,
+        ...this.getAllSessionsForChannel(session.keyObj.id),
+      ]).filter((s) => !(sessionStopped && s === session));
+      const nonTunarrConnections = sumBy(
+        channelSessions,
+        (s) => filter(s.connections(), isViewer).length,
+      );
+
+      const channelId = session.keyObj.id;
+      const lastActivity = this.#lastViewerActivity.get(channelId);
+      if (lastActivity !== undefined) {
+        pauseTime = sawViewer
+          ? Math.max(pauseTime, lastActivity)
+          : lastActivity;
+      }
 
       // Pause the channel as soon as there are no connections
       // other than internal connections
       if (nonTunarrConnections === 0) {
+        this.#lastViewerActivity.delete(channelId);
         this.logger.debug(
           this.getLoggerContext(session.id),
           'Pausing channel %s after disconnect. Pause time = %s',
@@ -593,6 +655,10 @@ export class SessionManager {
           pauseTime,
         );
       } else {
+        // Tunarr's own connections keep requesting after the viewer is gone.
+        if (sawViewer) {
+          this.#lastViewerActivity.set(channelId, pauseTime);
+        }
         this.logger.debug(
           this.getLoggerContext(sessionToCheck.id),
           'Detected %d remaining sessions. Not pausing session.',
@@ -619,6 +685,11 @@ export class SessionManager {
   private getLoggerContext(sessionId?: string, error?: unknown) {
     return { error, sessionId };
   }
+}
+
+/** Tunarr's own loopback connections are not somebody watching. */
+function isViewer(connection: StreamConnectionDetails): boolean {
+  return !(connection.userAgent?.includes('Tunarr') ?? false);
 }
 
 function sessionTypeFromConcatType(

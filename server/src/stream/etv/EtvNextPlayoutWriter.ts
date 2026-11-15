@@ -13,6 +13,7 @@ import type { ChannelOrm } from '../../db/schema/Channel.ts';
 import type { ChannelOrmWithTranscodeConfig } from '../../db/schema/derivedTypes.ts';
 import { readPreparedEnding } from '../../services/EpisodeEndingPreparation.ts';
 import { CreditSqueezeAdPlanner } from './CreditSqueezeAdPlanner.ts';
+import { EtvNextBreakAirings } from './EtvNextBreakAirings.ts';
 import {
   resolveCreditSqueeze,
   supportsNextCreditSqueeze,
@@ -245,6 +246,7 @@ export class EtvNextPlayoutWriter {
     @inject(StreamSelector) private streamSelector: StreamSelector,
     @inject(WatermarkResolver) private watermarkResolver: WatermarkResolver,
     @inject(CreditSqueezeAdPlanner) private creditAds: CreditSqueezeAdPlanner,
+    @inject(EtvNextBreakAirings) private breakAirings: EtvNextBreakAirings,
   ) {}
 
   /**
@@ -606,32 +608,52 @@ export class EtvNextPlayoutWriter {
     scheduleNowMs: number,
     startMs: number,
   ): Promise<DynamicResolution> {
+    // Every worker session of the channel resolves through here. Serialized
+    // per channel so both workers' first asks into a break share one pick.
+    return this.breakAirings.runExclusive(channelUuid, () =>
+      this.walkToPlayableItem(channelUuid, scheduleNowMs, startMs),
+    );
+  }
+
+  private async walkToPlayableItem(
+    channelUuid: string,
+    scheduleNowMs: number,
+    startMs: number,
+  ): Promise<DynamicResolution> {
     let cursorMs = scheduleNowMs;
     let skippedMs = 0;
     let skips = 0;
 
     for (;;) {
-      // Play history is stamped at the requested time and this moment is about
-      // to air, so the default recording behaviour is the correct one here.
-      const lineupResult = await this.programCalculator.getCurrentLineupItem({
-        channelId: channelUuid,
-        startTime: cursorMs,
-        measureRollingWatch: true,
-        allowSkip: true,
-      });
+      // A break another worker of this channel already asked about keeps its
+      // pick, so this one delivers the same airing rather than a second one.
+      let answer = this.breakAirings.find(channelUuid, cursorMs, Date.now());
+      if (!answer) {
+        // Play history is stamped at the requested time and this moment is
+        // about to air, so the default recording behaviour is the correct one.
+        const lineupResult = await this.programCalculator.getCurrentLineupItem({
+          channelId: channelUuid,
+          startTime: cursorMs,
+          measureRollingWatch: true,
+          allowSkip: true,
+        });
 
-      if (lineupResult.isFailure()) {
-        this.logger.error(
-          lineupResult.error,
-          'Channel %s has nothing to play at %d. The viewer gets an error screen until the schedule answers again.',
-          channelUuid,
-          cursorMs,
-        );
+        if (lineupResult.isFailure()) {
+          this.logger.error(
+            lineupResult.error,
+            'Channel %s has nothing to play at %d. The viewer gets an error screen until the schedule answers again.',
+            channelUuid,
+            cursorMs,
+          );
 
-        return { failure: 'unreadable' };
+          return { failure: 'unreadable' };
+        }
+
+        answer = lineupResult.get();
+        this.breakAirings.remember(channelUuid, cursorMs, answer, Date.now());
       }
 
-      const { lineupItem, channelContext } = lineupResult.get();
+      const { lineupItem, channelContext } = answer;
 
       if (lineupItem.streamDuration >= MinResolvedItemMs) {
         if (skips > 0) {
