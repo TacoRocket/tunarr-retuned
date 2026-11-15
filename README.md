@@ -6,7 +6,7 @@
 
 <p align="center"><strong>Tunarr, with extensions, real commercial breaks and a CRT picture.</strong></p>
 
-<p align="center">A fork of <a href="https://github.com/chrisbenincasa/tunarr">Tunarr</a> that stays close to upstream and adds the things below. Everything is optional: a channel you do not change behaves like upstream Tunarr.</p>
+<p align="center">A fork of <a href="https://github.com/chrisbenincasa/tunarr">Tunarr</a> that stays close to upstream and adds the things below. New channels use ErsatzTV next. Existing channels keep their playback engine on upgrade, and the channel editor offers a one-click move to ErsatzTV next.</p>
 
 <p align="center">
   <a href="https://github.com/TacoRocket/tunarr-retuned/releases"><img src="https://img.shields.io/github/v/release/TacoRocket/tunarr-retuned?include_prereleases&style=flat&logo=github&color=lightseagreen&label=retuned%20release" alt="Retuned Release"></a>
@@ -38,7 +38,7 @@ Make a channel look like it is playing on an old tube TV: scanlines, a soft glow
 
 ### 📼 After-show ad pods
 
-A real commercial break after each show: a bumper, a couple of ads, a station ID, drawn from your own filler. [Ad pods](docs/fork/scheduling.md#after-show-ad-pods)
+A real commercial break after each show: a bumper, a couple of ads, a station ID, drawn from your own filler lists. On program-count Random Slots schedules, you add it through the API; there is no switch in the app yet. [Ad pods](docs/fork/scheduling.md#after-show-ad-pods)
 
 ### 🎞️ Credits the way TV does them
 
@@ -55,13 +55,13 @@ On an Intel Core i3-1220P, the optional hardware path delivered **61% higher HDR
 
 ### Also in the box
 
-| Feature                        | What it does                                                                                                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Filler from a saved search** | Point a filler list at a Smart Collection and new commercials show up on their own. [Guide](docs/fork/scheduling.md#filler-lists-from-a-smart-collection)     |
-| **Offset channels**            | Mirror a lineup at the same time or a few hours later, with its own CRT look if you want. [Guide](docs/fork/scheduling.md#offset-channels)                    |
-| **Repair re-added items**      | When Plex re-adds a show under a new ID, channels and watch history move to the new copy and are not blanked by the Trash. [Guide](docs/fork/trash-repair.md) |
-| **Prepared subtitles**         | Reuse text or convert PGS ahead of airing, so players can show subtitles without burning them into 4K video. [Guide](docs/fork/subtitles.md)                  |
-| **One thing to install**       | One container with Tunarr and its matching FFmpeg; no development branches to combine. [Container notes](docs/fork/container.md)                              |
+| Feature                        | What it does                                                                                                                                              |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Filler from a saved search** | Point a filler list at a Smart Collection and new commercials show up on their own. [Guide](docs/fork/scheduling.md#filler-lists-from-a-smart-collection) |
+| **Offset channels**            | Mirror a lineup at the same time or a few hours later, with its own CRT look if you want. [Guide](docs/fork/scheduling.md#offset-channels)                |
+| **Repair re-added items**      | When Plex re-adds a show under a new ID, repair exact matches so lineups and watch history follow the replacement. [Guide](docs/fork/trash-repair.md)     |
+| **Prepared subtitles**         | Reuse text or convert PGS ahead of airing, so players can show subtitles without burning them into 4K video. [Guide](docs/fork/subtitles.md)              |
+| **One thing to install**       | One container with Tunarr and its matching FFmpeg; no development branches to combine. [Container notes](docs/fork/container.md)                          |
 
 Some of these do not have buttons in the app yet; each guide gives you a short command to switch one on. The full list is in the [fork docs](docs/fork/README.md).
 
