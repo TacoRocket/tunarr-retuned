@@ -38,6 +38,8 @@ import {
 
 // TODO: Get these from server.
 const FfmpegVersionCheck = 'FfmpegVersion';
+// Fork: which fork features the configured FFmpeg can run.
+const FfmpegFeatureSupportCheck = 'FfmpegFeatureSupport';
 const HardwareAccelerationCheck = 'HardwareAcceleration';
 const FfmpegDebugLoggingCheck = 'FfmpegDebugLogging';
 const FfmpegTranscodeDirectory = 'FfmpegTranscodeDirectory';
@@ -45,6 +47,7 @@ const BaseImageHealthCheck = 'BaseImageHealthCheck';
 
 const AllKnownChecks = [
   FfmpegVersionCheck,
+  FfmpegFeatureSupportCheck,
   HardwareAccelerationCheck,
   FfmpegTranscodeDirectory,
   FfmpegDebugLoggingCheck,
@@ -95,6 +98,7 @@ export const StatusPage = () => {
         const prettyName = match(check)
           // .with(MissingSeasonNumbersCheck, () => 'Missing Season Numbers')
           .with(FfmpegVersionCheck, () => 'FFmpeg Version')
+          .with(FfmpegFeatureSupportCheck, () => 'FFmpeg Feature Support')
           .with(HardwareAccelerationCheck, () => 'Hardware Acceleration')
           .with(FfmpegDebugLoggingCheck, () => 'FFmpeg Report Logging')
           // .with(
@@ -141,7 +145,10 @@ export const StatusPage = () => {
             </TableCell>
             <TableCell>
               {data?.type !== 'healthy' && (
-                <Typography>{data?.context}</Typography>
+                // A check can list several items, one per line.
+                <Typography sx={{ whiteSpace: 'pre-line' }}>
+                  {data?.context}
+                </Typography>
               )}
             </TableCell>
             <TableCell>
