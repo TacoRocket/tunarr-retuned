@@ -393,7 +393,7 @@ describe('SessionManager', () => {
           onDemandChannelService: { pauseChannel: ReturnType<typeof vi.fn> };
         }
       ).onDemandChannelService;
-      return { hls, tuner, pauseChannel };
+      return { manager, hls, tuner, pauseChannel };
     };
 
     it('keeps the clock running when the HLS viewer leaves and a tuner still watches', async () => {
@@ -442,6 +442,51 @@ describe('SessionManager', () => {
 
       expect(pauseChannel).toHaveBeenCalledTimes(1);
       expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_070_000);
+    });
+
+    // An HLS viewer only leaves when the sweep notices it, well after its last
+    // request, so a tuner can disconnect in between and still be the last one
+    // who watched.
+    it('pauses where the tuner stopped when an idle HLS viewer is swept after it', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, tuner, pauseChannel } = await watchBoth();
+
+      vi.setSystemTime(1_010_000);
+      hls.recordHeartbeat('hls-viewer');
+      vi.setSystemTime(1_050_000);
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(pauseChannel).not.toHaveBeenCalled();
+      vi.setSystemTime(1_075_000);
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
+    });
+
+    // The copy's wrapper keeps asking for segments until its concat session
+    // is torn down, some seconds after the tuner has gone.
+    it('does not count the wrapper’s own requests as viewing', async () => {
+      vi.setSystemTime(1_000_000);
+      const { manager, hls, tuner, pauseChannel } = await watchBoth();
+      const copy = manager.getSession(channelUuid, 'etv_next_mpegts');
+
+      vi.setSystemTime(1_010_000);
+      hls.recordHeartbeat('hls-viewer');
+      vi.setSystemTime(1_050_000);
+      tuner.removeConnection('tuner-viewer');
+      vi.setSystemTime(1_060_000);
+      copy?.recordHeartbeat('wrapper');
+      copy?.removeConnection('wrapper');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(pauseChannel).not.toHaveBeenCalled();
+      vi.setSystemTime(1_075_000);
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
     });
   });
 

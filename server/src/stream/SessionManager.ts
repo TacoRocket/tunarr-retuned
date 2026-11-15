@@ -65,6 +65,13 @@ export class SessionManager {
 
   #sessionLocker = new MutexMap();
   #sessions: Record<SessionKey, Session> = {};
+  /**
+   * Per channel, the latest moment a viewer was seen watching since the last
+   * pause. A pause is stamped with the connection that happened to clear
+   * last, and an idle HLS viewer is only swept long after its last request,
+   * so a tuner that disconnected in between is the one who watched furthest.
+   */
+  #lastViewerActivity = new Map<string, number>();
 
   constructor(
     @inject(KEYS.ChannelDB) private channelDB: IChannelDB,
@@ -616,16 +623,19 @@ export class SessionManager {
       ]).filter((s) => !(sessionStopped && s === session));
       const nonTunarrConnections = sumBy(
         channelSessions,
-        (s) =>
-          filter(
-            s.connections(),
-            (conn) => !(conn.userAgent?.includes('Tunarr') ?? false),
-          ).length,
+        (s) => filter(s.connections(), isViewer).length,
+      );
+
+      const channelId = session.keyObj.id;
+      pauseTime = Math.max(
+        pauseTime,
+        this.#lastViewerActivity.get(channelId) ?? pauseTime,
       );
 
       // Pause the channel as soon as there are no connections
       // other than internal connections
       if (nonTunarrConnections === 0) {
+        this.#lastViewerActivity.delete(channelId);
         this.logger.debug(
           this.getLoggerContext(session.id),
           'Pausing channel %s after disconnect. Pause time = %s',
@@ -637,6 +647,10 @@ export class SessionManager {
           pauseTime,
         );
       } else {
+        // Tunarr's own connections keep requesting after the viewer is gone.
+        if (isViewer(lastConnection)) {
+          this.#lastViewerActivity.set(channelId, pauseTime);
+        }
         this.logger.debug(
           this.getLoggerContext(sessionToCheck.id),
           'Detected %d remaining sessions. Not pausing session.',
@@ -663,6 +677,11 @@ export class SessionManager {
   private getLoggerContext(sessionId?: string, error?: unknown) {
     return { error, sessionId };
   }
+}
+
+/** Tunarr's own loopback connections are not somebody watching. */
+function isViewer(connection: StreamConnectionDetails): boolean {
+  return !(connection.userAgent?.includes('Tunarr') ?? false);
 }
 
 function sessionTypeFromConcatType(
