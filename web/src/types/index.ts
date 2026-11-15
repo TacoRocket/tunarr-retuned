@@ -146,4 +146,5 @@ export type channelListOptions =
   | 'duplicate'
   | 'delete'
   | 'programming'
-  | 'watch';
+  | 'watch'
+  | 'convert';

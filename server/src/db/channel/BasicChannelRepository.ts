@@ -1,10 +1,20 @@
 import type { Lineup } from '../derived_types/Lineup.ts';
 import { CacheImageService } from '@/services/cacheImageService.js';
-import { ChannelNotFoundError, OffsetChannelError } from '@/types/errors.js';
+import {
+  ChannelNotFoundError,
+  GenericBadRequestError,
+  OffsetChannelError,
+} from '@/types/errors.js';
 import { KEYS } from '@/types/inject.js';
 import { Result } from '@/types/result.js';
 import type { Maybe } from '@/types/util.js';
 import dayjs from '@/util/dayjs.js';
+import {
+  findUnsupportedSettings,
+  UnsupportedTranscodeConfigError,
+} from '@/stream/etv/EtvNextChannelConfigMapper.js';
+import { TranscodeConfig } from '../schema/TranscodeConfig.ts';
+import { supportsEtvNext } from '@/stream/etv/EtvNextRouting.js';
 import type {
   SaveableChannel,
   ChannelOffset,
@@ -417,6 +427,7 @@ export class BasicChannelRepository {
 
   async copyChannel(
     id: string,
+    transcodeConfigId?: string,
   ): Promise<
     ChannelAndLineup<MarkRequired<ChannelOrmWithRelations, 'fillerShows'>>
   > {
@@ -430,6 +441,24 @@ export class BasicChannelRepository {
     const newChannelId = v4();
     const now = +dayjs();
     const newChannel = this.drizzleDB.transaction((tx) => {
+      const profileId = transcodeConfigId ?? channel.transcodeConfigId;
+      const profile = tx
+        .select()
+        .from(TranscodeConfig)
+        .where(eq(TranscodeConfig.uuid, profileId))
+        .get();
+      if (!profile) {
+        throw new GenericBadRequestError(
+          `Transcode config with ID ${profileId} not found`,
+        );
+      }
+      const unsupported = findUnsupportedSettings(profile);
+      if (unsupported.length > 0) {
+        throw new GenericBadRequestError(
+          `Choose a compatible transcode profile for the copy. ${new UnsupportedTranscodeConfigError(unsupported).message}`,
+        );
+      }
+
       const maxRow = tx
         .select({ number: Channel.number })
         .from(Channel)
@@ -444,6 +473,12 @@ export class BasicChannelRepository {
         .insert(Channel)
         .values({
           ...channelFields,
+          // SIGNPOST(native-retirement): copies move to Next; the useEtvNext
+          // flag and the stream mode mapping go with native playback.
+          useEtvNext: true,
+          streamMode: supportsEtvNext(channel.streamMode)
+            ? channel.streamMode
+            : 'hls',
           uuid: newChannelId,
           name: `${channel.name} - Copy`,
           number: maxNumber + 1,
@@ -453,7 +488,7 @@ export class BasicChannelRepository {
           createdAt: now,
           updatedAt: now,
           transcoding: null,
-          transcodeConfigId: channel.transcodeConfigId,
+          transcodeConfigId: profileId,
           // A copy is an ordinary channel, even when copied from an offset one.
           offsetSourceChannelId: null,
           offsetHours: null,

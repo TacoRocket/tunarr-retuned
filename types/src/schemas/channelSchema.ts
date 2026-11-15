@@ -412,13 +412,27 @@ export const SpelunkrRelayConfigSchema = z
 
 export const NewChannelSaveRequestSchema = z.object({
   type: z.literal('new'),
-  channel: SaveableChannelSchema,
+  channel: SaveableChannelSchema.extend({
+    useEtvNext: z
+      .boolean()
+      .default(true)
+      .describe(
+        'New channels use ErsatzTV next. Omit this field or set it to true.',
+      ),
+  }),
   liveRelay: SpelunkrRelayConfigSchema.optional(),
 });
 
 export const CopyChannelSaveRequestSchema = z.object({
   type: z.literal('copy'),
   channelId: z.string().uuid(),
+  transcodeConfigId: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      'Profile for the copy. Omit to keep the source profile. The profile must work with ErsatzTV next.',
+    ),
 });
 
 export const CreateChannelRequestSchema = z.discriminatedUnion('type', [

@@ -3,6 +3,7 @@ import {
   validateSpelunkrFeed,
 } from '../services/SpelunkrSchedule.ts';
 import { findUnsupportedSettings } from '../stream/etv/EtvNextChannelConfigMapper.ts';
+import { nextProfileUpdateError } from './nextProfileUpdateCheck.ts';
 import { LiveRelayConfigSchema } from '../db/derived_types/Lineup.ts';
 import { liveRelayConfigurationError } from '../stream/LiveRelay.ts';
 import {
@@ -105,7 +106,10 @@ import { PagingParams, TruthyQueryParam } from '../types/schemas.ts';
 import { isNonEmptyString } from '../util/index.ts';
 import type { ServerContext } from '../ServerContext.ts';
 import { GUIDE_PROGRAM_FIELDS_NOTE } from './guideApi.ts';
-import { routesToEtvNext } from '../stream/etv/EtvNextRouting.ts';
+import {
+  routesToEtvNext,
+  supportsEtvNext,
+} from '../stream/etv/EtvNextRouting.ts';
 import { validateStreamSelectionProfileId } from './streamSelectionApi.ts';
 
 dayjs.extend(duration);
@@ -459,10 +463,23 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       switch (body.type) {
         case 'copy':
           insertResult = await Result.attemptAsync(() =>
-            req.serverCtx.channelDB.copyChannel(body.channelId),
+            req.serverCtx.channelDB.copyChannel(
+              body.channelId,
+              body.transcodeConfigId,
+            ),
           );
           break;
         case 'new': {
+          // SIGNPOST(native-retirement): remove when native channel creation is gone
+          if (
+            !body.channel.useEtvNext ||
+            !supportsEtvNext(body.channel.streamMode)
+          ) {
+            return res.status(400).send({
+              error:
+                'New channels can no longer use the native Tunarr backend because it is being retired. To use ErsatzTV next, omit useEtvNext or set it to true, and set streamMode to hls, hls_direct_v2, or mpegts.',
+            });
+          }
           const transcodeConfig = await req.serverCtx.transcodeConfigDB.getById(
             body.channel.transcodeConfigId,
           );
@@ -529,6 +546,9 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       }
 
       if (insertResult.isFailure()) {
+        const badRequest = findBadRequestError(insertResult.error);
+        if (badRequest)
+          return res.status(400).send({ error: badRequest.message });
         throw insertResult.error;
       }
 
@@ -593,6 +613,15 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             error: `Transcode config with ID ${req.body.transcodeConfigId} not found`,
           });
         }
+
+        // SIGNPOST(native-retirement): see nextProfileUpdateError.
+        const nextProfileError = nextProfileUpdateError(
+          { ...channel, useEtvNext: channel.useEtvNext ?? false },
+          req.body,
+          transcodeConfig,
+        );
+        if (nextProfileError)
+          return res.status(400).send({ error: nextProfileError });
 
         const crtError = crtConfigurationError(
           req.body.crt === undefined ? channel.crt : req.body.crt,

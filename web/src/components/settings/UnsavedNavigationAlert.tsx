@@ -7,8 +7,8 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import type { AnyRoute } from '@tanstack/react-router';
 import { useBlocker } from '@tanstack/react-router';
-import { isEmpty } from 'lodash-es';
 import { useRef } from 'react';
+import { isExemptNavigation } from './unsavedNavigation.ts';
 
 type AvailablePaths<TRoute extends AnyRoute = AnyRoute> = TRoute['fullPath'];
 
@@ -17,10 +17,6 @@ type Props = {
   exceptTargetPaths?: AvailablePaths[];
   onProceed?: () => void;
 };
-
-// Index routes report their full path with a trailing slash.
-const withoutTrailingSlash = (path: string) =>
-  path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
 
 // Exempt paths are used in situations where the form spans multiple tabs or pages.
 // This ensures the Alert is not activated in the middle of a form navigation.
@@ -37,17 +33,8 @@ export default function UnsavedNavigationAlert({
   isDirtyRef.current = isDirty;
 
   const { proceed, status, reset } = useBlocker({
-    shouldBlockFn: ({ next }) => {
-      if (exceptTargetPaths && !isEmpty(exceptTargetPaths)) {
-        const target = withoutTrailingSlash(String(next.fullPath));
-        for (const excludedTarget of exceptTargetPaths) {
-          if (target === withoutTrailingSlash(String(excludedTarget))) {
-            return false;
-          }
-        }
-      }
-      return isDirty;
-    },
+    shouldBlockFn: ({ current, next }) =>
+      isExemptNavigation(current, next, exceptTargetPaths) ? false : isDirty,
     enableBeforeUnload: () => isDirtyRef.current,
     withResolver: true,
   });
