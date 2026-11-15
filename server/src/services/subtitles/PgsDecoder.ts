@@ -124,7 +124,9 @@ export function decodePgs(blocks: PgsBlock[]): PgsCue[] {
         };
         forceFirst = true;
       } else if (kind === 0x14 && current !== undefined) {
-        need(data, 7);
+        // Fork: a palette may define no colors (ID and version only), as
+        // blank displays at the end of a track do. It renders transparent.
+        need(data, 2);
         if ((data.length - 2) % 5 !== 0) throw new Error('Invalid PGS palette');
         const previous = palettes.get(data.readUInt8(0)) ?? [];
         palettes.set(data.readUInt8(0), [

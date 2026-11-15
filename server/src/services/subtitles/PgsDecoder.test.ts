@@ -88,3 +88,26 @@ it('retains text under transparent overlapping objects through fade merging', ()
     });
   }
 });
+
+it('decodes a palette with no colors as a blank cue instead of failing the track', () => {
+  // Seen at the end of a real Blu-ray PGS track: a display whose palette
+  // segment carries only its ID and version.
+  const segment = (kind: number, hex: string) => {
+    const data = Buffer.from(hex, 'hex');
+    return Buffer.concat([Buffer.from([kind, 0, data.length]), data]);
+  };
+  const blank = {
+    timestampNs: 0n,
+    durationNs: 1_000_000_000n,
+    data: Buffer.concat([
+      segment(0x16, '001400280000008000000100000000000a0014'),
+      segment(0x14, '0000'),
+      segment(0x15, '000000c0000009000300010083010000'),
+      segment(0x80, ''),
+    ]),
+  };
+  const [cue] = decodePgs([blank]);
+  expect(cue?.palettes).toEqual([Buffer.alloc(0)]);
+  const { pixels } = renderPgs(cue!);
+  expect(pixels.every((value) => value === 0)).toBe(true);
+});
