@@ -45,3 +45,19 @@ Keep normal scans enabled. Plex listings omit streams and markers, and the trial
 Plex metadata reads can themselves emit notifications. Tunarr ignores timeline echoes for a library while it is scanning or handling a notification, and for five seconds after a notification refresh. Deletion events and library scan activity still invalidate acknowledgements during that window. An indistinguishable detail-only change during the window has the same one-extra-scan limit. The pending queue holds at most 100 distinct items; excess events and failed refreshes defer to normal scans. Disconnects and failed refreshes are logged.
 
 Known movies and episodes need one metadata request per notification refresh, replacing their detail request in the next normal scan. Show/season events and parent discovery cost more because they walk the affected show. Repeated notifications and other background activity can also add requests, so this does not promise lower total daily work than scans alone. Notifications provide earlier updates; batching separately reduces request count during scans.
+
+## Daily library scan time
+
+To run automatic library scans around 3 a.m. Central time, set both environment variables and restart Tunarr:
+
+```yaml
+environment:
+  TUNARR_LIBRARY_SCAN_DAILY_TIME: '03:30'
+  TUNARR_LIBRARY_SCAN_TIME_ZONE: 'America/Chicago'
+```
+
+This overrides `rescanIntervalHours` for library scans only. Channel schedules, collection and custom-show sync, hourly library refresh, and the container timezone keep their existing behavior. Manual scans remain available. Prefer `HH:30` (for example, 03:30 Chicago with a UTC container) to retain the existing half-hour separation from the hourly library refresh. Any valid `HH:mm`, including 03:00, is supported, but top-of-hour scans start alongside that refresh. The offset is not a completion guarantee; the daily option does not serialize those jobs.
+
+The time must be 24-hour `HH:mm` and the timezone must be an IANA name. Both values are required together; invalid or partial configuration stops startup scheduling with an explicit error. With both unset (or empty), the existing interval and half-hour offset remain unchanged.
+
+The existing `node-schedule` calendar rule follows the selected timezone through daylight saving changes: 03:00 in Chicago is 08:00 UTC in summer and 09:00 UTC in winter. Times skipped by a spring clock change have no invocation that day; repeated fall times follow `node-schedule` behavior. Choose a time such as 03:00 outside that transition window. Missed scans while Tunarr is stopped are not replayed.

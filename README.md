@@ -4,12 +4,14 @@
 
 <h1 align="center">Tunarr Retuned</h1>
 
-<p align="center">Create your own live TV channels from media on Plex, Jellyfin, Emby, or local files.</p>
+<p align="center"><strong>Tunarr, with extensions, real commercial breaks and a CRT picture.</strong></p>
+
+<p align="center">A fork of <a href="https://github.com/chrisbenincasa/tunarr">Tunarr</a> that stays close to upstream and adds the things below. Everything is optional: a channel you do not change behaves like upstream Tunarr.</p>
 
 <p align="center">
-  <a href="https://github.com/chrisbenincasa/tunarr/releases"><img src="https://img.shields.io/github/v/release/chrisbenincasa/tunarr?style=flat&logo=github&color=lightseagreen&label=upstream%20release" alt="Upstream Release"></a>
+  <a href="https://github.com/TacoRocket/tunarr-retuned/releases"><img src="https://img.shields.io/github/v/release/TacoRocket/tunarr-retuned?include_prereleases&style=flat&logo=github&color=lightseagreen&label=retuned%20release" alt="Retuned Release"></a>
   <a href="https://github.com/TacoRocket/tunarr/pkgs/container/tunarr"><img src="https://img.shields.io/badge/fork%20container-GHCR-lightseagreen?style=flat&logo=docker" alt="Fork Container"></a>
-  <a href="https://github.com/chrisbenincasa/tunarr/stargazers"><img src="https://img.shields.io/github/stars/chrisbenincasa/tunarr?style=flat&logo=github&color=lightseagreen" alt="GitHub Stars"></a>
+  <a href="https://github.com/chrisbenincasa/tunarr/releases"><img src="https://img.shields.io/github/v/release/chrisbenincasa/tunarr?style=flat&logo=github&color=lightgrey&label=built%20on%20upstream" alt="Built on upstream"></a>
   <a href="https://discord.gg/7tUjBbDxag"><img src="https://img.shields.io/discord/1254564006123802805?style=flat&logo=discord&logoColor=white&label=Discord" alt="Discord"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Zlib-lightseagreen?style=flat" alt="License"></a>
 </p>
@@ -20,45 +22,54 @@
 
 ---
 
-## Daily library scan time
+## What Retuned adds
 
-To run automatic library scans around 3 a.m. Central time, set both environment variables and restart Tunarr:
+### 🧩 Extensions (early beta)
 
-```yaml
-environment:
-  TUNARR_LIBRARY_SCAN_DAILY_TIME: '03:30'
-  TUNARR_LIBRARY_SCAN_TIME_ZONE: 'America/Chicago'
-```
+Add features to Tunarr without patching Tunarr. Install, update and remove extensions from **Settings → Extensions**. Each one runs in its own sandbox, only reaches the services you set it up for, and never sees your credentials.
 
-This overrides `rescanIntervalHours` for library scans only. Channel schedules, collection and custom-show sync, hourly library refresh, and the container timezone keep their existing behavior. Manual scans remain available. Prefer `HH:30` (for example, 03:30 Chicago with a UTC container) to retain the existing half-hour separation from the hourly library refresh. Any valid `HH:mm`, including 03:00, is supported, but top-of-hour scans start alongside that refresh. The offset is not a completion guarantee; the daily option does not serialize those jobs.
+- **[Bazarr](https://github.com/TacoRocket/tunarr-bazarr-extension)** fetches subtitles Tunarr is missing.
+- **[Potion](https://github.com/TacoRocket/tunarr-extensions/tree/main/packages/potion)** finds similar titles with a small model that runs inside Tunarr.
+- **Build your own** in JavaScript. [Extensions guide](docs/fork/extensions.md)
 
-The time must be 24-hour `HH:mm` and the timezone must be an IANA name. Both values are required together; invalid or partial configuration stops startup scheduling with an explicit error. With both unset (or empty), the existing interval and half-hour offset remain unchanged.
+### 📺 CRT looks
 
-The existing `node-schedule` calendar rule follows the selected timezone through daylight saving changes: 03:00 in Chicago is 08:00 UTC in summer and 09:00 UTC in winter. Times skipped by a spring clock change have no invocation that day; repeated fall times follow `node-schedule` behavior. Choose a time such as 03:00 outside that transition window. Missed scans while Tunarr is stopped are not replayed.
+Make a channel look like it is playing on an old tube TV: scanlines, a soft glow, a little color bleed. Five looks, chosen per channel, so the Saturday-morning cartoons channel can go full retro while the movie channel stays crisp. [CRT looks](docs/fork/crt.md) · [See them side by side](https://imgur.com/a/FvFRizg)
 
-## Why this fork exists
+### 📼 After-show ad pods
 
-Tunarr Retuned builds on [upstream Tunarr](https://github.com/chrisbenincasa/tunarr) to make broadcast-style channels more flexible and video processing more efficient, especially on small, low-power computers.
+A real commercial break after each show: a bumper, a couple of ads, a station ID, drawn from your own filler. [Ad pods](docs/fork/scheduling.md#after-show-ad-pods)
 
-The display name and logo identify this fork. Container paths and `trfork` version tags remain unchanged.
+### 🎞️ Credits the way TV does them
 
-We aim to stay close to upstream, keep our changes focused, and contribute improvements back when they fit. **Our long-term goal is to make this fork unnecessary:** adopt upstream implementations and retire our equivalent patches as they become available. Specialized picture styles can remain optional fork features.
+- **Credit squeeze:** the end credits keep playing in a smaller box over your channel's background, and the next program still starts on time. [Credit squeeze](docs/fork/credit-squeeze.md)
+- **Skip the end credits:** the channel moves on when the final credits start. [Skip the end credits](docs/fork/scheduling.md#skip-the-end-credits)
 
-**Measured HDR gains:** on an Intel Core i3-1220P, the optional hardware path delivered **61% higher HDR-to-SDR throughput** with five streams and used **73% less FFmpeg CPU time** in a separate three-stream playback test. See the [hardware comparison](docs/fork/hardware-comparison.md) for the setup, darker HDR picture, and SDR tradeoffs. These are opt-in results, not a claim that every workload runs faster.
+### 🌱 Channels that program themselves
 
-### What the combined build adds
+Pick up to ten shows, episodes or movies and Tunarr builds a lineup of related titles from your library. [Generate from seeds](docs/fork/scheduling.md#generate-from-seeds)
 
-| Addition                                   | What it does                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| More efficient hardware video processing   | Reduces avoidable conversions in supported video paths. Bundles our matching FFmpeg build, direct NV12 shader output, optional driver-default scaling, and optional VAAPI HDR conversion. Hardware-specific options are opt-in; improvements measured on our Intel system are not promises for every GPU.                               |
-| CRT, TV Broadcast, and DVD Broadcast looks | Gives modern screens a softer broadcast or CRT-inspired picture, with optional scanlines, glow, color bleed, and grain. Choose a look per channel or leave the picture unfiltered. TV and DVD Broadcast use different degrees of softness; they do not recreate a physical analog signal. Currently configured through the channel API. |
-| After-show ad pods                         | Places an ordered break after a complete program: for example, a bumper, two commercials, and a station ID drawn from your selected filler pools. Available through the random-slot scheduling API; there is no pod editor in the UI yet.                                                                                               |
-| Final-credit controls                      | Lets a channel advance when a valid final-credits marker begins. Programs without a valid marker play in full, and source files stay unchanged.                                                                                                                                                                                         |
-| Playback and subtitle fixes                | Includes targeted native fixes for audio timing at program boundaries and subtitle delivery. See [the container notes](docs/fork/container.md) for source revisions and validation limits.                                                                                                                                              |
+### ⚡ More 4K HDR channels on a small Intel box
 
-[See the CRT, TV Broadcast, and DVD Broadcast picture comparisons](https://imgur.com/a/FvFRizg). These are appearance previews; image hosting and display scaling can change fine texture.
+On an Intel Core i3-1220P, the optional hardware path delivered **61% higher HDR-to-SDR throughput** with five streams and used **73% less FFmpeg CPU time** in a separate three-stream playback test. These are opt-in results, not a claim that every workload runs faster, and the HDR picture is darker. [Setup and trade-offs](docs/fork/hardware-comparison.md)
 
-**One image, one installation path.** The combined release contains Tunarr and its matching FFmpeg; you do not need to choose or combine development branches. Hardware options and exact source links are in [the container notes](docs/fork/container.md).
+### Also in the box
+
+| Feature                        | What it does                                                                                                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Filler from a saved search** | Point a filler list at a Smart Collection and new commercials show up on their own. [Guide](docs/fork/scheduling.md#filler-lists-from-a-smart-collection)     |
+| **Offset channels**            | Mirror a lineup at the same time or a few hours later, with its own CRT look if you want. [Guide](docs/fork/scheduling.md#offset-channels)                    |
+| **Repair re-added items**      | When Plex re-adds a show under a new ID, channels and watch history move to the new copy and are not blanked by the Trash. [Guide](docs/fork/trash-repair.md) |
+| **Prepared subtitles**         | Reuse text or convert PGS ahead of airing, so players can show subtitles without burning them into 4K video. [Guide](docs/fork/subtitles.md)                  |
+| **One thing to install**       | One container with Tunarr and its matching FFmpeg; no development branches to combine. [Container notes](docs/fork/container.md)                              |
+
+Some of these do not have buttons in the app yet; each guide gives you a short command to switch one on. The full list is in the [fork docs](docs/fork/README.md).
+
+## How it relates to upstream
+
+- **Built on [upstream Tunarr](https://github.com/chrisbenincasa/tunarr).** Each release says which upstream version it carries and what it adds. The display name and logo identify this fork; container paths and `trfork` version tags remain unchanged. [Releases](https://github.com/TacoRocket/tunarr-retuned/releases)
+- **Our long-term goal is to make this fork unnecessary.** We stay close to upstream, keep our changes focused, and contribute improvements back when they fit. When upstream ships its own version of something here, we adopt it and retire ours. Specialized picture styles can remain optional fork features.
+- **Problems with a `-trfork` build go to this fork's issues,** not upstream's. See [Community](#community).
 
 ## What is Tunarr?
 
