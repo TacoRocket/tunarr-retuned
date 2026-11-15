@@ -117,20 +117,25 @@ describe('StreamSelectionProfileResolver', () => {
       expect(spies.channel).toHaveBeenCalledTimes(3);
     });
 
-    it('asks again after a read that failed', async () => {
-      const { resolver, spies } = createResolver({
-        channelProfile: makeProfile('channel'),
-      });
-      spies.channel.mockRejectedValueOnce(new Error('database is locked'));
+    it('counts a failed database read and its retry in the run summary', async () => {
+      const { resolver, spies } = createResolver({});
+      const error = new Error('channel lookup failed');
+      spies.channel.mockRejectedValueOnce(error);
+      const context = { channelId: 'ch-1' };
+      const summary = vi.fn();
 
-      const chain = await runWithStreamSelectionMemo(async () => {
-        await expect(
-          resolver.resolveChain({ channelId: 'ch-1' }),
-        ).rejects.toThrow('database is locked');
-        return resolver.resolveChain({ channelId: 'ch-1' });
-      });
+      await runWithStreamSelectionMemo(async () => {
+        await expect(resolver.resolveChain(context)).rejects.toBe(error);
+        await resolver.resolveChain(context);
+        await resolver.resolveChain(context);
+      }, summary);
 
-      expect(chain[0]?.profile.uuid).toBe('channel');
+      expect(spies.channel).toHaveBeenCalledTimes(2);
+      expect(spies.byId).toHaveBeenCalledTimes(1);
+      expect(summary).toHaveBeenCalledExactlyOnceWith({
+        asked: 5,
+        readAttempts: 3,
+      });
     });
   });
 

@@ -262,11 +262,11 @@ export class SubtitleExtractorTask extends Task2<
       case 'time':
         return runWithStreamSelectionMemo(
           () => this.handleTimeFilter(filter),
-          ({ asked, read }) =>
+          ({ asked, readAttempts }) =>
             this.logger.info(
-              'Stream selection lookups: %d asked, %d read from the database',
+              'Stream selection lookups: %d asked, %d database read attempts',
               asked,
-              read,
+              readAttempts,
             ),
         );
       case 'channel':

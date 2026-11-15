@@ -3,13 +3,14 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 type RunMemo = {
   answers: Map<string, Promise<unknown>>;
   asked: number;
+  readAttempts: number;
 };
 
 export type RunMemoCounts = {
   /** Lookups made while the run was in progress. */
   asked: number;
-  /** Lookups that had to read, because nothing was remembered yet. */
-  read: number;
+  /** Reads started, counting ones that failed and their retries. */
+  readAttempts: number;
 };
 
 const currentRun = new AsyncLocalStorage<RunMemo>();
@@ -29,11 +30,11 @@ export async function runWithStreamSelectionMemo<T>(
   fn: () => Promise<T>,
   onDone?: (counts: RunMemoCounts) => void,
 ): Promise<T> {
-  const run: RunMemo = { answers: new Map(), asked: 0 };
+  const run: RunMemo = { answers: new Map(), asked: 0, readAttempts: 0 };
   try {
     return await currentRun.run(run, fn);
   } finally {
-    onDone?.({ asked: run.asked, read: run.answers.size });
+    onDone?.({ asked: run.asked, readAttempts: run.readAttempts });
   }
 }
 
@@ -55,6 +56,7 @@ export function rememberForRun<T>(
     // The key names the reader, so the stored answer has the reader's type.
     return known as Promise<T>;
   }
+  run.readAttempts++;
   const answer = read();
   run.answers.set(key, answer);
   // A failed read is asked again rather than remembered.
