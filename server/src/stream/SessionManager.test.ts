@@ -445,6 +445,59 @@ describe('SessionManager', () => {
     });
   });
 
+  // The worker reaps itself a few seconds after the last heartbeat. If that
+  // beats the sweep that removes the viewer's stale connection, the stopped
+  // session still lists it, and nothing sweeps a session that is gone.
+  describe('on-demand pause when a session stops before its last viewer is swept', () => {
+    const viewer = { ip: '10.0.0.2', userAgent: 'TiviMate/5.0' };
+
+    const watch = async () => {
+      const manager = makeSessionManager(
+        (channel, options) => new StubHlsSession(channel, options),
+        undefined,
+        (channel, options) => new StubEtvNextSession(channel, options),
+      );
+      const hls = (
+        await manager.getOrCreateEtvNextSession(channelUuid, 'viewer', viewer)
+      ).get();
+      const { pauseChannel } = (
+        manager as unknown as {
+          onDemandChannelService: { pauseChannel: ReturnType<typeof vi.fn> };
+        }
+      ).onDemandChannelService;
+      return { manager, hls, pauseChannel };
+    };
+
+    it('pauses at the viewer’s last heartbeat', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, pauseChannel } = await watch();
+      vi.setSystemTime(1_050_000);
+      hls.recordHeartbeat('viewer');
+      vi.setSystemTime(1_140_000);
+
+      hls.emit('stop');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
+    });
+
+    it('does not pause while the channel’s other worker still has a viewer', async () => {
+      const { manager, hls, pauseChannel } = await watch();
+      await manager.getOrCreateEtvNextSession(
+        channelUuid,
+        'other-viewer',
+        { ip: '10.0.0.4', userAgent: 'VLC/3.0' },
+        { sessionType: 'etv_next_mpegts' },
+      );
+
+      hls.emit('stop');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).not.toHaveBeenCalled();
+    });
+  });
+
   describe('session replacement race condition', () => {
     it('replaces a stopping session with one that has its own directory', async () => {
       class SlowStopHlsSession extends StubHlsSession {

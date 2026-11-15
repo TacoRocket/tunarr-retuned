@@ -9,6 +9,8 @@ import {
   isEmpty,
   isNil,
   isUndefined,
+  keys,
+  max,
   maxBy,
   omitBy,
   once,
@@ -437,7 +439,9 @@ export class SessionManager {
               this.shutdownChildSessions(channelId, sessionType);
             }
             if (session) {
-              this.pauseChannelIfNecessary(session, connection).catch(() => {});
+              this.pauseChannelIfNecessary(session, connection, true).catch(
+                () => {},
+              );
             }
             this.eventService.push({
               type: 'stream',
@@ -554,14 +558,30 @@ export class SessionManager {
     });
   }
 
+  /**
+   * `sessionStopped`: the session has ended, so nobody is watching it any
+   * more. Its worker can stop a few seconds before the sweep that removes its
+   * last viewer's stale connection, and nothing sweeps a session that is gone,
+   * so that connection must not count as a viewer.
+   */
   private async pauseChannelIfNecessary(
     session: Session,
     lastConnection: StreamConnectionDetails,
+    sessionStopped = false,
   ) {
     try {
       const now = +dayjs();
       let sessionToCheck = session;
-      let pauseTime = lastConnection.lastHeartbeat ?? now;
+      let pauseTime =
+        (sessionStopped
+          ? max(
+              keys(session.connections()).map((token) =>
+                session.lastHeartbeat(token),
+              ),
+            )
+          : undefined) ??
+        lastConnection.lastHeartbeat ??
+        now;
       if (session.isConcatSession()) {
         const underlyingType = sessionTypeFromConcatType(session.sessionType);
         const underlyingSession = this.getSession(
@@ -593,7 +613,7 @@ export class SessionManager {
         session,
         sessionToCheck,
         ...this.getAllSessionsForChannel(session.keyObj.id),
-      ]);
+      ]).filter((s) => !(sessionStopped && s === session));
       const nonTunarrConnections = sumBy(
         channelSessions,
         (s) =>
