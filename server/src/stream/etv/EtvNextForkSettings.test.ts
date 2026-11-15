@@ -9,6 +9,7 @@ import { FrameSize } from '../../ffmpeg/builder/types.ts';
 import { findIgnoredSettings } from './EtvNextChannelConfigMapper.ts';
 import {
   applyForkChannelSettings,
+  runtimeCapabilities,
   forkLiveFeedFallback,
   forkVaapiLowPower,
 } from './EtvNextForkSettings.ts';
@@ -153,6 +154,45 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
       expect(ignored).toEqual([]);
     },
   );
+
+  test('a custom FFmpeg without native NV12 keeps the worker on filtered NV12', () => {
+    stubNativeRuntime();
+    const crt = {
+      enabled: true,
+      look: 'tv-broadcast',
+      processing: 'performance',
+    } as const;
+    const custom = workerConfig('vaapi', 720);
+    applyForkChannelSettings(
+      custom,
+      { crt, creditSqueeze: null },
+      { nativeNv12Output: false },
+    );
+    expect(custom.normalization.video.custom_shader_options).toEqual({
+      input_scale_mode: 'default',
+    });
+
+    const patched = workerConfig('vaapi', 720);
+    applyForkChannelSettings(
+      patched,
+      { crt, creditSqueeze: null },
+      { nativeNv12Output: true },
+    );
+    expect(patched.normalization.video.custom_shader_options).toEqual({
+      input_scale_mode: 'default',
+      native_nv12_output: true,
+      direct_nv12_handoff: true,
+    });
+  });
+
+  test('unreadable FFmpeg capabilities gate nothing', async () => {
+    await expect(
+      runtimeCapabilities({
+        getCapabilities: () => Promise.reject(new Error('no ffmpeg')),
+      }),
+    ).resolves.toBeUndefined();
+    await expect(runtimeCapabilities(undefined)).resolves.toBeUndefined();
+  });
 
   test('the worker follows a 720p channel with the native runtime and falls back without it', () => {
     const crt = {

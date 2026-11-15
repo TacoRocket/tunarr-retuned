@@ -9,6 +9,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { IChannelDB } from '../../db/interfaces/IChannelDB.ts';
 import type { ISettingsDB } from '../../db/interfaces/ISettingsDB.ts';
+import type { FfmpegInfo } from '../../ffmpeg/ffmpegInfo.ts';
 import type { ChannelOrmWithTranscodeConfig } from '../../db/schema/derivedTypes.ts';
 import { serverOptions } from '../../globals.ts';
 import type { FeatureFlagService } from '../../services/FeatureFlagService.ts';
@@ -35,6 +36,7 @@ import { dossierDirectory, pruneDossiers } from './EtvNextDossiers.ts';
 import type { EtvNextDynamicTokenRegistry } from './EtvNextDynamicTokenRegistry.ts';
 import {
   applyForkChannelSettings,
+  runtimeCapabilities,
   forkLiveFeedFallback,
 } from './EtvNextForkSettings.ts';
 import { StreamTerminationRequestedError } from './EtvNextPlayoutItemMapper.ts';
@@ -181,6 +183,9 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
     // Fork: reads whether the channel is a live feed. Optional so a session
     // without it keeps upstream's fallback.
     private channelDB?: Pick<IChannelDB, 'loadLineup'>,
+    // Fork: the configured FFmpeg's cached capabilities, so the worker is not
+    // asked for options that FFmpeg lacks. Optional: without it nothing is gated.
+    private ffmpegInfo?: Pick<FfmpegInfo, 'getCapabilities'>,
   ) {
     super(channel, {
       // Tunarr's global default is longer than the worker's own reap window,
@@ -240,7 +245,11 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
         this.featureFlagService.get('webvttSidecarEnabled'),
       ),
     });
-    const forkIgnored = applyForkChannelSettings(config, this.channel);
+    const forkIgnored = applyForkChannelSettings(
+      config,
+      this.channel,
+      await runtimeCapabilities(this.ffmpegInfo),
+    );
     if (await this.#isLiveFeed()) {
       forkLiveFeedFallback(
         config,

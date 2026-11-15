@@ -77,6 +77,7 @@ function makeWriter({
   watermarkFails = false,
   channelContext = channel,
   creditAds = { select: vi.fn() },
+  ffmpegInfo,
 }: {
   items: StreamLineupItem[];
   streamFails?: boolean;
@@ -88,6 +89,7 @@ function makeWriter({
   watermarkFails?: boolean;
   channelContext?: ChannelOrm;
   creditAds?: Pick<CreditSqueezeAdPlanner, 'select'>;
+  ffmpegInfo?: { getCapabilities: () => Promise<unknown> };
 }) {
   let call = 0;
   const programCalculator = {
@@ -155,6 +157,7 @@ function makeWriter({
     streamSelector as never,
     watermarkResolver as never,
     creditAds as never,
+    ffmpegInfo as never,
   );
 
   // The logger is normally supplied by the DI decorator.
@@ -1173,6 +1176,69 @@ describe('credit squeeze handoff', () => {
           start_ms: squeezeStartMs,
         },
       });
+    },
+  );
+});
+
+describe('credit squeeze and the configured FFmpeg', () => {
+  test.each([
+    [false, undefined],
+    [true, { background_image: '/artwork/credits.png', start_ms: 20_000 }],
+  ])(
+    'concat preserve_ts=%s decides whether the worker is asked to squeeze',
+    async (preservesConcatTimestamps, expected) => {
+      const item = {
+        ...programItem(30_000),
+        type: 'program' as const,
+        program: { uuid: 'prog-1', mediaSourceId: 'src-1', duration: 30_000 },
+        startOffset: 0,
+      } as StreamLineupItem;
+      const ffmpegInfo = {
+        getCapabilities: vi.fn(() =>
+          Promise.resolve({
+            runtime: {
+              source: 'custom',
+              probed: true,
+              preservesConcatTimestamps,
+            },
+          }),
+        ),
+      };
+      const { writer } = makeWriter({
+        items: [item],
+        ffmpegInfo,
+        streamDetails: {
+          duration: dayjs.duration(30_000),
+          videoDetails: [{ width: 1920, height: 1080 } as VideoStreamDetails],
+          audioDetails: [{ index: 1 }],
+          chapters: [
+            {
+              index: 0,
+              chapterType: 'outro',
+              isFinal: true,
+              startTime: 20_000,
+              endTime: 30_000,
+            },
+          ],
+        },
+      });
+      const result = await writer.materializeProgram({
+        channel: {
+          ...channel,
+          creditSqueeze: {
+            enabled: true,
+            backgroundImage: '/artwork/credits.png',
+          },
+          transcodeConfig: {
+            ...channel.transcodeConfig,
+            hardwareAccelerationMode: 'vaapi',
+          },
+        },
+        lineupItem: item,
+        startMs,
+      });
+      expect(ffmpegInfo.getCapabilities).toHaveBeenCalled();
+      expect(result.items[0]?.credit_squeeze).toEqual(expected);
     },
   );
 });

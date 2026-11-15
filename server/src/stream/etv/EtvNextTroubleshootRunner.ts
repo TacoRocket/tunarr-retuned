@@ -20,7 +20,11 @@ import type {
   EtvNextPlayoutWriter,
   MaterializedWindow,
 } from './EtvNextPlayoutWriter.ts';
-import { applyForkChannelSettings } from './EtvNextForkSettings.ts';
+import {
+  applyForkChannelSettings,
+  runtimeCapabilities,
+} from './EtvNextForkSettings.ts';
+import type { FfmpegInfo } from '../../ffmpeg/ffmpegInfo.ts';
 import { EtvNextWorkspace } from './EtvNextWorkspace.ts';
 
 /**
@@ -88,6 +92,8 @@ export class EtvNextTroubleshootRunner {
     private binaryResolver: EtvNextBinaryResolver,
     private playoutWriter: EtvNextPlayoutWriter,
     private childProcessHelper: ChildProcessHelper,
+    // Fork: gates worker options on the configured FFmpeg, as live sessions do.
+    private ffmpegInfo?: Pick<FfmpegInfo, 'getCapabilities'>,
   ) {}
 
   /**
@@ -141,7 +147,11 @@ export class EtvNextTroubleshootRunner {
         subtitleMode,
       });
       config = mapping.config;
-      const forkIgnored = applyForkChannelSettings(config, channel);
+      const forkIgnored = applyForkChannelSettings(
+        config,
+        channel,
+        await runtimeCapabilities(this.ffmpegInfo),
+      );
       notes.push(
         ...[...mapping.ignored, ...forkIgnored].map(
           ({ field, reason }) => `${field} is ignored: ${reason}`,

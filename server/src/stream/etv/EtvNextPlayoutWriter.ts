@@ -19,6 +19,8 @@ import {
 } from '../../ffmpeg/CreditSqueeze.ts';
 import type { CreditSqueezePlayback } from '../../ffmpeg/CreditSqueeze.ts';
 import { StreamSelector } from '../../ffmpeg/StreamSelector.ts';
+import { FfmpegInfo } from '../../ffmpeg/ffmpegInfo.ts';
+import { runtimeCapabilities } from './EtvNextForkSettings.ts';
 import { OnDemandChannelService } from '../../services/OnDemandChannelService.ts';
 import { isNonEmptyString } from '../../util/index.ts';
 import { InjectLogger } from '../../util/inject.ts';
@@ -239,6 +241,9 @@ export class EtvNextPlayoutWriter {
     @inject(StreamSelector) private streamSelector: StreamSelector,
     @inject(WatermarkResolver) private watermarkResolver: WatermarkResolver,
     @inject(CreditSqueezeAdPlanner) private creditAds: CreditSqueezeAdPlanner,
+    // Fork: the configured FFmpeg, which the worker runs, for capability gates.
+    @inject(FfmpegInfo)
+    private ffmpegInfo?: Pick<FfmpegInfo, 'getCapabilities'>,
   ) {}
 
   /**
@@ -931,6 +936,27 @@ export class EtvNextPlayoutWriter {
             code: 'credit_squeeze_unavailable',
             message:
               'Credit squeeze requires VAAPI transcoding and final-credit skipping disabled.',
+            firstSeen: Date.now(),
+          },
+        ],
+      };
+      creditSqueeze = undefined;
+    }
+    // The worker's squeeze joins the picture with the concat filter's
+    // preserve_ts patch, as Tunarr's own pipeline does.
+    if (
+      creditSqueeze &&
+      (await runtimeCapabilities(this.ffmpegInfo))
+        ?.preservesConcatTimestamps === false
+    ) {
+      selection = {
+        ...selection,
+        degradations: [
+          ...(selection?.degradations ?? []),
+          {
+            code: 'credit_squeeze_unavailable',
+            message:
+              'Credit squeeze needs an FFmpeg whose concat filter has preserve_ts; this one does not, so the credits play full-screen.',
             firstSeen: Date.now(),
           },
         ],

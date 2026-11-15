@@ -17,6 +17,7 @@ import { EtvNextPlayoutWriter } from '@/stream/etv/EtvNextPlayoutWriter.js';
 import type { EtvNextSessionProvider } from '@/stream/etv/EtvNextSession.js';
 import { EtvNextSession } from '@/stream/etv/EtvNextSession.js';
 import { EtvNextTroubleshootRunner } from '@/stream/etv/EtvNextTroubleshootRunner.js';
+import { FfmpegInfo } from '@/ffmpeg/ffmpegInfo.js';
 import { autoFactoryKey, KEYS } from '@/types/inject.js';
 import type { ContainerModuleLoadOptions, Factory } from 'inversify';
 import { ContainerModule } from 'inversify';
@@ -88,6 +89,7 @@ const configure = ({ bind }: ContainerModuleLoadOptions) => {
         ctx.get(FeatureFlagService),
         ctx.get(EtvNextDynamicTokenRegistry),
         ctx.get<IChannelDB>(KEYS.ChannelDB),
+        ctx.get(FfmpegInfo),
       );
     };
   });
@@ -99,6 +101,10 @@ const configure = ({ bind }: ContainerModuleLoadOptions) => {
           ctx.get(EtvNextBinaryResolver),
           ctx.get(EtvNextPlayoutWriter),
           ctx.get(ChildProcessHelper),
+          {
+            // Resolved per run: FfmpegInfo follows the configured path.
+            getCapabilities: () => ctx.get(FfmpegInfo).getCapabilities(),
+          },
         ),
     )
     .inSingletonScope();
