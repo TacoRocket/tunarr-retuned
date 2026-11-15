@@ -16,6 +16,7 @@ import {
 } from '../services/subtitles/SubtitleCache.ts';
 import type { IFillerListDB } from '../db/interfaces/IFillerListDB.ts';
 import { StreamSelectionProfileResolver } from '../services/StreamSelectionProfileResolver.ts';
+import { runWithStreamSelectionMemo } from '../services/streamSelectionRunMemo.ts';
 import dayjs from 'dayjs';
 import { Mutex } from 'async-mutex';
 import { inject, injectable } from 'inversify';
@@ -259,8 +260,14 @@ export class SubtitleExtractorTask extends Task2<
     const filter = request.filter ?? defaultFilter;
     switch (filter.type) {
       case 'time':
-        return this.profileResolver.withRememberedProfiles(() =>
-          this.handleTimeFilter(filter),
+        return runWithStreamSelectionMemo(
+          () => this.handleTimeFilter(filter),
+          ({ asked, read }) =>
+            this.logger.info(
+              'Stream selection lookups: %d asked, %d read from the database',
+              asked,
+              read,
+            ),
         );
       case 'channel':
         this.logger.debug(

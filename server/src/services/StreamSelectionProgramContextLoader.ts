@@ -5,6 +5,7 @@ import type { DrizzleDBAccess } from '../db/schema/index.ts';
 import { ProgramGrouping } from '../db/schema/ProgramGrouping.ts';
 import { KEYS } from '../types/inject.ts';
 import type { StreamSelectionCelContext } from './CelEvaluationService.ts';
+import { rememberForRun } from './streamSelectionRunMemo.ts';
 
 export type StreamSelectionProgramRef = {
   uuid: string;
@@ -24,7 +25,15 @@ export type StreamSelectionProgramRef = {
 export class StreamSelectionProgramContextLoader {
   constructor(@inject(KEYS.DrizzleDB) private drizzle: DrizzleDBAccess) {}
 
-  async load(
+  load(
+    program: StreamSelectionProgramRef,
+  ): Promise<StreamSelectionCelContext['program']> {
+    return rememberForRun(`program-context:${program.uuid}`, () =>
+      this.read(program),
+    );
+  }
+
+  private async read(
     program: StreamSelectionProgramRef,
   ): Promise<StreamSelectionCelContext['program']> {
     const showId =

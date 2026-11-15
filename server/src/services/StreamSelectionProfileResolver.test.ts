@@ -7,6 +7,7 @@ import {
   BuiltInStreamSelectionProfile,
   StreamSelectionProfileResolver,
 } from './StreamSelectionProfileResolver.ts';
+import { runWithStreamSelectionMemo } from './streamSelectionRunMemo.ts';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,24 +79,20 @@ function createResolver(opts: {
         Promise.resolve(profilesById[id])) as never),
   };
 
-  (resolver as unknown as { logger: { info: () => void } }).logger ??= {
-    info: () => {},
-  };
-
   return { resolver, spies };
 }
 
 // ── resolveChain() ──────────────────────────────────────────────────────────
 
 describe('StreamSelectionProfileResolver', () => {
-  describe('withRememberedProfiles', () => {
+  describe('inside a stream selection run', () => {
     it('reads each profile from the database once for the whole run', async () => {
       const { resolver, spies } = createResolver({
         fillerProfile: makeProfile('filler'),
         channelProfile: makeProfile('channel'),
       });
 
-      await resolver.withRememberedProfiles(async () => {
+      await runWithStreamSelectionMemo(async () => {
         for (const channelId of ['ch-1', 'ch-1', 'ch-1', 'ch-2']) {
           await resolver.resolveChain({ channelId, fillerListId: 'filler-1' });
         }
@@ -111,13 +108,29 @@ describe('StreamSelectionProfileResolver', () => {
         channelProfile: makeProfile('channel'),
       });
 
-      await resolver.withRememberedProfiles(() =>
+      await runWithStreamSelectionMemo(() =>
         resolver.resolveChain({ channelId: 'ch-1' }),
       );
       await resolver.resolveChain({ channelId: 'ch-1' });
       await resolver.resolveChain({ channelId: 'ch-1' });
 
       expect(spies.channel).toHaveBeenCalledTimes(3);
+    });
+
+    it('asks again after a read that failed', async () => {
+      const { resolver, spies } = createResolver({
+        channelProfile: makeProfile('channel'),
+      });
+      spies.channel.mockRejectedValueOnce(new Error('database is locked'));
+
+      const chain = await runWithStreamSelectionMemo(async () => {
+        await expect(
+          resolver.resolveChain({ channelId: 'ch-1' }),
+        ).rejects.toThrow('database is locked');
+        return resolver.resolveChain({ channelId: 'ch-1' });
+      });
+
+      expect(chain[0]?.profile.uuid).toBe('channel');
     });
   });
 

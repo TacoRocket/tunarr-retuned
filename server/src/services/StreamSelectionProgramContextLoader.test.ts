@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import tmp from 'tmp-promise';
 import { v4 } from 'uuid';
-import { test as baseTest } from 'vitest';
+import { test as baseTest, vi } from 'vitest';
 import { bootstrapTunarr } from '../bootstrap.ts';
 import { DBAccess } from '../db/DBAccess.ts';
 import { EntityGenre, Genre } from '../db/schema/Genre.ts';
@@ -11,6 +11,7 @@ import { ProgramGrouping } from '../db/schema/ProgramGrouping.ts';
 import { setGlobalOptions } from '../globals.ts';
 import { copyPreMigratedDb } from '../testing/testDbFactory.ts';
 import { StreamSelectionProgramContextLoader } from './StreamSelectionProgramContextLoader.ts';
+import { runWithStreamSelectionMemo } from './streamSelectionRunMemo.ts';
 
 type Fixture = {
   db: string;
@@ -147,5 +148,32 @@ describe('StreamSelectionProgramContextLoader', () => {
     });
 
     expect(context.genres).toEqual([]);
+  });
+
+  test('loads a program’s details once inside a stream selection run', async ({
+    drizzle,
+    loader,
+  }) => {
+    const programId = await insertProgram(drizzle, {
+      type: 'movie',
+      title: 'Akira',
+    });
+    await insertGenre(drizzle, 'Anime', { programId });
+    const program = { uuid: programId, title: 'Akira', type: 'movie' };
+    const reads = vi.spyOn(drizzle, 'selectDistinct');
+
+    const contexts = await runWithStreamSelectionMemo(async () => [
+      await loader.load(program),
+      await loader.load(program),
+    ]);
+
+    expect(reads).toHaveBeenCalledTimes(1);
+    expect(contexts.map((context) => context.genres)).toEqual([
+      ['Anime'],
+      ['Anime'],
+    ]);
+
+    await loader.load(program);
+    expect(reads).toHaveBeenCalledTimes(2);
   });
 });
