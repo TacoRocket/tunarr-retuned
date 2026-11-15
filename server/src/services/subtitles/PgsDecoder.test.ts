@@ -111,3 +111,78 @@ it('decodes a palette with no colors as a blank cue instead of failing the track
   const { pixels } = renderPgs(cue!);
   expect(pixels.every((value) => value === 0)).toBe(true);
 });
+
+it("keeps a palette's colors when an update in the same epoch lists none", () => {
+  // FFmpeg's decoder updates only the entries a palette segment lists. White
+  // text is defined on palette 0, the next display sends palette 0 with no
+  // entries, and the one after reuses it: all three must stay visible, or
+  // OCR silently skips those captions.
+  const segment = (kind: number, hex: string) => {
+    const data = Buffer.from(hex, 'hex');
+    return Buffer.concat([Buffer.from([kind, 0, data.length]), data]);
+  };
+  // State 0x80 starts an epoch (palettes and objects reset); 0x00 is normal.
+  // Size 20x40, composition 0, the state, no palette-only update, palette 0,
+  // and the two objects of the fade fixture above.
+  const composition = (state: string) =>
+    `00140028000000${state}000002` + '00000000000a0014' + '00010000000b0014';
+  const display = (ms: number, ...segments: Buffer[]) => ({
+    timestampNs: BigInt(ms) * 1_000_000n,
+    durationNs: null,
+    data: Buffer.concat([...segments, segment(0x80, '')]),
+  });
+  const blocks = [
+    display(
+      0,
+      segment(0x16, composition('80')),
+      segment(0x14, '0000001080800001eb8080ff027e8080ff'),
+      segment(0x15, '000000c0000009000300010083010000'),
+      segment(0x15, '000100c000000a00020001008100020000'),
+    ),
+    display(1000, segment(0x16, composition('00')), segment(0x14, '0001')),
+    display(2000, segment(0x16, composition('00'))),
+    // No objects: clears the screen.
+    display(3000, segment(0x16, '0014002800000000000000')),
+  ];
+  const cues = decodePgs(blocks).filter((cue) => cue.placements.length > 0);
+  expect(cues.length).toBeGreaterThan(0);
+  expect(cues[0]?.startMs).toBe(0);
+  expect(cues.at(-1)?.endMs).toBe(3000);
+  for (const cue of cues) {
+    expect(renderPgs(cue).pixels).toEqual(
+      Buffer.from([255, 255, 255, 255, 255, 255, 255, 255, 128, 128, 128, 255]),
+    );
+  }
+});
+
+it('a palette first defined with no colors after an epoch reset stays transparent', () => {
+  const segment = (kind: number, hex: string) => {
+    const data = Buffer.from(hex, 'hex');
+    return Buffer.concat([Buffer.from([kind, 0, data.length]), data]);
+  };
+  const withColors = {
+    timestampNs: 0n,
+    durationNs: null,
+    data: Buffer.concat([
+      segment(0x16, '001400280000008000000100000000000a0014'),
+      segment(0x14, '0000001080800001eb8080ff'),
+      segment(0x15, '000000c0000009000300010083010000'),
+      segment(0x80, ''),
+    ]),
+  };
+  // A new epoch resets palette 0, so its empty definition has nothing to keep.
+  const resetEmpty = {
+    timestampNs: 1_000_000_000n,
+    durationNs: 1_000_000_000n,
+    data: Buffer.concat([
+      segment(0x16, '001400280000018000000100000000000a0014'),
+      segment(0x14, '0000'),
+      segment(0x15, '000000c0000009000300010083010000'),
+      segment(0x80, ''),
+    ]),
+  };
+  const cues = decodePgs([withColors, resetEmpty]);
+  const last = cues.at(-1)!;
+  expect(last.startMs).toBe(1000);
+  expect(renderPgs(last).pixels.every((value) => value === 0)).toBe(true);
+});
