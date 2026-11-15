@@ -106,6 +106,24 @@ describe('StreamSelectionProfileResolver', () => {
       expect(spies.byId).toHaveBeenCalledTimes(1);
     });
 
+    it('counts a failed database read and its retry in the run summary', async () => {
+      const { resolver, spies } = createResolver({});
+      const info = vi.spyOn(resolver['logger'], 'info');
+      const error = new Error('channel lookup failed');
+      spies.channel.mockRejectedValueOnce(error);
+      const context = { channelId: 'ch-1' };
+
+      await resolver.withRememberedProfiles(async () => {
+        await expect(resolver.resolveChain(context)).rejects.toBe(error);
+        await resolver.resolveChain(context);
+        await resolver.resolveChain(context);
+      });
+
+      expect(spies.channel).toHaveBeenCalledTimes(2);
+      expect(spies.byId).toHaveBeenCalledTimes(1);
+      expect(info).toHaveBeenCalledWith(expect.any(String), 5, 3);
+    });
+
     it('reads the database again once the run has ended', async () => {
       const { resolver, spies } = createResolver({
         channelProfile: makeProfile('channel'),

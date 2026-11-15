@@ -59,6 +59,7 @@ type ProfileLookup = Promise<StreamSelectionProfile | undefined>;
 type RememberedProfiles = {
   lookups: Map<string, ProfileLookup>;
   asked: number;
+  readAttempts: number;
 };
 
 const profileColumns = {
@@ -91,14 +92,18 @@ export class StreamSelectionProfileResolver {
    * next run.
    */
   async withRememberedProfiles<T>(fn: () => Promise<T>): Promise<T> {
-    const remembered: RememberedProfiles = { lookups: new Map(), asked: 0 };
+    const remembered: RememberedProfiles = {
+      lookups: new Map(),
+      asked: 0,
+      readAttempts: 0,
+    };
     try {
       return await this.#remembered.run(remembered, fn);
     } finally {
       this.logger.info(
-        'Stream selection profile lookups: %d asked, %d read from the database',
+        'Stream selection profile lookups: %d asked, %d database read attempts',
         remembered.asked,
-        remembered.lookups.size,
+        remembered.readAttempts,
       );
     }
   }
@@ -113,6 +118,7 @@ export class StreamSelectionProfileResolver {
     if (known) {
       return known;
     }
+    remembered.readAttempts++;
     const lookup = read();
     remembered.lookups.set(key, lookup);
     // A failed read is asked again rather than remembered.
