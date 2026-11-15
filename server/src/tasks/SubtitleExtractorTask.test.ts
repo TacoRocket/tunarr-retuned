@@ -322,6 +322,7 @@ function makeHarness(opts: {
       anyProfileMayPickSubtitles: () =>
         Promise.resolve(opts.anyProfileMayPickSubtitles ?? true),
       mayPickSubtitles,
+      withRememberedProfiles: <T>(fn: () => Promise<T>) => fn(),
       fillerListMayPickSubtitles,
     } as never,
     {

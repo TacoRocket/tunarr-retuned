@@ -78,12 +78,49 @@ function createResolver(opts: {
         Promise.resolve(profilesById[id])) as never),
   };
 
+  (resolver as unknown as { logger: { info: () => void } }).logger ??= {
+    info: () => {},
+  };
+
   return { resolver, spies };
 }
 
 // ── resolveChain() ──────────────────────────────────────────────────────────
 
 describe('StreamSelectionProfileResolver', () => {
+  describe('withRememberedProfiles', () => {
+    it('reads each profile from the database once for the whole run', async () => {
+      const { resolver, spies } = createResolver({
+        fillerProfile: makeProfile('filler'),
+        channelProfile: makeProfile('channel'),
+      });
+
+      await resolver.withRememberedProfiles(async () => {
+        for (const channelId of ['ch-1', 'ch-1', 'ch-1', 'ch-2']) {
+          await resolver.resolveChain({ channelId, fillerListId: 'filler-1' });
+        }
+      });
+
+      expect(spies.filler).toHaveBeenCalledTimes(1);
+      expect(spies.channel).toHaveBeenCalledTimes(2);
+      expect(spies.byId).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads the database again once the run has ended', async () => {
+      const { resolver, spies } = createResolver({
+        channelProfile: makeProfile('channel'),
+      });
+
+      await resolver.withRememberedProfiles(() =>
+        resolver.resolveChain({ channelId: 'ch-1' }),
+      );
+      await resolver.resolveChain({ channelId: 'ch-1' });
+      await resolver.resolveChain({ channelId: 'ch-1' });
+
+      expect(spies.channel).toHaveBeenCalledTimes(3);
+    });
+  });
+
   describe('resolveChain', () => {
     it('orders profiles from most to least specific', async () => {
       const program = makeProfile('program');

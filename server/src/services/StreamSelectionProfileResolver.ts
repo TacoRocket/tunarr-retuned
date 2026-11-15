@@ -5,6 +5,7 @@ import type {
 import { BuiltInStreamSelectionProfileId } from '@tunarr/types/schemas';
 import { eq } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ISettingsDB } from '../db/interfaces/ISettingsDB.ts';
 import { Channel } from '../db/schema/Channel.ts';
 import { CustomShow } from '../db/schema/CustomShow.ts';
@@ -53,6 +54,13 @@ function profileMayPickSubtitles(
   return profile.rules.some((rule) => rule.subtitleAction.type !== 'disable');
 }
 
+type ProfileLookup = Promise<StreamSelectionProfile | undefined>;
+
+type RememberedProfiles = {
+  lookups: Map<string, ProfileLookup>;
+  asked: number;
+};
+
 const profileColumns = {
   uuid: StreamSelectionProfileTable.uuid,
   name: StreamSelectionProfileTable.name,
@@ -64,10 +72,53 @@ const profileColumns = {
 export class StreamSelectionProfileResolver {
   @InjectLogger() declare private readonly logger: Logger;
 
+  #remembered = new AsyncLocalStorage<RememberedProfiles>();
+
   constructor(
     @inject(KEYS.DrizzleDB) private drizzle: DrizzleDBAccess,
     @inject(KEYS.SettingsDB) private settingsDB: ISettingsDB,
   ) {}
+
+  /**
+   * Runs `fn` with each profile lookup answered from the database once and
+   * remembered until `fn` settles.
+   *
+   * PROBE: subtitle lookahead resolves a chain for every filler clip on every
+   * channel, about 150,000 chain resolutions an hour on a 33-channel install,
+   * each up to five single-row reads for the same few dozen answers. Nothing
+   * outside `fn` sees remembered answers, so playback still reads the
+   * database every time. A profile edited while `fn` runs is picked up by the
+   * next run.
+   */
+  async withRememberedProfiles<T>(fn: () => Promise<T>): Promise<T> {
+    const remembered: RememberedProfiles = { lookups: new Map(), asked: 0 };
+    try {
+      return await this.#remembered.run(remembered, fn);
+    } finally {
+      this.logger.info(
+        'Stream selection profile lookups: %d asked, %d read from the database',
+        remembered.asked,
+        remembered.lookups.size,
+      );
+    }
+  }
+
+  private lookup(key: string, read: () => ProfileLookup): ProfileLookup {
+    const remembered = this.#remembered.getStore();
+    if (!remembered) {
+      return read();
+    }
+    remembered.asked++;
+    const known = remembered.lookups.get(key);
+    if (known) {
+      return known;
+    }
+    const lookup = read();
+    remembered.lookups.set(key, lookup);
+    // A failed read is asked again rather than remembered.
+    lookup.catch(() => remembered.lookups.delete(key));
+    return lookup;
+  }
 
   /**
    * Returns every profile that applies to the context, from most to least
@@ -93,10 +144,13 @@ export class StreamSelectionProfileResolver {
       chain.push({ level, sourceId, profile });
     };
 
-    if (ctx.programId) {
+    const { programId, fillerListId, customShowId, channelId } = ctx;
+    if (programId) {
       push(
         'program',
-        await this.getProfileForProgram(ctx.programId),
+        await this.lookup(`program:${programId}`, () =>
+          this.getProfileForProgram(programId),
+        ),
         ctx.programId,
       );
     }
@@ -111,30 +165,38 @@ export class StreamSelectionProfileResolver {
       );
     }
 
-    if (ctx.fillerListId) {
+    if (fillerListId) {
       push(
         'filler',
-        await this.getProfileForFillerList(ctx.fillerListId),
+        await this.lookup(`filler:${fillerListId}`, () =>
+          this.getProfileForFillerList(fillerListId),
+        ),
         ctx.fillerListId,
       );
-    } else if (ctx.customShowId) {
+    } else if (customShowId) {
       push(
         'custom_show',
-        await this.getProfileForCustomShow(ctx.customShowId),
+        await this.lookup(`custom_show:${customShowId}`, () =>
+          this.getProfileForCustomShow(customShowId),
+        ),
         ctx.customShowId,
       );
     }
 
     push(
       'channel',
-      await this.getProfileForChannel(ctx.channelId),
+      await this.lookup(`channel:${channelId}`, () =>
+        this.getProfileForChannel(channelId),
+      ),
       ctx.channelId,
     );
 
     const defaultProfileId =
       this.settingsDB.streamSelectionSettings().defaultProfileId;
     if (defaultProfileId !== BuiltInStreamSelectionProfileId) {
-      const defaultProfile = await this.getProfileById(defaultProfileId);
+      const defaultProfile = await this.lookup(`id:${defaultProfileId}`, () =>
+        this.getProfileById(defaultProfileId),
+      );
       if (!defaultProfile) {
         this.logger.warn(
           'Default stream selection profile %s does not exist; falling back to the built-in profile',
@@ -146,8 +208,9 @@ export class StreamSelectionProfileResolver {
 
     push(
       'built_in',
-      (await this.getProfileById(BuiltInStreamSelectionProfileId)) ??
-        BuiltInStreamSelectionProfile,
+      (await this.lookup(`id:${BuiltInStreamSelectionProfileId}`, () =>
+        this.getProfileById(BuiltInStreamSelectionProfileId),
+      )) ?? BuiltInStreamSelectionProfile,
     );
 
     return chain;

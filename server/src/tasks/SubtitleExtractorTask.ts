@@ -259,7 +259,9 @@ export class SubtitleExtractorTask extends Task2<
     const filter = request.filter ?? defaultFilter;
     switch (filter.type) {
       case 'time':
-        return this.handleTimeFilter(filter);
+        return this.profileResolver.withRememberedProfiles(() =>
+          this.handleTimeFilter(filter),
+        );
       case 'channel':
         this.logger.debug(
           'Subtitle extraction filter type %s not yet implemented',
