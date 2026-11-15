@@ -451,16 +451,17 @@ export default function FfmpegSettingsPage() {
                       </Trans>
                     </MenuItem>
                     <MenuItem value="all_english">
-                      <Trans>An English copy for every upcoming program</Trans>
+                      <Trans>Prepare English for every eligible program</Trans>
                     </MenuItem>
                   </Select>
                 )}
               />
               <FormHelperText>
                 <Trans>
-                  "Every upcoming program" prepares a plain English copy even
-                  when a channel's subtitle preferences would choose another
-                  track.
+                  An upcoming program qualifies when its applicable
+                  stream-selection profile allows subtitles. Tunarr can prepare
+                  a plain English copy even if that profile would choose a
+                  different track for playback.
                 </Trans>
               </FormHelperText>
             </FormControl>
