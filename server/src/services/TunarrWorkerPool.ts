@@ -20,11 +20,7 @@ import type {
   WorkerRequestToResponse,
 } from '../types/worker_schemas.ts';
 import { WorkerMessage } from '../types/worker_schemas.ts';
-import {
-  getNumericEnvVar,
-  WORKER_IDLE_TIMEOUT_ENV_VAR,
-  WORKER_POOL_SIZE_ENV_VAR,
-} from '../util/env.ts';
+import { getNumericEnvVar, WORKER_POOL_SIZE_ENV_VAR } from '../util/env.ts';
 import { timeoutPromise } from '../util/index.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
@@ -40,7 +36,9 @@ const numWorkers = envVarSetting ?? Math.min(cpuCount, MAX_WORKERS);
 // An exclusive OCR slot preserves scheduling capacity even with one worker.
 const OCR_WORKER_INDEX = numWorkers;
 const OCR_CANCEL_GRACE_MS = 30_000;
-const OCR_IDLE_TIMEOUT_MS = 60_000;
+// Scheduling workers and the OCR worker start when a job needs one and are
+// retired after this long with no outstanding jobs.
+const IDLE_WORKER_TIMEOUT_MS = 60_000;
 
 // A worker that dies is respawned, but a worker that cannot start at all —
 // a broken bundle, a bad entry path — would otherwise be respawned in a tight
@@ -138,7 +136,7 @@ class Future<T> implements Promise<T> {
   }
 }
 
-type State = 'pending' | 'starting' | 'started' | 'terminating';
+type State = 'pending' | 'started' | 'terminating';
 
 @injectable()
 export class TunarrWorkerPool implements IWorkerPool {
@@ -148,19 +146,13 @@ export class TunarrWorkerPool implements IWorkerPool {
     numWorkers + 1,
   ).fill(undefined);
   #consecutiveRestarts: number[] = Array<number>(numWorkers + 1).fill(0);
-  #last = 0;
   #listeners = new Map<string, Future<unknown>>();
   #cancellations = new Map<string, () => void>();
   #progress = new Map<string, (message: string) => void>();
   #outstandingByIndex = new Map<number, string[]>();
-  #startPromises: Promise<boolean>[] = [];
   #startRequested = new Future<void>();
   #restartTimers = new Map<number, NodeJS.Timeout>();
   #generation = 0;
-  readonly #idleTimeout = Math.max(
-    0,
-    getNumericEnvVar(WORKER_IDLE_TIMEOUT_ENV_VAR) ?? 0,
-  );
 
   @InjectLogger() declare private readonly logger: Logger;
 
@@ -169,59 +161,24 @@ export class TunarrWorkerPool implements IWorkerPool {
     private subprocessService: TunarrSubprocessService,
   ) {}
 
-  start(options: { scheduling?: boolean } = {}) {
+  // Every pool starts its workers on demand, so `scheduling: false` (the
+  // OCR-only pool) needs no separate path.
+  start(_options: { scheduling?: boolean } = {}) {
     if (this.#state !== 'pending') {
       return;
     }
-    // Not 'pending' — that is the value just tested for, so assigning it back
-    // left the guard inert and the "already starting" state unreachable. The
-    // pool only reached 'started' an await boundary later, and a second
-    // start() inside that window built an entire second set of workers over
-    // the first: the originals were orphaned while queueTask round-robined
-    // over a half-replaced pool.
-    this.#state = 'starting';
-    const generation = ++this.#generation;
+    // Workers start when a job needs one, so the pool is usable as soon as
+    // this returns, and a second start() is a no-op.
+    this.#state = 'started';
+    this.#generation++;
     this.#consecutiveRestarts.fill(0);
     this.logger.info('Starting worker pool...');
-    if (this.#idleTimeout > 0 || options.scheduling === false) {
-      this.#startPromises = [];
-      this.#state = 'started';
-      this.#startRequested.resolve();
-      this.logger.info(
-        'Worker pool starts on demand, up to %d scheduling workers plus one exclusive OCR worker, idle timeout %d ms',
-        numWorkers,
-        this.#idleTimeout,
-      );
-      return;
-    }
-    // Replaced rather than appended to. Pushing meant a pool restarted after
-    // a shutdown kept the previous run's promises, so allReady() awaited —
-    // and re-threw for — workers that had already been terminated.
-    const startPromises = new Array<Promise<boolean>>();
-    for (let i = 0; i < numWorkers; i++) {
-      startPromises.push(this.setupWorker(i));
-    }
-    this.#startPromises = startPromises;
     this.#startRequested.resolve();
-    Promise.all(startPromises)
-      .then(() => {
-        if (generation !== this.#generation) return;
-        this.logger.debug(
-          'Worker pool successfully started %d workers',
-          numWorkers,
-        );
-        this.#state = 'started';
-      })
-      .catch((err: unknown) => {
-        // Deliberately not reset to 'pending'. Some workers may have come up,
-        // and a second start() over them would orphan those. shutdown() is
-        // the defined way back to a startable state.
-        this.logger.error(
-          err,
-          'Worker pool failed to start all %d workers',
-          numWorkers,
-        );
-      });
+    this.logger.info(
+      'Worker pool starts on demand, up to %d scheduling workers plus one exclusive OCR worker, idle timeout %d ms',
+      numWorkers,
+      IDLE_WORKER_TIMEOUT_MS,
+    );
   }
 
   async shutdown(timeout: number = 5_000) {
@@ -266,8 +223,6 @@ export class TunarrWorkerPool implements IWorkerPool {
   async allReady() {
     // Guide startup can request OCR before StartupService starts the pool.
     await this.#startRequested;
-    await Promise.all(this.#startPromises);
-    return;
   }
 
   async queueTask<
@@ -295,13 +250,7 @@ export class TunarrWorkerPool implements IWorkerPool {
           throw new Error('Worker pool is not running');
         }
         const idx =
-          request.type === 'pgs-ocr'
-            ? OCR_WORKER_INDEX
-            : this.#idleTimeout === 0
-              ? this.#last
-              : this.selectWorker();
-        if (request.type !== 'pgs-ocr')
-          this.#last = (this.#last + 1) % numWorkers;
+          request.type === 'pgs-ocr' ? OCR_WORKER_INDEX : this.selectWorker();
         if (
           request.type === 'pgs-ocr' &&
           (this.#outstandingByIndex.get(idx)?.length ?? 0) > 0
@@ -309,10 +258,7 @@ export class TunarrWorkerPool implements IWorkerPool {
           throw new Error(
             'The OCR worker is busy; retry after its current job finishes',
           );
-        if (
-          (this.#idleTimeout > 0 || idx === OCR_WORKER_INDEX) &&
-          this.#pool[idx] === undefined
-        ) {
+        if (this.#pool[idx] === undefined) {
           const starting = this.setupWorker(idx);
           const startingWorker = this.#pool.at(idx);
           try {
@@ -447,12 +393,7 @@ export class TunarrWorkerPool implements IWorkerPool {
 
   private retireWhenIdle(idx: number, pooled: PooledWorker) {
     clearTimeout(pooled.idleTimer);
-    const idleTimeout =
-      idx === OCR_WORKER_INDEX
-        ? this.#idleTimeout || OCR_IDLE_TIMEOUT_MS
-        : this.#idleTimeout;
     if (
-      idleTimeout === 0 ||
       this.#state === 'terminating' ||
       (this.#outstandingByIndex.get(idx)?.length ?? 0) > 0
     )
@@ -470,7 +411,7 @@ export class TunarrWorkerPool implements IWorkerPool {
       pooled.worker.terminate().catch((error: unknown) => {
         this.logger.error(error, 'Failed to retire idle worker %d', idx);
       });
-    }, idleTimeout).unref();
+    }, IDLE_WORKER_TIMEOUT_MS).unref();
   }
 
   private timeOutTask(

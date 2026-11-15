@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, test, vi } from 'vitest';
 // container.ts and TunarrWorkerPool.ts import each other. Entering the graph at
 // the pool leaves the class in its temporal dead zone when the container tries
 // to bind it, so the container has to be the entry point.
@@ -65,10 +65,12 @@ function makeSubprocessService() {
   };
 }
 
-const tick = () => new Promise((resolve) => setImmediate(resolve));
+// The pool reads its size once, when its module loads, so this runs before the
+// imports. Two workers keeps the tests independent of the host's CPU count.
+vi.hoisted(() => vi.stubEnv('TUNARR_WORKER_POOL_SIZE', '2'));
+afterAll(() => vi.unstubAllEnvs());
 
-beforeEach(() => vi.stubEnv('TUNARR_WORKER_IDLE_TIMEOUT_MS', undefined));
-afterEach(() => vi.unstubAllEnvs());
+const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 describe('TunarrWorkerPool', () => {
   test('startup OCR waits until the pool has been started', async () => {
@@ -97,81 +99,6 @@ describe('TunarrWorkerPool', () => {
     ).resolves.toBeDefined();
     await pool.shutdown();
   });
-
-  /**
-   * `start()` guarded on `#state !== 'pending'` and then assigned
-   * `#state = 'pending'` — it rewrote the one value that passes the check as
-   * itself, so the "already starting" state was never entered. `#state` only
-   * became 'started' inside the `.then()` of the `Promise.all`, an await
-   * boundary later, leaving a window in which a second `start()` built a whole
-   * second set of workers over the first: the originals were orphaned while
-   * `queueTask` round-robined over a half-replaced pool.
-   */
-  test('a second start() while the first is in flight does not build a second pool', async () => {
-    const once = makeSubprocessService();
-    const poolOnce = new TunarrWorkerPool(once.service);
-    poolOnce.start();
-    await poolOnce.allReady();
-    const expected = once.createWorker.mock.calls.length;
-    expect(expected).toBeGreaterThan(0);
-
-    const twice = makeSubprocessService();
-    const poolTwice = new TunarrWorkerPool(twice.service);
-    poolTwice.start();
-    poolTwice.start();
-    await poolTwice.allReady();
-
-    expect(twice.createWorker).toHaveBeenCalledTimes(expected);
-  });
-
-  /**
-   * `#startPromises` was only ever pushed to, never reset. After a failed
-   * startup and a shutdown, a fresh `start()` appended to the same array, so
-   * `allReady()` kept awaiting — and re-throwing — the previous run's already
-   * terminated workers.
-   */
-  test('a fresh start() does not await the previous run of workers', async () => {
-    const subprocess = makeSubprocessService();
-    subprocess.spawnHealthy = false;
-    const pool = new TunarrWorkerPool(subprocess.service);
-
-    pool.start();
-    await tick();
-    subprocess.created.forEach((worker) => worker.emit('exit', 1));
-    await expect(pool.allReady()).rejects.toThrow();
-
-    await pool.shutdown(100);
-
-    subprocess.spawnHealthy = true;
-    pool.start();
-
-    await expect(pool.allReady()).resolves.toBeUndefined();
-  });
-
-  /**
-   * A failed startup went to `console.error` rather than the logger, so it was
-   * absent from the log files that users actually send in.
-   */
-  test('a failed startup is reported through the logger, not console', async () => {
-    const subprocess = makeSubprocessService();
-    subprocess.spawnHealthy = false;
-    const pool = new TunarrWorkerPool(subprocess.service);
-
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-
-    pool.start();
-    await tick();
-    subprocess.created.forEach((worker) => worker.emit('exit', 1));
-    await expect(pool.allReady()).rejects.toThrow();
-    await tick();
-
-    expect(consoleError).not.toHaveBeenCalled();
-
-    consoleError.mockRestore();
-    await pool.shutdown(100);
-  });
 });
 
 describe('TunarrWorkerPool task timeouts', () => {
@@ -181,16 +108,19 @@ describe('TunarrWorkerPool task timeouts', () => {
     await Promise.all(pools.splice(0).map((pool) => pool.shutdown(100)));
   });
 
+  /** Starts a pool and runs one job, leaving one idle scheduling worker. */
   async function startedPool() {
     const subprocess = makeSubprocessService();
     const pool = new TunarrWorkerPool(subprocess.service);
     pools.push(pool);
     pool.start();
     await pool.allReady();
+    await pool.queueTask({ type: 'status' });
     const [first] = subprocess.created;
     if (first === undefined) {
       throw new Error('The pool started no workers');
     }
+    first.postMessage.mockClear();
     return { subprocess, pool, first };
   }
 
@@ -203,7 +133,7 @@ describe('TunarrWorkerPool task timeouts', () => {
       /timeout/i,
     );
 
-    // One task per slot, so the timed-out worker's slot is used again.
+    // The hung worker is replaced, so later tasks do not wait behind it.
     for (let i = 0; i < workerCount; i++) {
       await expect(pool.queueTask({ type: 'status' }, 5_000)).resolves.toEqual({
         type: 'status',
@@ -211,6 +141,7 @@ describe('TunarrWorkerPool task timeouts', () => {
       });
     }
 
+    expect(first.postMessage).toHaveBeenCalledOnce();
     expect(first.terminate).toHaveBeenCalledTimes(1);
     expect(subprocess.createWorker).toHaveBeenCalledTimes(workerCount + 1);
   }, 15_000);
@@ -297,7 +228,9 @@ describe('TunarrWorkerPool task timeouts', () => {
         status: 'healthy',
       });
       const controller = new AbortController();
-      vi.useFakeTimers();
+      // The warm-up job armed the first worker's idle timer before the clock
+      // was faked; let the fake clock clear that real timer.
+      vi.useFakeTimers({ shouldClearNativeTimers: true });
       try {
         const ocr = pool.queueTask(
           ocrRequest,
@@ -345,7 +278,8 @@ describe('TunarrWorkerPool task timeouts', () => {
         });
         await vi.advanceTimersByTimeAsync(60_000);
         expect(replacement.terminate).toHaveBeenCalledTimes(1);
-        expect(first.terminate).not.toHaveBeenCalled();
+        // Idle scheduling workers retire on the same one-minute clock.
+        expect(first.terminate).toHaveBeenCalledTimes(1);
       } finally {
         vi.useRealTimers();
       }
@@ -354,21 +288,30 @@ describe('TunarrWorkerPool task timeouts', () => {
 
   test('tasks queued behind a timed-out task are released', async () => {
     const { subprocess, pool, first } = await startedPool();
-    const workerCount = subprocess.created.length;
     first.hang = true;
+    subprocess.spawnBusy = true;
 
-    // Round-robin from slot 0 puts `timedOut` on the hung worker, `others` on
-    // the remaining slots, and `queuedBehind` back on the hung worker.
+    // With both workers busy, `queuedBehind` goes to the least loaded one,
+    // which is the hung worker in slot 0.
     const timedOut = pool.queueTask({ type: 'status' }, 50);
-    const others = Array.from({ length: workerCount - 1 }, () =>
-      pool.queueTask({ type: 'status' }, 5_000),
-    );
+    const other = pool.queueTask({ type: 'status' }, 5_000);
     const queuedBehind = pool.queueTask({ type: 'status' }, 10_000);
+    await vi.waitFor(() => {
+      expect(first.postMessage).toHaveBeenCalledTimes(2);
+      expect(subprocess.created[1]?.postMessage).toHaveBeenCalledOnce();
+    });
+    const second = subprocess.created[1]!;
+    const [request] = second.postMessage.mock.calls[0]!;
+    second.emit('message', {
+      type: 'success',
+      requestId: request.requestId,
+      data: { type: 'status', status: 'healthy' },
+    });
 
     await Promise.all([
       expect(timedOut).rejects.toThrow(/timeout/i),
       expect(queuedBehind).rejects.toThrow(/exited/i),
-      expect(Promise.all(others)).resolves.toHaveLength(workerCount - 1),
+      expect(other).resolves.toEqual({ type: 'status', status: 'healthy' }),
     ]);
     expect(first.postMessage).toHaveBeenCalledTimes(2);
   }, 10_000);
@@ -397,7 +340,6 @@ describe('TunarrWorkerPool task timeouts', () => {
 
 describe('TunarrWorkerPool on-demand lifecycle', () => {
   test('shutdown cancels a cold job instead of dispatching it after restart', async () => {
-    vi.stubEnv('TUNARR_WORKER_IDLE_TIMEOUT_MS', '60');
     const subprocess = makeSubprocessService();
     subprocess.spawnHealthy = false;
     const pool = new TunarrWorkerPool(subprocess.service);
@@ -416,8 +358,8 @@ describe('TunarrWorkerPool on-demand lifecycle', () => {
     }
   });
 
-  test('allocates for work, retires idle workers, and recreates for the next job', async () => {
-    vi.stubEnv('TUNARR_WORKER_IDLE_TIMEOUT_MS', '30');
+  test('allocates for work, keeps busy workers, retires idle ones after a minute, and recreates for the next job', async () => {
+    vi.useFakeTimers();
     const subprocess = makeSubprocessService();
     const pool = new TunarrWorkerPool(subprocess.service);
     try {
@@ -426,12 +368,15 @@ describe('TunarrWorkerPool on-demand lifecycle', () => {
       await pool.allReady();
       expect(subprocess.created).toHaveLength(0);
       subprocess.spawnBusy = true;
+      // A deadline well past the idle timeout, so only retirement could end
+      // these workers while their jobs run.
       const jobs = [
-        pool.queueTask({ type: 'status' }),
-        pool.queueTask({ type: 'status' }),
+        pool.queueTask({ type: 'status' }, 300_000),
+        pool.queueTask({ type: 'status' }, 300_000),
       ];
-      await vi.waitFor(() => expect(subprocess.created).toHaveLength(2));
-      await new Promise((resolve) => setTimeout(resolve, 60));
+      await vi.advanceTimersByTimeAsync(1);
+      expect(subprocess.created).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(120_000);
       for (const worker of subprocess.created) {
         expect(worker.terminate).not.toHaveBeenCalled();
         const request = worker.postMessage.mock.calls[0]?.[0];
@@ -443,20 +388,25 @@ describe('TunarrWorkerPool on-demand lifecycle', () => {
         });
       }
       await expect(Promise.all(jobs)).resolves.toHaveLength(2);
-      await vi.waitFor(() => {
-        for (const worker of subprocess.created)
-          expect(worker.terminate).toHaveBeenCalledTimes(1);
-      });
+      await vi.advanceTimersByTimeAsync(59_999);
+      for (const worker of subprocess.created)
+        expect(worker.terminate).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      for (const worker of subprocess.created)
+        expect(worker.terminate).toHaveBeenCalledTimes(1);
       // Retiring a worker must not trigger the crash-replacement timer.
-      await new Promise((resolve) => setTimeout(resolve, 1_100));
+      await vi.advanceTimersByTimeAsync(31_000);
       expect(subprocess.created).toHaveLength(2);
       subprocess.spawnBusy = false;
-      await expect(pool.queueTask({ type: 'status' })).resolves.toEqual({
+      const next = pool.queueTask({ type: 'status' });
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(next).resolves.toEqual({
         type: 'status',
         status: 'healthy',
       });
       expect(subprocess.created).toHaveLength(3);
     } finally {
+      vi.useRealTimers();
       await pool.shutdown(100);
     }
   });
