@@ -2,6 +2,7 @@
 // See README.md and LICENSE.SubtitleEdit for provenance.
 import type { Element } from './SelectiveMatroskaReader.ts';
 import { open } from 'node:fs/promises';
+import { inflateSync } from 'node:zlib';
 import {
   Id,
   Reader,
@@ -13,6 +14,52 @@ export type PgsBlock = {
   durationNs: bigint | null;
   data: Buffer;
 };
+
+// Fork: MKVToolNix often stores PGS blocks zlib-compressed. One decoded PGS
+// display set is a few hundred KB at most, so 16 MiB bounds a hostile block.
+const MaxInflatedBlockBytes = 16 * 1024 * 1024;
+
+/**
+ * Fork: the selected track's ContentEncodings (0x6D80). Subtitle Edit, which
+ * this reader is adapted from, inflates zlib-compressed blocks; that is the
+ * one encoding found in practice. Header stripping, encryption and other
+ * algorithms stay unsupported.
+ */
+async function isZlibCompressed(reader: Reader, encodings: Element) {
+  const entries: Element[] = [];
+  for await (const entry of reader.children(encodings)) {
+    if (entry.id === 0x6240) entries.push(entry);
+  }
+  let scope = 1;
+  let type = 0;
+  let algorithm: number | undefined;
+  for await (const field of reader.children(entries[0] ?? encodings)) {
+    if (field.id === 0x5032) scope = await reader.uint(field);
+    if (field.id === 0x5033) type = await reader.uint(field);
+    if (field.id === 0x5034) {
+      algorithm = 0;
+      for await (const setting of reader.children(field)) {
+        if (setting.id === 0x4254) algorithm = await reader.uint(setting);
+      }
+    }
+  }
+  if (entries.length !== 1 || type !== 0 || algorithm !== 0 || !(scope & 1)) {
+    throw new UnsupportedMatroskaError(
+      'Conversion supports unencoded or zlib-compressed PGS tracks only',
+    );
+  }
+  return true;
+}
+
+function inflateBlock(data: Buffer) {
+  try {
+    return inflateSync(data, { maxOutputLength: MaxInflatedBlockBytes });
+  } catch (error) {
+    throw new Error('Could not decompress a zlib-compressed PGS block', {
+      cause: error,
+    });
+  }
+}
 
 export async function readPgsBlocks(
   inputPath: string,
@@ -63,6 +110,7 @@ export async function readPgsBlocks(
     }
     if (timestampScaleNs <= 0n) throw new Error('Invalid timestamp scale');
     let selectedTrack: number | undefined;
+    let compressed = false;
     const mediaTracks = new Set<number>();
     let index = 0;
     for await (const entry of reader.children(tracks)) {
@@ -72,7 +120,7 @@ export async function readPgsBlocks(
       let codec: string | undefined;
       let codecDelay = 0;
       let hasTrackScale = false;
-      let hasEncoding = false;
+      let encodings: Element | undefined;
       for await (const field of reader.children(entry)) {
         if (field.id === Id.trackNumber) number = await reader.uint(field);
         if (field.id === Id.trackType) type = await reader.uint(field);
@@ -82,7 +130,7 @@ export async function readPgsBlocks(
           ).toString('utf8');
         if (field.id === 0x56aa) codecDelay = await reader.uint(field);
         if (field.id === 0x23314f) hasTrackScale = true;
-        if (field.id === 0x6d80) hasEncoding = true;
+        if (field.id === 0x6d80) encodings = field;
       }
       if (number === undefined) throw new Error('Track has no number');
       if (
@@ -95,11 +143,10 @@ export async function readPgsBlocks(
       }
       if (type === 1 || type === 2) mediaTracks.add(number);
       if (index === streamIndex) {
-        if (type !== 17 || codec !== 'S_HDMV/PGS' || hasEncoding) {
-          throw new UnsupportedMatroskaError(
-            'Conversion requires an unencoded PGS track',
-          );
+        if (type !== 17 || codec !== 'S_HDMV/PGS') {
+          throw new UnsupportedMatroskaError('Conversion requires a PGS track');
         }
+        if (encodings) compressed = await isZlibCompressed(reader, encodings);
         selectedTrack = number;
       }
       index++;
@@ -152,14 +199,16 @@ export async function readPgsBlocks(
         if ((bytes.readUInt8(2) & 0x06) !== 0)
           throw new UnsupportedMatroskaError('Laced PGS is unsupported');
         const length = block.end - fixedHeader - 3;
-        payloadBytes += length;
-        clusterPayloadBytes += length;
+        const raw = await reader.read(fixedHeader + 3, length);
+        // The limits count what is kept in memory, so the inflated size.
+        const data = compressed ? inflateBlock(raw) : raw;
+        payloadBytes += data.length;
+        clusterPayloadBytes += data.length;
         if (
           payloadBytes > 256 * 1024 * 1024 ||
           clusterPayloadBytes > 64 * 1024 * 1024
         )
           throw new Error('PGS payload limit exceeded');
-        const data = await reader.read(fixedHeader + 3, length);
         blocks.push({ timestampNs, durationNs, data });
       }
     }
