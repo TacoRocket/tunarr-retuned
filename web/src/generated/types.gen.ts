@@ -3412,6 +3412,9 @@ export type CreateChannelV2Data = {
              * HLS segment container on the ErsatzTV next backend. fmp4 lets a Dolby Vision TV switch into Dolby Vision for passed-through video; mpegts is the default. Has no effect in MPEG-TS stream mode. Omitted updates preserve the saved choice.
              */
             hlsSegmentType?: 'mpegts' | 'fmp4';
+            /**
+             * New channels use ErsatzTV next. Omit this field or set it to true.
+             */
             useEtvNext?: boolean;
             subtitlePreferences?: Array<{
                 langugeCode: string;
@@ -3429,6 +3432,10 @@ export type CreateChannelV2Data = {
     } | {
         type: 'copy';
         channelId: string;
+        /**
+         * Profile for the copy. Omit to keep the source profile. The profile must work with ErsatzTV next.
+         */
+        transcodeConfigId?: string;
     };
     path?: never;
     query?: never;

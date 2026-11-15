@@ -77,6 +77,8 @@ console.log('Bundling app...');
 const result = await esbuild.build({
   entryPoints: {
     bundle: 'src/index.ts',
+    // Scheduling worker threads run this instead of re-executing bundle.cjs.
+    'tunarr-worker': 'src/services/worker/schedulingWorkerEntry.ts',
   },
   outExtension: {
     '.js': '.cjs',

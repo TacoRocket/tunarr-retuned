@@ -137,10 +137,11 @@ export class ChannelDB implements IChannelDB {
 
   copyChannel(
     id: string,
+    transcodeConfigId?: string,
   ): Promise<
     ChannelAndLineup<MarkRequired<ChannelOrmWithRelations, 'fillerShows'>>
   > {
-    return this.basicChannel.copyChannel(id);
+    return this.basicChannel.copyChannel(id, transcodeConfigId);
   }
 
   deleteChannel(

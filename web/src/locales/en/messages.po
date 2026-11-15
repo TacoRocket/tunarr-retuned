@@ -88,6 +88,11 @@ msgstr "{0, plural, one {# Selected Item} other {# Selected Items}}"
 msgid "{0, plural, one {# watching} other {# watching}}"
 msgstr "{0, plural, one {# watching} other {# watching}}"
 
+#. placeholder {0}: result.succeeded
+#: src/components/channels/useChannelBulkActions.ts
+msgid "{0, plural, one {Converted # channel to ErsatzTV next} other {Converted # channels to ErsatzTV next}}"
+msgstr "{0, plural, one {Converted # channel to ErsatzTV next} other {Converted # channels to ErsatzTV next}}"
+
 #. placeholder {0}: currentBackupSchedule!.increment
 #: src/components/settings/general/BackupForm.tsx
 #: src/components/settings/general/LogRollForm.tsx
@@ -158,6 +163,11 @@ msgstr "{0} custom show(s)"
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 msgid "{0} filler list(s)"
 msgstr "{0} filler list(s)"
+
+#. placeholder {0}: channel.name
+#: src/components/channels/useChannelBulkActions.ts
+msgid "{0} follows {source}. Convert {source} to move both."
+msgstr "{0} follows {source}. Convert {source} to move both."
 
 #. placeholder {0}: prettifySnakeCaseString(programType)
 #: src/components/programs/ProgramDetailsDialog.tsx
@@ -860,6 +870,10 @@ msgstr "Amount"
 msgid "An error occurred: {0}"
 msgstr "An error occurred: {0}"
 
+#: src/components/channels/useChannelBulkActions.ts
+msgid "and {more} more"
+msgstr "and {more} more"
+
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
 msgid "answer subtitle requests during preparation"
 msgstr "answer subtitle requests during preparation"
@@ -1268,6 +1282,7 @@ msgstr "Calculating Slots..."
 #: src/components/channels/BulkAssignFillersDialog.tsx
 #: src/components/channels/ChannelDeleteDialog.tsx
 #: src/components/channels/ChannelsDeleteDialog.tsx
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
 #: src/components/DeleteConfirmationDialog.tsx
 #: src/components/fillers/AssignFillerToChannelsDialog.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
@@ -1490,6 +1505,10 @@ msgstr "Checking…"
 msgid "Choose 10 to 200 related shows and movies for the draw."
 msgstr "Choose 10 to 200 related shows and movies for the draw."
 
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "Choose a transcode profile"
+msgstr "Choose a transcode profile"
+
 #: src/pages/settings/MediaSourceSettingsPage.tsx
 msgid "Choose Add → Plex (Auto) or Plex (Manual), then enable a movie or TV library to receive updates."
 msgstr "Choose Add → Plex (Auto) or Plex (Manual), then enable a movie or TV library to receive updates."
@@ -1695,6 +1714,26 @@ msgstr "Continue with New Content"
 #: src/components/slot_scheduler/SlotLinkingControl.tsx
 msgid "Controls what happens when this slot runs out of replayed content from earlier continue slots."
 msgstr "Controls what happens when this slot runs out of replayed content from earlier continue slots."
+
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "Convert"
+msgstr "Convert"
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+#: src/components/channels/ChannelOptionsMenu.tsx
+#: src/components/channels/ChannelsView.tsx
+msgid "Convert to ErsatzTV next"
+msgstr "Convert to ErsatzTV next"
+
+#. placeholder {0}: result.succeeded
+#. placeholder {1}: direct.length
+#: src/components/channels/useChannelBulkActions.ts
+msgid "Converted {0} of {1} channels. These stay on the legacy engine and still play:"
+msgstr "Converted {0} of {1} channels. These stay on the legacy engine and still play:"
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "Converting…"
+msgstr "Converting…"
 
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
 #: src/components/slot_scheduler/RandomSlotTable.tsx
@@ -1902,6 +1941,7 @@ msgstr "Create a Channel"
 msgid "Create a new profile"
 msgstr "Create a new profile"
 
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
 #: src/pages/channels/NewChannelPage.tsx
 msgid "Create a Next-compatible transcode profile to add a channel."
 msgstr "Create a Next-compatible transcode profile to add a channel."
@@ -2312,6 +2352,7 @@ msgid "Draw seed"
 msgstr "Draw seed"
 
 #: src/components/channels/ChannelsView.tsx
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
@@ -2734,6 +2775,10 @@ msgstr "ErsatzTV Next {0}"
 msgid "ErsatzTV next can't encode this format, so channels on ErsatzTV next can't use this profile. AAC or AC-3 work with both playback engines."
 msgstr "ErsatzTV next can't encode this format, so channels on ErsatzTV next can't use this profile. AAC or AC-3 work with both playback engines."
 
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "ErsatzTV next can't play the transcode profile of {channelNames}. Choose one it can play. Everything else about the channel stays the same."
+msgstr "ErsatzTV next can't play the transcode profile of {channelNames}. Choose one it can play. Everything else about the channel stays the same."
+
 #: src/components/channel_config/EditChannelForm.tsx
 msgid "ErsatzTV next can't play this profile."
 msgstr "ErsatzTV next can't play this profile."
@@ -2746,6 +2791,10 @@ msgstr "ErsatzTV next can't play this profile's {0}. Choose another profile, or 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "ErsatzTV next doesn't use these switches."
 msgstr "ErsatzTV next doesn't use these switches."
+
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "ErsatzTV next needs a different profile to play copies of {channelNames}."
+msgstr "ErsatzTV next needs a different profile to play copies of {channelNames}."
 
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
@@ -3570,6 +3619,18 @@ msgstr "is"
 msgid "is not"
 msgstr "is not"
 
+#: src/components/channels/useChannelBulkActions.ts
+msgid "It is still on the legacy engine after saving."
+msgstr "It is still on the legacy engine after saving."
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "It plays {sourceName} later and uses its playback engine. Convert {sourceName} to ErsatzTV next, and this channel moves with it."
+msgstr "It plays {sourceName} later and uses its playback engine. Convert {sourceName} to ErsatzTV next, and this channel moves with it."
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "It plays another channel later and uses that channel's playback engine. Convert that channel to ErsatzTV next, and this channel moves with it."
+msgstr "It plays another channel later and uses that channel's playback engine. Convert that channel to ErsatzTV next, and this channel moves with it."
+
 #: src/components/channel_config/MediaGridItem.tsx
 msgid "Item was not present during the last scan"
 msgstr "Item was not present during the last scan"
@@ -3577,6 +3638,15 @@ msgstr "Item was not present during the last scan"
 #: src/components/channel_config/ChannelFlexConfig.tsx
 msgid "Items from any filler list will not be chosen more frequently than this cooldown setting."
 msgstr "Items from any filler list will not be chosen more frequently than this cooldown setting."
+
+#: src/components/channels/useChannelBulkActions.ts
+#: src/components/channels/useChannelBulkActions.ts
+msgid "its source channel"
+msgstr "its source channel"
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "Its stream mode changes from {nativeOnlyMode} to HLS, which ErsatzTV next plays."
+msgstr "Its stream mode changes from {nativeOnlyMode} to HLS, which ErsatzTV next plays."
 
 #: src/components/settings/media_source/AddMediaSourceButton.tsx
 msgid "Jellyfin"
@@ -4352,6 +4422,10 @@ msgstr "No channels found. Create a channel first."
 msgid "No channels match this filter."
 msgstr "No channels match this filter."
 
+#: src/components/channels/useChannelBulkActions.ts
+msgid "No channels were converted. These stay on the legacy engine and still play:"
+msgstr "No channels were converted. These stay on the legacy engine and still play:"
+
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "No condition"
 msgstr "No condition"
@@ -4626,6 +4700,10 @@ msgstr "Opacity"
 msgid "open"
 msgstr "open"
 
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "Open {sourceName}"
+msgstr "Open {sourceName}"
+
 #. placeholder {0}: capitalize(program.sourceType)
 #: src/components/programs/MediaDetailCard.tsx
 msgid "Open in {0}"
@@ -4634,6 +4712,10 @@ msgstr "Open in {0}"
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 msgid "Open in Troubleshoot"
 msgstr "Open in Troubleshoot"
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "Open source channel"
+msgstr "Open source channel"
 
 #: src/components/ui/patterns/AppShell/CommandPalette.tsx
 msgid "Opens Search"
@@ -6581,6 +6663,11 @@ msgstr "This channel needs a different transcode profile"
 msgid "This channel number has already been used"
 msgstr "This channel number has already been used"
 
+#: src/components/channel_config/LegacyEngineNotice.tsx
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "This channel uses the legacy playback engine"
+msgstr "This channel uses the legacy playback engine"
+
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
 #~ msgid "this channel's profile"
 #~ msgstr "this channel's profile"
@@ -6836,6 +6923,10 @@ msgstr "Transcode Config <0> <1/></0>"
 msgid "Transcode Configs"
 msgstr "Transcode Configs"
 
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "Transcode Profile"
+msgstr "Transcode Profile"
+
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
 #: src/pages/profiles/TranscodeConfigsPage.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
@@ -6964,6 +7055,10 @@ msgstr "Tunarr will update Jellyfin's \"now playing\" state while channels are a
 msgid "Tunarr will update Plex's \"now playing\" state while channels are active."
 msgstr "Tunarr will update Plex's \"now playing\" state while channels are active."
 
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "Tunarr's own playback engine is being retired in favor of ErsatzTV next. Converting keeps this channel's settings and programming."
+msgstr "Tunarr's own playback engine is being retired in favor of ErsatzTV next. Converting keeps this channel's settings and programming."
+
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Tune recommendations"
 msgstr "Tune recommendations"
@@ -6993,6 +7088,10 @@ msgstr "TV shows are grouped by show"
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Type"
 msgstr "Type"
+
+#: src/components/channels/useChannelBulkActions.ts
+msgid "Unable to load compatible transcode profiles."
+msgstr "Unable to load compatible transcode profiles."
 
 #: src/components/UnavailableLibraryIndicator.tsx
 #: src/components/UnavailableLibraryIndicator.tsx
@@ -7433,6 +7532,10 @@ msgstr "You can change any setting below before shuffling."
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
 #~ msgid "You can still preview lineups here."
 #~ msgstr "You can still preview lineups here."
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "You can switch back under Streaming, in Playback engine."
+msgstr "You can switch back under Streaming, in Playback engine."
 
 #: src/pages/library/FillerListsPage.tsx
 msgid "You have no Filler Lists. Create your first Filler List <0>here.</0>"

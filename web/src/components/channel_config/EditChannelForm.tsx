@@ -40,6 +40,8 @@ import ChannelEditActions from './ChannelEditActions.tsx';
 import ChannelEpgConfig from './ChannelEpgConfig.tsx';
 import { ChannelFlexConfig } from './ChannelFlexConfig.tsx';
 import { ChannelLiveRelaySettings } from './ChannelLiveRelaySettings.tsx';
+import { applyConversionToForm } from './applyConversionToForm.ts';
+import { LegacyEngineNotice } from './LegacyEngineNotice.tsx';
 import { ChannelPropertiesEditor } from './ChannelPropertiesEditor.tsx';
 import ChannelTranscodingConfig, {
   ChannelTranscodeProfileSelect,
@@ -381,6 +383,14 @@ export function EditChannelForm({
 
   return (
     <Paper sx={{ p: 2 }}>
+      {!isNew && (
+        <LegacyEngineNotice
+          channel={channel}
+          onConverted={(saved) =>
+            applyConversionToForm(formMethods, getDefaultFormValues(saved))
+          }
+        />
+      )}
       <Box sx={{ borderColor: 'primary', borderBottom: 1 }}>
         <Tabs
           value={currentTab}

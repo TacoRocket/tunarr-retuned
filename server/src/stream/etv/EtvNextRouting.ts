@@ -24,11 +24,15 @@ export const EtvNextRoutableModes: ChannelStreamMode[] = [
   'mpegts',
 ];
 
+export function supportsEtvNext(mode: ChannelStreamMode): boolean {
+  return EtvNextRoutableModes.includes(mode);
+}
+
 export function routesToEtvNext(
   mode: ChannelStreamMode,
   channelOptedIn: boolean,
 ): boolean {
-  return channelOptedIn && EtvNextRoutableModes.includes(mode);
+  return channelOptedIn && supportsEtvNext(mode);
 }
 
 /** The part of a running `etv_next` worker session routing reads. */

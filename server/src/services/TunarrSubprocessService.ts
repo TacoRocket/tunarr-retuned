@@ -5,13 +5,14 @@ import { container } from '../container.ts';
 import { globalOptions, serverOptions } from '../globals.ts';
 import { isDev } from '../util/index.ts';
 import { MeilisearchService } from './MeilisearchService.ts';
+import { schedulingWorkerEntry } from './worker/schedulingWorkerEntryPath.ts';
 
 @injectable()
 export class TunarrSubprocessService {
   constructor() {}
 
   createWorker(opts: WorkerOptions = {}) {
-    return new TsWorker(process.argv[1]!, {
+    return new TsWorker(schedulingWorkerEntry(process.argv[1]!), {
       ...opts,
       argv: workerArgv(),
     });
@@ -72,6 +73,7 @@ class TsWorker extends Worker {
           .get<MeilisearchService>(MeilisearchService)
           .getPort(),
       },
+      fallbackEntry: process.argv[1],
     };
 
     if (isDev) {

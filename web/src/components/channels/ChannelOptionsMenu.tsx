@@ -7,6 +7,7 @@ import {
   Edit,
   Stop,
   Tv,
+  Upgrade,
 } from '@mui/icons-material';
 import { ListItemIcon, ListItemText, Menu, MenuItem } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -16,13 +17,15 @@ import { isEmpty, trimEnd } from 'lodash-es';
 import type { SyntheticEvent } from 'react';
 import { useCallback, useState } from 'react';
 import { deleteApiChannelsByIdSessionsMutation } from '../../generated/@tanstack/react-query.gen.ts';
+import { isLegacyChannel } from '../../helpers/nextConversion.ts';
 import { invalidateTaggedQueries } from '../../helpers/queryUtil.ts';
 import { isNonEmptyString } from '../../helpers/util.ts';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard.ts';
-import { useCreateChannel } from '../../hooks/useCreateChannel.ts';
 import { useSettings } from '../../store/settings/selectors.ts';
 import type { PopoverAnchorEl } from '../../types/dom.ts';
 import { ChannelDeleteDialog } from './ChannelDeleteDialog.tsx';
+import { DuplicateChannelProfileDialog } from './DuplicateChannelProfileDialog.tsx';
+import { useChannelBulkActions } from './useChannelBulkActions.ts';
 
 type Props = {
   row: Channel;
@@ -65,7 +68,8 @@ export const ChannelOptionsMenu = ({
     [stopSessionsMutation],
   );
 
-  const duplicateChannelMutation = useCreateChannel();
+  const { duplicateChannels, convertChannels, profileDialog } =
+    useChannelBulkActions();
 
   const handleClose = useCallback(
     (e: SyntheticEvent) => {
@@ -211,12 +215,7 @@ export const ChannelOptionsMenu = ({
           <MenuItem
             onClick={(e) => {
               e.stopPropagation();
-              duplicateChannelMutation.mutate({
-                body: {
-                  type: 'copy',
-                  channelId,
-                },
-              });
+              void duplicateChannels([row]);
               handleClose(e);
             }}
           >
@@ -228,6 +227,26 @@ export const ChannelOptionsMenu = ({
             </ListItemText>
           </MenuItem>
         )}
+        {/* An offset channel moves when its source converts; its edit page
+            points there. */}
+        {!hideItems?.includes('convert') &&
+          isLegacyChannel(row) &&
+          !row.offset && (
+            <MenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                void convertChannels([row]);
+                handleClose(e);
+              }}
+            >
+              <ListItemIcon>
+                <Upgrade />
+              </ListItemIcon>
+              <ListItemText>
+                <Trans>Convert to ErsatzTV next</Trans>
+              </ListItemText>
+            </MenuItem>
+          )}
         {!hideItems?.includes('delete') && (
           <MenuItem
             onClick={(e) => {
@@ -244,6 +263,7 @@ export const ChannelOptionsMenu = ({
           </MenuItem>
         )}
       </Menu>
+      {profileDialog && <DuplicateChannelProfileDialog {...profileDialog} />}
       <ChannelDeleteDialog
         open={deleteConfirmOpen}
         onClose={(e) => {
