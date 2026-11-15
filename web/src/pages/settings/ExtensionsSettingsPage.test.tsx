@@ -1,3 +1,4 @@
+import { extensionGuideUrls } from '@/components/settings/extensions/extensionGuideUrls.ts';
 import { ExtensionEditDialog } from '@/components/settings/extensions/ExtensionEditDialog.tsx';
 import type {
   ExtensionAction,
@@ -147,6 +148,24 @@ it('hides quick actions while the extension is turned off', () => {
   const card = screen.getByText('Bazarr').closest('.MuiCard-root')!;
   expect(within(card as HTMLElement).getAllByRole('button')).toHaveLength(1);
   expect(within(card as HTMLElement).queryByText('Check subtitles')).toBeNull();
+});
+
+it('links to the published guides for building an extension', () => {
+  store.installed = [];
+  renderWithProviders(<ExtensionsSettingsPage />);
+  const guide = screen
+    .getByRole('heading', { name: 'Build an extension' })
+    .closest('.MuiPaper-root') as HTMLElement;
+  const href = (name: string) =>
+    within(guide).getByRole('link', { name }).getAttribute('href');
+  expect(href('How extensions work')).toBe(extensionGuideUrls.overview);
+  expect(href('Package interface')).toBe(extensionGuideUrls.packageInterface);
+  expect(href('Style guide')).toBe(extensionGuideUrls.styleGuide);
+  expect(href('Bazarr extension')).toBe(extensionGuideUrls.example);
+  expect(href("Tell us what you're trying to build")).toBe(
+    extensionGuideUrls.feedback,
+  );
+  expect(within(guide).getByText(/extension API 0\.5/)).toBeVisible();
 });
 
 it("won't run actions from details while the extension is turned off", async () => {
