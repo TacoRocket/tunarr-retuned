@@ -14,6 +14,8 @@ import type { ConcatSessionFactory } from './ConcatSession.ts';
 import type { SessionConcatStreamMode } from '@tunarr/types/schemas';
 import { SessionConcatStreamModes } from '@tunarr/types/schemas';
 import type { HlsSessionOptions } from './hls/HlsSession.ts';
+import type { EtvNextSessionType } from './etv/EtvNextRouting.ts';
+import type { EtvNextSessionProvider } from './etv/EtvNextSession.ts';
 
 // Mock modules that create circular dependency chains through Inversify
 vi.mock('@/services/EventService.js', () => ({
@@ -28,6 +30,7 @@ vi.mock('@/services/OnDemandChannelService.js', () => ({
 const { SessionManager } = await import('./SessionManager.ts');
 const { BaseHlsSession } = await import('./hls/BaseHlsSession.ts');
 const { ConcatSession } = await import('./ConcatSession.ts');
+const { Session } = await import('./Session.ts');
 
 // ---------------------------------------------------------------------------
 // Stub session: a minimal HlsSession-like object that lets us control
@@ -78,6 +81,17 @@ class StubHlsSession extends BaseHlsSession<HlsSessionOptions> {
 
   // Use the real Session.isStale() implementation so staleness
   // tests exercise the actual threshold logic.
+}
+
+/** Stands in for an `ersatztv-channel` worker session of either type. */
+class StubEtvNextSession extends Session<{ sessionType?: EtvNextSessionType }> {
+  get sessionType(): EtvNextSessionType {
+    return this.sessionOptions.sessionType ?? 'etv_next';
+  }
+
+  protected override async startInternal() {}
+
+  protected override async stopInternal() {}
 }
 
 /** A session whose stream never becomes ready. */
@@ -131,6 +145,9 @@ function makeSessionManager(
     options: HlsSessionOptions,
   ) => StubHlsSession,
   concatSessionFactory: ConcatSessionFactory = vi.fn(),
+  etvNextSessionFactory: (
+    ...args: Parameters<EtvNextSessionProvider>
+  ) => StubEtvNextSession = vi.fn(),
 ) {
   const channelDB: Partial<IChannelDB> = {
     getChannelOrm: vi.fn().mockResolvedValue(makeChannel()),
@@ -158,7 +175,7 @@ function makeSessionManager(
     hlsFactory,
     vi.fn(), // hlsSlowerSessionFactory — not used in these tests
     concatSessionFactory,
-    vi.fn(), // etvNextSessionFactory
+    etvNextSessionFactory,
     eventService,
     settingsDB,
   ) as SessionManager;
@@ -249,6 +266,80 @@ describe('SessionManager', () => {
 
       expect(second.isSuccess()).toBe(true);
       expect(created).toHaveLength(2);
+    });
+  });
+
+  // An fMP4 channel's continuous MPEG-TS stream reads its own MPEG-TS worker
+  // session, so the channel can run two workers whose audiences come and go
+  // independently.
+  describe('the two worker sessions of an fMP4 channel', () => {
+    const startBoth = async () => {
+      const manager = makeSessionManager(
+        (channel, options) => new StubHlsSession(channel, options),
+        vi.fn(),
+        (channel, options) => new StubEtvNextSession(channel, options),
+      );
+      const hls = (
+        await manager.getOrCreateEtvNextSession(
+          channelUuid,
+          'viewer',
+          connection,
+        )
+      ).get();
+      const copy = (
+        await manager.getOrCreateEtvNextSession(
+          channelUuid,
+          'wrapper',
+          connection,
+          { sessionType: 'etv_next_mpegts' },
+        )
+      ).get();
+      return { manager, hls, copy };
+    };
+
+    it('keeps the HLS session and the MPEG-TS copy apart', async () => {
+      const { manager, hls, copy } = await startBoth();
+
+      expect(copy).not.toBe(hls);
+      expect(manager.getEtvNextSession(channelUuid)).toBe(hls);
+      expect(manager.getEtvNextSession(channelUuid, 'etv_next_mpegts')).toBe(
+        copy,
+      );
+    });
+
+    it('ending the HLS session leaves the copy and its stream running', async () => {
+      const { manager, hls, copy } = await startBoth();
+      const copyStream = {
+        sessionType: 'etv_next_mpegts_concat',
+        stop: vi.fn(() => Promise.resolve()),
+      };
+      (
+        manager as unknown as {
+          addSession: (id: string, t: string, s: unknown) => void;
+        }
+      ).addSession(channelUuid, 'etv_next_mpegts_concat', copyStream);
+
+      // A worker that exits ends its session this way.
+      hls.emit('stop');
+
+      expect(manager.getEtvNextSession(channelUuid)).toBeUndefined();
+      expect(manager.getEtvNextSession(channelUuid, 'etv_next_mpegts')).toBe(
+        copy,
+      );
+      expect(copy.state).toBe('started');
+      expect(copyStream.stop).not.toHaveBeenCalled();
+    });
+
+    it('ending the copy leaves the HLS session running', async () => {
+      const { manager, hls, copy } = await startBoth();
+
+      await manager.endSession(copy);
+
+      expect(manager.getEtvNextSession(channelUuid, 'etv_next_mpegts')).toBe(
+        undefined,
+      );
+      expect(manager.getEtvNextSession(channelUuid)).toBe(hls);
+      expect(hls.state).toBe('started');
     });
   });
 

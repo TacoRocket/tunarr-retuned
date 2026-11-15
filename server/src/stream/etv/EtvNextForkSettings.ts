@@ -119,10 +119,11 @@ function forkHlsSegmentType(
   config: ChannelConfig,
   channel: Partial<Pick<ChannelOrm, 'streamMode' | 'hlsSegmentType'>>,
 ): IgnoredSetting[] {
-  if (channel.hlsSegmentType !== 'fmp4') {
+  if (forkWritesFmp4Segments(channel)) {
+    config.hls = { segment_type: 'fmp4' };
     return [];
   }
-  if (channel.streamMode === 'mpegts') {
+  if (channel.hlsSegmentType === 'fmp4') {
     return [
       {
         field: 'hlsSegmentType',
@@ -131,8 +132,16 @@ function forkHlsSegmentType(
       },
     ];
   }
-  config.hls = { segment_type: 'fmp4' };
   return [];
+}
+
+// Whether a channel's worker writes fMP4 segments. The continuous MPEG-TS
+// stream that tuner-style clients get reads a separate MPEG-TS copy of such a
+// channel (see `concatSessionTypeFor`), for the same FFmpeg reason as above.
+export function forkWritesFmp4Segments(
+  channel: Partial<Pick<ChannelOrm, 'streamMode' | 'hlsSegmentType'>>,
+): boolean {
+  return channel.hlsSegmentType === 'fmp4' && channel.streamMode !== 'mpegts';
 }
 
 // Copied audio follows Tunarr's own passthrough, which converts what HLS can't

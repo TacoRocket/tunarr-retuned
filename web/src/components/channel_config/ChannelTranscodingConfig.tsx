@@ -371,9 +371,10 @@ export default function ChannelTranscodingConfig({
                 <Trans>
                   fMP4 lets a TV that supports Dolby Vision switch into it when
                   this channel passes video through untouched (HLS Direct v2).
-                  MPEG-TS is the safe default and is what Plex and other
-                  tuner-style clients expect. fMP4 has not been tested with
-                  those clients, so keep MPEG-TS for channels you watch there.
+                  Plex and other tuner-style clients are still sent MPEG-TS:
+                  Tunarr runs a second copy of the channel for them, which is a
+                  little extra work only while both kinds of viewer watch at
+                  once.
                 </Trans>
               )}
             </FormHelperText>

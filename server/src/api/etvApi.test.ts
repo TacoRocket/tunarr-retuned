@@ -426,6 +426,27 @@ describe('the silence watchdog', () => {
     );
   });
 
+  // An fMP4 channel's MPEG-TS copy resolves against the same channel. Fed to
+  // the HLS session instead, its own watchdog would end it after the grace.
+  test('is fed on the session the token was minted for', async () => {
+    const { app, tokenRegistry, sessionManager } = await makeApp();
+    const copyToken = tokenRegistry.issue(
+      channelUuid,
+      channelNumber,
+      'etv_next_mpegts',
+    );
+
+    await request(app, {
+      ...bearer(copyToken),
+      'x-etv-now': new Date(nowMs).toISOString(),
+    });
+
+    expect(sessionManager.getEtvNextSession).toHaveBeenCalledWith(
+      channelUuid,
+      'etv_next_mpegts',
+    );
+  });
+
   test('is not fed when no item could be resolved', async () => {
     const { app, token, etvSession } = await makeApp({
       scheduleFails: true,
@@ -536,7 +557,10 @@ describe("the 'kill' error screen", () => {
     });
 
     expect(response.statusCode).toBe(503);
-    expect(sessionManager.getEtvNextSession).toHaveBeenCalledWith(channelUuid);
+    expect(sessionManager.getEtvNextSession).toHaveBeenCalledWith(
+      channelUuid,
+      'etv_next',
+    );
     expect(etvSession.stop).toHaveBeenCalled();
   });
 

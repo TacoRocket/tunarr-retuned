@@ -24,6 +24,7 @@ import type {
   EtvNextSessionOptions,
   EtvNextSessionProvider,
 } from './etv/EtvNextSession.js';
+import type { EtvNextSessionType } from './etv/EtvNextRouting.js';
 import { Session } from './Session.js';
 import type { HlsSession, HlsSessionOptions } from './hls/HlsSession.js';
 import {
@@ -152,8 +153,11 @@ export class SessionManager {
     return this.getSession(id, mode) as Maybe<HlsSession>;
   }
 
-  getEtvNextSession(id: string): Maybe<EtvNextSession> {
-    return this.getSession(id, 'etv_next') as Maybe<EtvNextSession>;
+  getEtvNextSession(
+    id: string,
+    sessionType: EtvNextSessionType = 'etv_next',
+  ): Maybe<EtvNextSession> {
+    return this.getSession(id, sessionType) as Maybe<EtvNextSession>;
   }
 
   /**
@@ -300,6 +304,10 @@ export class SessionManager {
    * factories do. The worker reaps itself on a stale heartbeat file at 90s, so
    * a larger value set for the other backends would let the file clock end
    * sessions first. An explicit option still wins.
+   *
+   * `options.sessionType` picks which of the channel's worker sessions: an
+   * fMP4 channel's MPEG-TS copy is keyed apart from its HLS session, so each
+   * starts, idles out and stops on its own audience.
    */
   async getOrCreateEtvNextSession(
     channelId: string,
@@ -311,7 +319,7 @@ export class SessionManager {
       channelId,
       token,
       connection,
-      'etv_next',
+      options?.sessionType ?? 'etv_next',
       (channel) =>
         this.etvNextSessionFactory(channel, {
           transcodeDirectory:

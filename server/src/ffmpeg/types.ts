@@ -50,6 +50,7 @@ export const ConcatStreamModeRemuxes: Record<SessionConcatStreamMode, boolean> =
     // The worker normalizes and encodes every item, so its playlist arrives in
     // the same shape Tunarr's own HLS sessions produce.
     etv_next_concat: true,
+    etv_next_mpegts_concat: true,
 
     // Has its own concat path.
     hls_slower_concat: false,
@@ -68,6 +69,7 @@ export const ConcatStreamModeToChildMode: Record<
   hls_direct_concat: 'hls_direct',
   hls_direct_v2_concat: 'hls_direct_v2',
   etv_next_concat: 'etv_next',
+  etv_next_mpegts_concat: 'etv_next_mpegts',
 } as const;
 
 export type StreamSessionCreateArgs = {

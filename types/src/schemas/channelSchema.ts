@@ -144,6 +144,10 @@ export const HlsDirectV2StreamMode = 'hls_direct_v2';
 export const HlsDirectV2ConcatStreamMode = 'hls_direct_v2_concat';
 export const EtvNextStreamMode = 'etv_next';
 export const EtvNextConcatStreamMode = 'etv_next_concat';
+// The MPEG-TS copy of an fMP4 channel's worker, read only by the continuous
+// MPEG-TS stream (`.ts`) that tuner-style clients such as Plex are given.
+export const EtvNextMpegTsStreamMode = 'etv_next_mpegts';
+export const EtvNextMpegTsConcatStreamMode = 'etv_next_mpegts_concat';
 
 export const ChannelStreamMode = {
   Hls: HlsChannelStreamMode,
@@ -194,11 +198,13 @@ export const ChannelConcatStreamModeSchema = z.enum(ChannelConcatStreamModes);
 export const SessionStreamModes = [
   ...ChannelStreamModes,
   EtvNextStreamMode,
+  EtvNextMpegTsStreamMode,
 ] as const;
 
 export const SessionConcatStreamModes = [
   ...ChannelConcatStreamModes,
   EtvNextConcatStreamMode,
+  EtvNextMpegTsConcatStreamMode,
 ] as const;
 
 export type SessionStreamMode = TupleToUnion<typeof SessionStreamModes>;
