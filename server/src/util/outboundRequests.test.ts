@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import {
   BlockedOutboundUrlError,
   checkOutboundUrl,
@@ -185,6 +187,33 @@ describe('outboundRequestGuard agent lookup', () => {
     // distinction that matters.
     expect(error).toBeDefined();
     expect(isBlockedOutboundUrlError(error)).toBe(false);
+  });
+});
+
+describe('outboundRequestGuard connections', () => {
+  // A library scan makes thousands of requests to one media server. Opening a
+  // connection for each costs a TCP and TLS handshake every time.
+  it('reuses one connection for back-to-back requests to the same server', async () => {
+    let connections = 0;
+    const server = http.createServer((_, res) => res.end('ok'));
+    server.on('connection', () => connections++);
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      for (let i = 0; i < 3; i++) {
+        await axios.get(`http://127.0.0.1:${port}/`, {
+          ...outboundRequestGuard,
+        });
+      }
+    } finally {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
+
+    expect(connections).toBe(1);
   });
 });
 

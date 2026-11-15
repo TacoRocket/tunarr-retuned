@@ -296,6 +296,22 @@ function guardAgentConnections<T extends http.Agent>(agent: T): T {
 }
 
 /**
+ * The settings of Node's own default agent, which these agents replace. An
+ * agent built without them opens a connection per request: a library scan
+ * makes thousands of requests to one media server and paid a TCP and TLS
+ * handshake for each. An idle connection is closed after five seconds.
+ *
+ * Both guards act when a connection is opened, and a connection is only
+ * reused for the host and port it was opened to, so a reused one has already
+ * passed them.
+ */
+const connectionReuse = {
+  keepAlive: true,
+  scheduling: 'lifo',
+  timeout: 5000,
+} as const;
+
+/**
  * Axios config that applies the destination guard to a request and to every
  * redirect it follows.
  *
@@ -318,8 +334,12 @@ function guardAgentConnections<T extends http.Agent>(agent: T): T {
  */
 export const outboundRequestGuard = {
   ...outboundRedirectGuard,
-  httpAgent: guardAgentConnections(new http.Agent({ lookup: guardedLookup })),
-  httpsAgent: guardAgentConnections(new https.Agent({ lookup: guardedLookup })),
+  httpAgent: guardAgentConnections(
+    new http.Agent({ ...connectionReuse, lookup: guardedLookup }),
+  ),
+  httpsAgent: guardAgentConnections(
+    new https.Agent({ ...connectionReuse, lookup: guardedLookup }),
+  ),
 } as const;
 
 /**
