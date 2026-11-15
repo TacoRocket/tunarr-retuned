@@ -31,24 +31,49 @@ export function routesToEtvNext(
   return channelOptedIn && EtvNextRoutableModes.includes(mode);
 }
 
+/** The part of a running `etv_next` worker session routing reads. */
+export type RunningEtvNextWorker = {
+  writesFmp4Segments: boolean;
+  stoppingOrStopped: boolean;
+};
+
+/**
+ * Whether the channel's `etv_next` worker writes fMP4: the running one if
+ * there is one, otherwise the one the saved setting would start.
+ *
+ * A worker keeps the segment type it started with, so after the setting
+ * changes the running worker and the setting disagree until it exits. A
+ * stopping worker is on its way out and the next one follows the setting.
+ */
+export function etvNextWritesFmp4(
+  channel: Pick<ChannelOrm, 'streamMode' | 'hlsSegmentType'>,
+  running: RunningEtvNextWorker | undefined,
+): boolean {
+  return running && !running.stoppingOrStopped
+    ? running.writesFmp4Segments
+    : forkWritesFmp4Segments(channel);
+}
+
 /**
  * Which concat session serves a channel's continuous MPEG-TS stream (`.ts`),
  * the one HDHomeRun-style clients such as Plex are given.
  *
  * That session re-reads the channel's worker HLS with FFmpeg, whose HLS reader
  * keeps the first program's fMP4 header and decodes every later program
- * against it. So an fMP4 channel's stream reads its own MPEG-TS worker
- * session instead of the fMP4 one its HLS viewers share. Every other channel
- * keeps the one shared worker session.
+ * against it. So when the channel's worker writes fMP4 the stream reads its
+ * own MPEG-TS worker session instead of the one its HLS viewers share. The
+ * running worker decides (see `etvNextWritesFmp4`), so a setting changed
+ * mid-stream cannot send a tuner to a worker still writing fMP4.
  */
 export function concatSessionTypeFor(
   mode: ChannelStreamMode,
   channel: Pick<ChannelOrm, 'useEtvNext' | 'streamMode' | 'hlsSegmentType'>,
+  running?: RunningEtvNextWorker,
 ): SessionConcatStreamMode {
   if (!routesToEtvNext(mode, channel.useEtvNext ?? false)) {
     return `${mode}_concat`;
   }
-  return forkWritesFmp4Segments(channel)
+  return etvNextWritesFmp4(channel, running)
     ? 'etv_next_mpegts_concat'
     : 'etv_next_concat';
 }

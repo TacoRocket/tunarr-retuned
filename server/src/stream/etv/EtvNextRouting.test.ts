@@ -75,6 +75,39 @@ describe('concatSessionTypeFor', () => {
     ).toBe('etv_next_concat');
   });
 
+  // The channel was switched while a worker kept running. The tuner stream
+  // must read a worker that writes MPEG-TS, whatever the setting now says.
+  test('a running fMP4 worker sends a new tuner to the MPEG-TS copy after a switch to MPEG-TS', () => {
+    expect(
+      concatSessionTypeFor(
+        'hls',
+        { useEtvNext: true, streamMode: 'hls', hlsSegmentType: 'mpegts' },
+        { writesFmp4Segments: true, stoppingOrStopped: false },
+      ),
+    ).toBe('etv_next_mpegts_concat');
+  });
+
+  test('a running MPEG-TS worker keeps a new tuner on it after a switch to fMP4', () => {
+    expect(
+      concatSessionTypeFor(
+        'hls',
+        { useEtvNext: true, streamMode: 'hls', hlsSegmentType: 'fmp4' },
+        { writesFmp4Segments: false, stoppingOrStopped: false },
+      ),
+    ).toBe('etv_next_concat');
+  });
+
+  // A stopping worker is on its way out; the next one follows the setting.
+  test('a stopping worker leaves the decision to the saved setting', () => {
+    expect(
+      concatSessionTypeFor(
+        'hls',
+        { useEtvNext: true, streamMode: 'hls', hlsSegmentType: 'fmp4' },
+        { writesFmp4Segments: false, stoppingOrStopped: true },
+      ),
+    ).toBe('etv_next_mpegts_concat');
+  });
+
   test('a channel off the worker keeps its own concat mode', () => {
     expect(
       concatSessionTypeFor('mpegts', {

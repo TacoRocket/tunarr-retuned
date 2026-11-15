@@ -37,6 +37,7 @@ import { dossierDirectory, pruneDossiers } from './EtvNextDossiers.ts';
 import type { EtvNextDynamicTokenRegistry } from './EtvNextDynamicTokenRegistry.ts';
 import {
   applyForkChannelSettings,
+  forkWritesFmp4Segments,
   runtimeCapabilities,
   forkLiveFeedFallback,
 } from './EtvNextForkSettings.ts';
@@ -210,7 +211,19 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       this.baseDirectory,
       `${this.channel.uuid}_${this.instanceId}`,
     );
+
+    this.writesFmp4Segments =
+      this.sessionType !== 'etv_next_mpegts' &&
+      forkWritesFmp4Segments(this.channel);
   }
+
+  /**
+   * Whether this session's worker writes fMP4 segments, fixed from the channel
+   * as it was when the session was created. A setting changed later reaches
+   * only the next session, so the tuner route reads this rather than the
+   * saved setting to decide which worker it can share.
+   */
+  readonly writesFmp4Segments: boolean;
 
   get sessionType(): EtvNextSessionType {
     return this.sessionOptions.sessionType ?? 'etv_next';

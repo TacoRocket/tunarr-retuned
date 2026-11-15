@@ -5,9 +5,9 @@ import type { HlsSession } from '@/stream/hls/HlsSession.js';
 import type { EtvNextSessionType } from '@/stream/etv/EtvNextRouting.js';
 import {
   concatSessionTypeFor,
+  etvNextWritesFmp4,
   routesToEtvNext,
 } from '@/stream/etv/EtvNextRouting.js';
-import { forkWritesFmp4Segments } from '@/stream/etv/EtvNextForkSettings.js';
 import { SubtitleWindowRegex } from '@/stream/hls/HlsSubtitlePlaylist.js';
 import { VideoStream } from '@/stream/VideoStream.js';
 import type { Result } from '@/types/result.js';
@@ -231,7 +231,11 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
           },
           {
             audioOnly: req.query.audioOnly,
-            sessionType: concatSessionTypeFor(mode, channel),
+            sessionType: concatSessionTypeFor(
+              mode,
+              channel,
+              req.serverCtx.sessionManager.getEtvNextSession(channel.uuid),
+            ),
           },
         );
 
@@ -597,9 +601,21 @@ export const streamApi: RouterPluginAsyncCallback = async (fastify) => {
             .status(400)
             .send('The ErsatzTV next backend is not enabled for this channel.');
         }
-        // Only an fMP4 channel has an MPEG-TS copy. Anywhere else it would be
-        // a second worker writing what the first already writes.
-        if (mode === 'etv_next_mpegts' && !forkWritesFmp4Segments(channel)) {
+        // A copy starts only where the tuner route sends a viewer to one:
+        // while the channel's worker writes fMP4. Anywhere else it would be a
+        // second worker writing what the first already writes. One already
+        // running keeps serving, since its wrapper re-reads this playlist for
+        // as long as it runs, even after the setting changes.
+        const sessions = req.serverCtx.sessionManager;
+        const runningCopy = sessions.getEtvNextSession(
+          channelId,
+          'etv_next_mpegts',
+        );
+        if (
+          mode === 'etv_next_mpegts' &&
+          !(runningCopy && !runningCopy.stoppingOrStopped) &&
+          !etvNextWritesFmp4(channel, sessions.getEtvNextSession(channelId))
+        ) {
           return res
             .status(400)
             .send('This channel already writes MPEG-TS segments.');
