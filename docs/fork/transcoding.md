@@ -406,13 +406,15 @@ track is ready before playback.
 ## Automatically prepare upcoming subtitles
 
 Automatic preparation finds or converts English subtitles ahead of upcoming
-programs so later airings can reuse them. Enable it through the FFmpeg settings
-API using `enableAutomaticSubtitlePreparation`. This separate setting defaults
-to `false`; enabling embedded-text extraction does not enable library downloads or
-OCR. There is no web UI control for automatic preparation.
+programs so later airings can reuse them. Turn it on in **Settings → FFmpeg →
+Subtitles → Prepare subtitles for upcoming programs**, then choose **Which
+subtitles** (the two modes below). It is off by default, and it is separate
+from embedded subtitle extraction: enabling extraction does not enable library
+downloads or OCR.
 
-Read the current settings, choose the preparation mode, and send the complete
-settings back. For example, with `curl` and `jq`:
+The same setting is `enableAutomaticSubtitlePreparation` in the FFmpeg settings
+API. To set it from a script, read the current settings, choose the preparation
+mode, and send the complete settings back. For example, with `curl` and `jq`:
 
 ```sh
 curl --fail --silent --show-error 'http://localhost:8000/api/ffmpeg-settings' \
@@ -620,6 +622,8 @@ docker exec tunarr /tunarr/tunarr \
 Use `--sdh` only when the selected track includes descriptions for deaf and
 hard-of-hearing viewers. The command requires an embedded English PGS track and
 a locally accessible Matroska file, including a correctly mapped network mount.
+The track may be stored plain or zlib-compressed, as MKVToolNix often writes
+PGS; other Matroska content encodings are refused.
 The container pins Tesseract 5.5.3 and the English `tessdata_fast` 4.1.0 recognition
 data, with SHA-256 checks for both downloads. Other languages and remote
 HTTP inputs are outside this command's scope.
