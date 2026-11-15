@@ -1458,10 +1458,10 @@ describe('moving credit advertisements', () => {
 // An fMP4 channel's HLS worker and its MPEG-TS copy each ask what plays. They
 // deliver one airing, so a break's pick is made once and both get it.
 describe('one break pick for every worker of a channel', () => {
-  const adItem = (streamDuration: number): StreamLineupItem =>
+  const adItem = (streamDuration: number, uuid = 'ad-1'): StreamLineupItem =>
     ({
       type: 'commercial',
-      program: { uuid: 'ad-1', mediaSourceId: 'src-1', duration: 30_000 },
+      program: { uuid, mediaSourceId: 'src-1', duration: 30_000 },
       fillerListId: 'ads',
       infiniteLoop: false,
       programBeginMs: startMs,
@@ -1508,7 +1508,9 @@ describe('one break pick for every worker of a channel', () => {
   });
 
   test('the pick is made, and its play recorded, once whichever worker asks first', async () => {
-    const { hls, copy } = twoWorkers();
+    const breakAirings = new EtvNextBreakAirings();
+    const hls = makeWriter({ items: [adItem(30_000)], breakAirings });
+    const copy = makeWriter({ items: [adItem(30_000, 'ad-2')], breakAirings });
 
     await copy.writer.resolveDynamicItem({ channel, startMs });
     await hls.writer.resolveDynamicItem({ channel, startMs: startMs + 5_000 });
@@ -1519,7 +1521,22 @@ describe('one break pick for every worker of a channel', () => {
     expect(hls.programCalculator.getCurrentLineupItem).not.toHaveBeenCalled();
     expect(
       hls.streamDetailsFetcher.getStream.mock.calls[0]?.[0].lineupItem.uuid,
-    ).toBe('fallback-1');
+    ).toBe('ad-2');
+  });
+
+  // The fallback clip and the offline screen come straight off the schedule
+  // and can span hours. Keeping them would hold an edited lineup back from a
+  // worker that starts later.
+  test('a fallback answer is not kept, so a later worker reads the schedule itself', async () => {
+    const { hls, copy } = twoWorkers();
+
+    await copy.writer.resolveDynamicItem({ channel, startMs });
+    await hls.writer.resolveDynamicItem({ channel, startMs: startMs + 5_000 });
+
+    expect(hls.programCalculator.getCurrentLineupItem).toHaveBeenCalledTimes(1);
+    expect(
+      hls.streamDetailsFetcher.getStream.mock.calls[0]?.[0].lineupItem.uuid,
+    ).toBe('ad-1');
   });
 
   test('concurrent first asks share one pick', async () => {

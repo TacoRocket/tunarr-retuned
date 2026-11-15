@@ -37,10 +37,12 @@ const MaxAiringsPerChannel = 64;
  * airing, so the first answer stands for the span it covers and any later ask
  * inside that span gets the same item at the elapsed position.
  *
- * Only break answers are kept (picked filler, the fallback clip, the offline
- * screen). Programs are read off the schedule and answer the same anyway.
- * Credit-squeeze ads have their own plan per airing in
- * `CreditSqueezeAdPlanner`.
+ * Only picked filler is kept: it is the one answer that depends on who asked
+ * first. Programs, the fallback clip and the offline screen are read off the
+ * schedule and answer the same for every worker, and they can span hours, so
+ * keeping them would hold an edited lineup back from a worker that starts
+ * later. A kept pick lasts one clip at most. Credit-squeeze ads have their own
+ * plan per airing in `CreditSqueezeAdPlanner`.
  *
  * In memory only: the workers are Tunarr's child processes and do not outlive
  * it, so nothing is left to agree with after a restart.
@@ -76,7 +78,7 @@ export class EtvNextBreakAirings {
     };
   }
 
-  /** Keeps a fresh answer at `scheduleMs` if it is a break's. */
+  /** Keeps a fresh answer at `scheduleMs` if it is picked filler. */
   remember(
     channelId: string,
     scheduleMs: number,
@@ -116,9 +118,9 @@ export class EtvNextBreakAirings {
 function isBreakAnswer(item: StreamLineupItem): boolean {
   switch (item.type) {
     case 'commercial':
+      return true;
     case 'fallback':
     case 'offline':
-      return true;
     case 'program':
     case 'redirect':
     case 'error':
@@ -142,8 +144,7 @@ function advanceBy(
   }
   const streamDuration = item.streamDuration - elapsedMs;
   switch (item.type) {
-    case 'commercial':
-    case 'fallback': {
+    case 'commercial': {
       const offset = (item.startOffset ?? 0) + elapsedMs;
       const clipMs = item.program.duration;
       return {
@@ -153,8 +154,8 @@ function advanceBy(
         streamDuration,
       };
     }
+    case 'fallback':
     case 'offline':
-      return { ...item, duration: streamDuration, streamDuration };
     case 'program':
     case 'redirect':
     case 'error':
