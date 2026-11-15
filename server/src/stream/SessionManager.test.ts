@@ -343,6 +343,108 @@ describe('SessionManager', () => {
     });
   });
 
+  // An on-demand channel's clock pauses when its last viewer leaves. On an
+  // fMP4 channel the HLS viewer is on `etv_next` and the tuner-style viewer is
+  // on the MPEG-TS copy's concat session, so neither session alone knows
+  // whether anyone is still watching.
+  describe('on-demand pause across an fMP4 channel’s two workers', () => {
+    class StubWorkerConcatSession extends ConcatSession {
+      protected override async startInternal() {
+        this.state = 'started';
+      }
+
+      protected override async stopInternal() {
+        this.state = 'stopped';
+      }
+    }
+
+    const hlsViewer = { ip: '10.0.0.2', userAgent: 'TiviMate/5.0' };
+    const tunerViewer = { ip: '10.0.0.3', userAgent: 'PlexMediaServer/1.0' };
+    const wrapper = { ip: '127.0.0.1', userAgent: 'Tunarr HLS wrapper' };
+
+    const watchBoth = async () => {
+      const manager = makeSessionManager(
+        (channel, options) => new StubHlsSession(channel, options),
+        (channel, options) =>
+          new StubWorkerConcatSession(channel, options, vi.fn()),
+        (channel, options) => new StubEtvNextSession(channel, options),
+      );
+      const hls = (
+        await manager.getOrCreateEtvNextSession(
+          channelUuid,
+          'hls-viewer',
+          hlsViewer,
+        )
+      ).get();
+      // The wrapper's own loopback request to the MPEG-TS copy.
+      await manager.getOrCreateEtvNextSession(channelUuid, 'wrapper', wrapper, {
+        sessionType: 'etv_next_mpegts',
+      });
+      const tuner = (
+        await manager.getOrCreateConcatSession(
+          channelUuid,
+          'tuner-viewer',
+          tunerViewer,
+          { sessionType: 'etv_next_mpegts_concat', audioOnly: false },
+        )
+      ).get();
+      const { pauseChannel } = (
+        manager as unknown as {
+          onDemandChannelService: { pauseChannel: ReturnType<typeof vi.fn> };
+        }
+      ).onDemandChannelService;
+      return { hls, tuner, pauseChannel };
+    };
+
+    it('keeps the clock running when the HLS viewer leaves and a tuner still watches', async () => {
+      const { hls, pauseChannel } = await watchBoth();
+
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).not.toHaveBeenCalled();
+    });
+
+    it('keeps the clock running when the tuner leaves and an HLS viewer still watches', async () => {
+      const { tuner, pauseChannel } = await watchBoth();
+
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).not.toHaveBeenCalled();
+    });
+
+    it('pauses once, at the HLS viewer’s last heartbeat, when it is the last to leave', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, tuner, pauseChannel } = await watchBoth();
+
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+      vi.setSystemTime(1_050_000);
+      hls.recordHeartbeat('hls-viewer');
+      vi.setSystemTime(1_090_000);
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
+    });
+
+    it('pauses once, when the tuner left, when it is the last to leave', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, tuner, pauseChannel } = await watchBoth();
+
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+      vi.setSystemTime(1_070_000);
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_070_000);
+    });
+  });
+
   describe('session replacement race condition', () => {
     it('replaces a stopping session with one that has its own directory', async () => {
       class SlowStopHlsSession extends StubHlsSession {

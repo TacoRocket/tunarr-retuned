@@ -12,6 +12,8 @@ import {
   maxBy,
   omitBy,
   once,
+  sumBy,
+  uniq,
   values,
 } from 'lodash-es';
 import { ChannelNotFoundError, TypedError } from '../types/errors.js';
@@ -582,10 +584,24 @@ export class SessionManager {
         pauseTime = now;
       }
 
-      const nonTunarrConnections = filter(
-        sessionToCheck.connections(),
-        (conn) => !(conn.userAgent?.includes('Tunarr') ?? false),
-      ).length;
+      // Count viewers on every session the channel has, not just this one. An
+      // fMP4 channel's HLS viewers are on `etv_next` while its tuner-style
+      // viewers are on the MPEG-TS copy's concat session, and both watch the
+      // same clock. The session that just ended may already be out of the
+      // map, so it is counted too.
+      const channelSessions = uniq([
+        session,
+        sessionToCheck,
+        ...this.getAllSessionsForChannel(session.keyObj.id),
+      ]);
+      const nonTunarrConnections = sumBy(
+        channelSessions,
+        (s) =>
+          filter(
+            s.connections(),
+            (conn) => !(conn.userAgent?.includes('Tunarr') ?? false),
+          ).length,
+      );
 
       // Pause the channel as soon as there are no connections
       // other than internal connections
