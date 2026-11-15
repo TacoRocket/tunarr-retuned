@@ -72,7 +72,11 @@ export default function EditChannelPage({ initialTab }: Props) {
             </RouterLink>
           )}
         </Box>
+        {/* Keyed by channel: following a link to another channel's editor
+            reuses this route, and the form must load that channel's values
+            rather than keep the previous channel's. */}
         <EditChannelForm
+          key={channel.id}
           channel={channel}
           transcodeConfigs={transcodeConfigs}
           isNew={false}
