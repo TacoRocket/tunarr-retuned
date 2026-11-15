@@ -1,4 +1,5 @@
 import { FfmpegInfo } from '@/ffmpeg/ffmpegInfo.js';
+import { autoFactoryKey } from '@/types/inject.js';
 import { inject, injectable } from 'inversify';
 import {
   allFeaturesSupported,
@@ -13,20 +14,20 @@ import {
   healthCheckResult,
 } from './HealthCheck.ts';
 
-// Fork: which fork features the configured FFmpeg can run. Reads the shared
-// capability cache that playback uses, so a status poll starts no FFmpeg
-// process of its own while that cache is warm.
+// Fork: which fork features the configured FFmpeg can run. Each poll resolves
+// the executable configured now, then reads the per-executable capability
+// cache playback uses, so a poll starts no FFmpeg process while it is warm.
 @injectable()
 export class FfmpegFeatureSupportHealthCheck implements HealthCheck {
   readonly id: string = 'FfmpegFeatureSupport';
 
   constructor(
-    @inject(FfmpegInfo)
-    private ffmpegInfo: Pick<FfmpegInfo, 'getCapabilities'>,
+    @inject(autoFactoryKey(FfmpegInfo))
+    private ffmpegInfo: () => Pick<FfmpegInfo, 'getCapabilities'>,
   ) {}
 
   async getStatus(): Promise<HealthCheckResult> {
-    const capabilities = await this.ffmpegInfo.getCapabilities();
+    const capabilities = await this.ffmpegInfo().getCapabilities();
     const features = ffmpegFeatureSupport(capabilities);
     if (allFeaturesSupported(features)) {
       return capabilities.runtime.source === 'bundled'
