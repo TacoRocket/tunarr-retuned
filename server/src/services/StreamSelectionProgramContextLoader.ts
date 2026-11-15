@@ -25,15 +25,14 @@ export type StreamSelectionProgramRef = {
 export class StreamSelectionProgramContextLoader {
   constructor(@inject(KEYS.DrizzleDB) private drizzle: DrizzleDBAccess) {}
 
-  load(
-    program: StreamSelectionProgramRef,
-  ): Promise<StreamSelectionCelContext['program']> {
-    return rememberForRun(`program-context:${program.uuid}`, () =>
-      this.read(program),
-    );
-  }
-
-  private async read(
+  /**
+   * Each remembered lookup is exactly one query. That keeps a run's count of
+   * database reads equal to the queries it sent without anyone maintaining
+   * the count by hand, and it lets the two questions be remembered on their
+   * own terms: genres belong to the program, the title belongs to the show
+   * and is read once for all of its episodes.
+   */
+  async load(
     program: StreamSelectionProgramRef,
   ): Promise<StreamSelectionCelContext['program']> {
     const showId =
@@ -41,34 +40,52 @@ export class StreamSelectionProgramContextLoader {
         ? (program.tvShowUuid ?? undefined)
         : undefined;
 
-    const [genreRows, showRows] = await Promise.all([
-      this.drizzle
-        .selectDistinct({ name: Genre.name })
-        .from(EntityGenre)
-        .innerJoin(Genre, eq(EntityGenre.genreId, Genre.uuid))
-        .where(
-          showId
-            ? or(
-                eq(EntityGenre.programId, program.uuid),
-                eq(EntityGenre.groupId, showId),
-              )
-            : eq(EntityGenre.programId, program.uuid),
-        ),
+    const [genres, showTitle] = await Promise.all([
+      rememberForRun(`program-genres:${program.uuid}:${showId ?? ''}`, () =>
+        this.readGenres(program.uuid, showId),
+      ),
       showId
-        ? this.drizzle
-            .select({ title: ProgramGrouping.title })
-            .from(ProgramGrouping)
-            .where(eq(ProgramGrouping.uuid, showId))
-            .limit(1)
-        : Promise.resolve([]),
+        ? rememberForRun(`show-title:${showId}`, () =>
+            this.readShowTitle(showId),
+          )
+        : '',
     ]);
 
     return {
       title: program.title,
       type: program.type,
-      showTitle: showRows[0]?.title ?? '',
-      genres: genreRows.map((row) => row.name),
+      showTitle,
+      genres,
       libraryId: program.libraryId ?? '',
     };
+  }
+
+  /** Genre names on the program and, for an episode, on its show. */
+  private async readGenres(
+    programId: string,
+    showId: string | undefined,
+  ): Promise<string[]> {
+    const rows = await this.drizzle
+      .selectDistinct({ name: Genre.name })
+      .from(EntityGenre)
+      .innerJoin(Genre, eq(EntityGenre.genreId, Genre.uuid))
+      .where(
+        showId
+          ? or(
+              eq(EntityGenre.programId, programId),
+              eq(EntityGenre.groupId, showId),
+            )
+          : eq(EntityGenre.programId, programId),
+      );
+    return rows.map((row) => row.name);
+  }
+
+  private async readShowTitle(showId: string): Promise<string> {
+    const [show] = await this.drizzle
+      .select({ title: ProgramGrouping.title })
+      .from(ProgramGrouping)
+      .where(eq(ProgramGrouping.uuid, showId))
+      .limit(1);
+    return show?.title ?? '';
   }
 }

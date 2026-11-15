@@ -73,6 +73,12 @@ async function insertGenre(
 }
 
 describe('StreamSelectionProgramContextLoader', () => {
+  // The database handle is shared between tests, so a spy left on it would
+  // carry its call count into the next one.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   test('adds show title and show genres for an episode', async ({
     drizzle,
     loader,
@@ -175,5 +181,90 @@ describe('StreamSelectionProgramContextLoader', () => {
 
     await loader.load(program);
     expect(reads).toHaveBeenCalledTimes(2);
+  });
+
+  // An episode's details are two questions: its genres, and its show's title.
+  test('counts both queries of an episode’s first load and none for a repeat', async ({
+    drizzle,
+    loader,
+  }) => {
+    const showUuid = v4();
+    await drizzle
+      .insert(ProgramGrouping)
+      .values({ uuid: showUuid, title: 'Cowboy Bebop', type: 'show' });
+    const programId = await insertProgram(drizzle, {
+      type: 'episode',
+      title: 'Asteroid Blues',
+      tvShowUuid: showUuid,
+    });
+    await insertGenre(drizzle, 'Anime', { groupId: showUuid });
+    const episode = {
+      uuid: programId,
+      title: 'Asteroid Blues',
+      type: 'episode',
+      tvShowUuid: showUuid,
+    };
+    const genreReads = vi.spyOn(drizzle, 'selectDistinct');
+    const titleReads = vi.spyOn(drizzle, 'select');
+    const summary = vi.fn();
+
+    const contexts = await runWithStreamSelectionMemo(
+      async () => [await loader.load(episode), await loader.load(episode)],
+      summary,
+    );
+
+    expect(genreReads).toHaveBeenCalledTimes(1);
+    expect(titleReads).toHaveBeenCalledTimes(1);
+    expect(summary).toHaveBeenCalledExactlyOnceWith({
+      asked: 4,
+      readAttempts: 2,
+    });
+    expect(contexts.map((context) => context.showTitle)).toEqual([
+      'Cowboy Bebop',
+      'Cowboy Bebop',
+    ]);
+    expect(contexts.map((context) => context.genres)).toEqual([
+      ['Anime'],
+      ['Anime'],
+    ]);
+  });
+
+  test('reads a show’s title once for all of its episodes', async ({
+    drizzle,
+    loader,
+  }) => {
+    const showUuid = v4();
+    await drizzle
+      .insert(ProgramGrouping)
+      .values({ uuid: showUuid, title: 'Cowboy Bebop', type: 'show' });
+    const episodes = [];
+    for (const title of ['Asteroid Blues', 'Stray Dog Strut']) {
+      const uuid = await insertProgram(drizzle, {
+        type: 'episode',
+        title,
+        tvShowUuid: showUuid,
+      });
+      episodes.push({ uuid, title, type: 'episode', tvShowUuid: showUuid });
+    }
+    const titleReads = vi.spyOn(drizzle, 'select');
+    const summary = vi.fn();
+
+    const contexts = await runWithStreamSelectionMemo(async () => {
+      const loaded = [];
+      for (const episode of episodes) {
+        loaded.push(await loader.load(episode));
+      }
+      return loaded;
+    }, summary);
+
+    expect(titleReads).toHaveBeenCalledTimes(1);
+    expect(summary).toHaveBeenCalledExactlyOnceWith({
+      asked: 4,
+      readAttempts: 3,
+    });
+    expect(contexts.map((context) => context.showTitle)).toEqual([
+      'Cowboy Bebop',
+      'Cowboy Bebop',
+    ]);
   });
 });
