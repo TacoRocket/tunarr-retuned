@@ -20,10 +20,11 @@ handles its own capabilities.
 
 ## Bundled ErsatzTV next worker
 
-This fork bundles [ErsatzTV next `v0.2.5-trfork.2`](https://github.com/TacoRocket/next/releases/tag/v0.2.5-trfork.2).
+This fork bundles [ErsatzTV next `v0.2.5-trfork.3`](https://github.com/TacoRocket/next/releases/tag/v0.2.5-trfork.3).
 This replaces the upstream worker version listed in the shared documentation.
-It includes the [video compatibility changes](#hls-direct-v2-on-ersatztv-next)
-and the [eased credit squeeze](credit-squeeze.md#on-the-ersatztv-next-backend).
+It includes the [video compatibility changes](#hls-direct-v2-on-ersatztv-next),
+the [eased credit squeeze](credit-squeeze.md#on-the-ersatztv-next-backend) and
+[fMP4 segments](#hls-segment-format-per-channel).
 
 Tunarr refuses a bundled worker from a different release. A worker selected with
 `TUNARR_ERSATZTV_NEXT_PATH` still runs if its version differs, but Tunarr logs a
@@ -207,7 +208,7 @@ recover missing source metadata. HDR/Dolby Vision inputs retain the existing
 handling below. Software encoders, 10-bit output, and **Disable Hardware Filters**
 are outside this SDR VAAPI conversion path.
 
-On the ErsatzTV next backend, the bundled `v0.2.5-trfork.2` worker applies the
+On the ErsatzTV next backend, the bundled `v0.2.5-trfork.3` worker applies the
 same final conversion to 8-bit SDR VAAPI output when FFmpeg provides
 `scale_vaapi`, including items whose size and pixel format already match. A
 credit squeeze uses the same conversion. HDR and Dolby Vision items, 10-bit
@@ -306,7 +307,7 @@ precedence over the global scaling flag, including bitmap subtitle scaling.
 
 ErsatzTV next follows the same rule for video and bitmap subtitles: non-CRT
 channels use the global switch, while CRT channels use their processing tier.
-The bundled `v0.2.5-trfork.2` worker supports the required
+The bundled `v0.2.5-trfork.3` worker supports the required
 `filters.scale_vaapi.mode` field. Older workers without that field reject the
 configuration and the channel will not start; use a supporting release if you
 override the bundled worker.
@@ -388,8 +389,8 @@ mode always sends MPEG-TS segments, and the setting is greyed out there and on
 Tunarr's own engine.
 
 The API field is `hlsSegmentType`: `mpegts` or `fmp4`. Omitting it from an
-update preserves the saved choice. Getting fMP4 out needs a worker build that
-supports it; an older worker ignores the setting and keeps sending MPEG-TS.
+update preserves the saved choice. The bundled `v0.2.5-trfork.3` worker supports
+it; an older worker ignores the setting and keeps sending MPEG-TS.
 
 ## Subtitles in Direct HLS v2
 
@@ -778,7 +779,7 @@ player adds its own side bars. Widescreen programs can still fill widescreen
 displays. The worker keeps the profile's encoded width and height and signals each
 program's display shape instead of baking every program into the profile's shape.
 
-The bundled `v0.2.5-trfork.2` worker supports this opt-in option. To enable it:
+The bundled `v0.2.5-trfork.3` worker supports this opt-in option. To enable it:
 
 1. Read the profile with `GET /api/transcode_configs/:id`.
 2. Set `nextPreserveSourceAspect` to `true` in the returned profile and send it to
