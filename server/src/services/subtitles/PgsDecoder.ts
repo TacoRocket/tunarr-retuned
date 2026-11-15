@@ -124,12 +124,16 @@ export function decodePgs(blocks: PgsBlock[]): PgsCue[] {
         };
         forceFirst = true;
       } else if (kind === 0x14 && current !== undefined) {
-        need(data, 7);
+        // Fork: a palette segment updates only the entries it lists, as
+        // FFmpeg's decoder does; the palette's other colors stay. One with no
+        // entries (ID and version only) therefore changes nothing, and after
+        // an epoch reset, with nothing to keep, it is transparent.
+        need(data, 2);
         if ((data.length - 2) % 5 !== 0) throw new Error('Invalid PGS palette');
         const previous = palettes.get(data.readUInt8(0)) ?? [];
         palettes.set(data.readUInt8(0), [
           ...(current.paletteUpdate ? previous.slice(0, -1) : previous),
-          Buffer.from(data.subarray(2)),
+          mergePaletteEntries(previous.at(-1), data.subarray(2)),
         ]);
       } else if (kind === 0x15 && current !== undefined) {
         need(data, 4);
@@ -188,6 +192,21 @@ export function decodePgs(blocks: PgsBlock[]): PgsCue[] {
   )
     last.endMs = finalBlockEnd;
   return mergeFades(cues.filter((cue) => cue.placements.length > 0));
+}
+
+// Fork: `update`'s 5-byte entries (index, Y, Cr, Cb, alpha) replace those
+// with the same index in `base`; the rest of `base` is kept.
+function mergePaletteEntries(base: Buffer | undefined, update: Buffer) {
+  const entries = new Map<number, Buffer>();
+  for (const source of [base, update]) {
+    if (source === undefined) continue;
+    for (let i = 0; i + 5 <= source.length; i += 5) {
+      entries.set(source.readUInt8(i), source.subarray(i, i + 5));
+    }
+  }
+  return Buffer.concat(
+    [...entries].sort(([a], [b]) => a - b).map(([, entry]) => entry),
+  );
 }
 
 function paletteColors(data: Buffer) {

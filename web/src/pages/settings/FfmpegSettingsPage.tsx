@@ -82,6 +82,9 @@ export default function FfmpegSettingsPage() {
     'enableLogging',
     'enableFileLogging',
   ]);
+  const automaticPreparationEnabled = watch(
+    'enableAutomaticSubtitlePreparation',
+  );
 
   let logSelectValue: FfmpegLogOptions = 'disable';
   if (ffmpegFileLoggingEnabled) {
@@ -405,6 +408,64 @@ export default function FfmpegSettingsPage() {
               </Trans>
             </FormHelperText>
           </FormControl>
+          {/* Fork: automatic preparation was API-only, so servers never had it
+              turned on. Simple switch first; the mode shows once it's on. */}
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <Controller
+              control={control}
+              name="enableAutomaticSubtitlePreparation"
+              render={({ field }) => (
+                <FormControlLabel
+                  control={<Switch {...field} checked={field.value} />}
+                  label={t`Prepare subtitles for upcoming programs`}
+                />
+              )}
+            />
+            <FormHelperText>
+              <Trans>
+                When an upcoming program has no usable English text subtitle,
+                Tunarr looks for one in your Plex, Jellyfin or Emby library,
+                then reads an English image subtitle (PGS) with OCR. Later
+                airings reuse the result. New work starts for at most ten
+                minutes each hour. OCR needs the Linux container.
+              </Trans>
+            </FormHelperText>
+          </FormControl>
+          {automaticPreparationEnabled && (
+            <FormControl sx={{ mt: 2, minWidth: { md: '50%' } }}>
+              <InputLabel id="subtitle-preparation-mode-label">
+                <Trans>Which subtitles</Trans>
+              </InputLabel>
+              <Controller
+                control={control}
+                name="automaticSubtitlePreparationMode"
+                render={({ field }) => (
+                  <Select
+                    labelId="subtitle-preparation-mode-label"
+                    label={t`Which subtitles`}
+                    {...field}
+                  >
+                    <MenuItem value="selected">
+                      <Trans>
+                        Only those a channel will show (recommended)
+                      </Trans>
+                    </MenuItem>
+                    <MenuItem value="all_english">
+                      <Trans>Prepare English for every eligible program</Trans>
+                    </MenuItem>
+                  </Select>
+                )}
+              />
+              <FormHelperText>
+                <Trans>
+                  An upcoming program qualifies when its applicable
+                  stream-selection profile allows subtitles. Tunarr can prepare
+                  a plain English copy even if that profile would choose a
+                  different track for playback.
+                </Trans>
+              </FormHelperText>
+            </FormControl>
+          )}
         </Box>
       </Stack>
       <Stack spacing={2} direction="row" justifyContent="right">
