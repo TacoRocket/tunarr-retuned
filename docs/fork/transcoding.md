@@ -9,14 +9,22 @@ playback reads that record when the running version matches. If the record shows
 that timestamp-preserving concat is absent, the program plays full-screen.
 If native NV12 is absent, CRT uses filtered output and keeps its HDR bypass.
 
-If Tunarr cannot match the executable to an image record, it logs the executable
-path once per process. Credit squeeze and native NV12 keep their configured
-behavior. A custom FFmpeg missing a required option can fail at playback. Use
-the bundled build or turn off the affected feature.
+If Tunarr cannot match the executable to an image record, it checks that build
+once with two small help queries (`ffmpeg -h filter=libplacebo` and
+`ffmpeg -h filter=concat`) and keeps the answer for that executable and version
+until Tunarr restarts. A query that fails counts as the capability missing.
+Without concat `preserve_ts`, credit squeeze plays full-screen on both playback
+engines. Without native NV12, CRT uses filtered output, and the ErsatzTV next
+worker, which runs the same executable, is not asked for native NV12.
 
-Tunarr caches capabilities per executable path for one hour. Restart Tunarr to
-refresh immediately after replacing an executable. The ErsatzTV next worker
-handles its own capabilities.
+Tunarr logs one FFmpeg feature summary per executable. The
+`FfmpegFeatureSupport` health check (`GET /api/system/health`) lists the fork
+features that fall back or are unavailable, with the missing piece. Some fixes
+in the bundled build cannot be detected from FFmpeg output, so a custom build
+may lack them. Use the bundled build to get every feature.
+
+Tunarr caches the other capability lists per executable path for one hour.
+Restart Tunarr to refresh immediately after replacing an executable.
 
 ## Bundled ErsatzTV next worker
 

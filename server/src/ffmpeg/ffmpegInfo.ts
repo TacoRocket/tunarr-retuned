@@ -25,9 +25,11 @@ import NodeCache from 'node-cache';
 import { format } from 'node:util';
 import { attempt, isNonEmptyString, parseIntOrNull } from '../util/index.ts';
 import { FfmpegCapabilities } from './builder/capabilities/FfmpegCapabilities.ts';
+import { logFeatureSupportOnce } from './FfmpegFeatureSupport.ts';
 import {
   bundledFfmpegHelp,
   parseRuntimeCapabilities,
+  probeRuntimeCapabilitiesOnce,
   type FfmpegRuntimeCapabilities,
 } from './FfmpegRuntimeCapabilities.ts';
 
@@ -312,12 +314,17 @@ export class FfmpegInfo {
         return parseRuntimeCapabilities(bundledHelp);
       if (!FfmpegInfo.warnedCustomBuild) {
         this.logger.warn(
-          'No matching bundled FFmpeg record for %s. Fork features such as credit squeeze and native NV12 assume the bundled build.',
+          'No matching bundled FFmpeg record for %s. Checking its fork capabilities once; the FFmpeg feature summary that follows lists what falls back or is unavailable.',
           this.ffmpegPath,
         );
         FfmpegInfo.warnedCustomBuild = true;
       }
-      return { source: 'custom' };
+      return await probeRuntimeCapabilitiesOnce(
+        this.ffmpegPath,
+        version.trim(),
+        (args) =>
+          this.getFfmpegStdout(args, { timeout: 5000, swallowError: false }),
+      );
     } catch (error) {
       this.logger.warn(
         error,
@@ -344,7 +351,7 @@ export class FfmpegInfo {
       this.inspectRuntime(),
     ]);
 
-    return new FfmpegCapabilities(
+    const capabilities = new FfmpegCapabilities(
       optionsResult.status === 'rejected'
         ? new Set()
         : optionsResult.value
@@ -375,6 +382,14 @@ export class FfmpegInfo {
             .getOrElse(() => new Set<string>()),
       runtime.status === 'fulfilled' ? runtime.value : { source: 'unknown' },
     );
+    const version = await this.getVersionOutput().catch(() => 'unknown');
+    logFeatureSupportOnce(
+      this.logger,
+      this.ffmpegPath,
+      version.trim(),
+      capabilities,
+    );
+    return capabilities;
   }
 
   async probeLiveStream(path: string) {

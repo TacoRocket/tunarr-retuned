@@ -1100,6 +1100,77 @@ describe('VaapiPipelineBuilder tonemap', () => {
     },
   );
 
+  test('a custom FFmpeg without nv12_output keeps the filtered NV12 handoff', () => {
+    process.env.TUNARR_CRT_DIRECT_NV12 = '1';
+    process.env.ETV_VAAPI_DIRECT_NV12 = '1';
+    process.env.TUNARR_CRT_NV12_OUTPUT = 'native';
+    const size = FrameSize.FHD;
+    const lowPower = new VaapiProfileEntrypoint(
+      VaapiProfiles.H264Main,
+      VaapiEntrypoint.EncodeLowPower,
+    );
+    lowPower.addRateControlMode(RateControlMode.VBR);
+    const graphFor = (runtime: FfmpegCapabilities['runtime']) =>
+      buildWithTonemap({
+        videoStream: createHdrVideoStream(ColorFormat.bt709),
+        hardwareCapabilities: new VaapiHardwareCapabilities([
+          lowPower,
+          new VaapiProfileEntrypoint(
+            VaapiProfiles.HevcMain10,
+            VaapiEntrypoint.Decode,
+          ),
+          new VaapiProfileEntrypoint(
+            VaapiProfiles.H264Main,
+            VaapiEntrypoint.Encode,
+          ),
+        ]),
+        binaryCapabilities: new FfmpegCapabilities(
+          new Set(),
+          new Map(),
+          new Set([
+            KnownFfmpegFilters.Libplacebo,
+            KnownFfmpegFilters.ScaleVulkan,
+          ]),
+          new Set(),
+          new Set(),
+          runtime,
+        ),
+        stateVaapiDevice: '/dev/dri/renderD128',
+        desiredState: {
+          videoFormat: VideoFormats.H264,
+          scaledSize: size,
+          paddedSize: size,
+        },
+        pipelineOptions: {
+          crt: {
+            enabled: true,
+            look: 'dvd-broadcast',
+            processing: 'performance',
+          },
+        },
+      })
+        .getCommandArgs()
+        .join(' ');
+
+    const custom = graphFor({
+      source: 'custom',
+      probed: true,
+      nativeNv12Output: false,
+      preservesConcatTimestamps: false,
+    });
+    expect(custom).toContain('libplacebo=w=1920:h=1080');
+    expect(custom).not.toContain('nv12_output=native');
+    expect(custom).toContain('format=vulkan,scale_vulkan=format=nv12,');
+
+    const patched = graphFor({
+      source: 'bundled',
+      nativeNv12Output: true,
+      preservesConcatTimestamps: true,
+    });
+    expect(patched).toContain('nv12_output=native');
+    expect(patched).not.toContain('scale_vulkan=format=nv12');
+  });
+
   test('Quality bypasses CRT on HDR10 and does not use the fixed-Hable LUT', () => {
     process.env[TONEMAP_ENABLED] = 'true';
     process.env.TUNARR_VAAPI_HABLE_LUT = '1';

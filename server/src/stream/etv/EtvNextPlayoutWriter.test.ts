@@ -1177,6 +1177,66 @@ describe('credit squeeze handoff', () => {
   );
 });
 
+describe("credit squeeze and the worker's FFmpeg", () => {
+  const squeezed = {
+    background_image: '/artwork/credits.png',
+    start_ms: 20_000,
+  };
+  test.each([
+    [false, undefined],
+    [true, squeezed],
+    // A session that could not read its FFmpeg gates nothing.
+    [undefined, squeezed],
+  ])(
+    'concat preserve_ts=%s decides whether the worker is asked to squeeze',
+    async (preservesConcatTimestamps, expected) => {
+      const item = {
+        ...programItem(30_000),
+        type: 'program' as const,
+        program: { uuid: 'prog-1', mediaSourceId: 'src-1', duration: 30_000 },
+        startOffset: 0,
+      } as StreamLineupItem;
+      const { writer } = makeWriter({
+        items: [item],
+        streamDetails: {
+          duration: dayjs.duration(30_000),
+          videoDetails: [{ width: 1920, height: 1080 } as VideoStreamDetails],
+          audioDetails: [{ index: 1 }],
+          chapters: [
+            {
+              index: 0,
+              chapterType: 'outro',
+              isFinal: true,
+              startTime: 20_000,
+              endTime: 30_000,
+            },
+          ],
+        },
+      });
+      const result = await writer.materializeProgram({
+        channel: {
+          ...channel,
+          creditSqueeze: {
+            enabled: true,
+            backgroundImage: '/artwork/credits.png',
+          },
+          transcodeConfig: {
+            ...channel.transcodeConfig,
+            hardwareAccelerationMode: 'vaapi',
+          },
+        },
+        lineupItem: item,
+        startMs,
+        ffmpegRuntime:
+          preservesConcatTimestamps === undefined
+            ? undefined
+            : { preservesConcatTimestamps },
+      });
+      expect(result.items[0]?.credit_squeeze).toEqual(expected);
+    },
+  );
+});
+
 describe('moving credit advertisements', () => {
   test('cuts an advertisement at the ending chapter and restores the episode through its preview', async () => {
     const durationMs = 120_000;

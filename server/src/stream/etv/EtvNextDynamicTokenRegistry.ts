@@ -1,6 +1,7 @@
 import { isNonEmptyString } from '@tunarr/shared/util';
 import { bindingScopeValues, injectable } from 'inversify';
 import { randomBytes } from 'node:crypto';
+import type { FfmpegRuntimeCapabilities } from '../../ffmpeg/FfmpegRuntimeCapabilities.ts';
 import type { Maybe } from '../../types/util.ts';
 import { safeEqual } from '../../util/basicAuth.ts';
 
@@ -8,6 +9,11 @@ import { safeEqual } from '../../util/basicAuth.ts';
 type EtvNextTokenGrant = {
   channelUuid: string;
   channelNumber: number;
+  /**
+   * Fork: what the executable the session launched its worker with can do, so
+   * the callback decides for that binary even after the setting changes.
+   */
+  ffmpegRuntime?: FfmpegRuntimeCapabilities;
 };
 
 type Registration = EtvNextTokenGrant & { token: string };
@@ -29,9 +35,18 @@ export class EtvNextDynamicTokenRegistry {
   #byChannel = new Map<string, Registration>();
 
   /** Mints a token for a channel, replacing any token it already held. */
-  issue(channelUuid: string, channelNumber: number): string {
+  issue(
+    channelUuid: string,
+    channelNumber: number,
+    ffmpegRuntime?: FfmpegRuntimeCapabilities,
+  ): string {
     const token = randomBytes(32).toString('base64url');
-    this.#byChannel.set(channelUuid, { channelUuid, channelNumber, token });
+    this.#byChannel.set(channelUuid, {
+      channelUuid,
+      channelNumber,
+      token,
+      ...(ffmpegRuntime ? { ffmpegRuntime } : {}),
+    });
     return token;
   }
 
@@ -65,6 +80,9 @@ export class EtvNextDynamicTokenRegistry {
         return {
           channelUuid: registration.channelUuid,
           channelNumber: registration.channelNumber,
+          ...(registration.ffmpegRuntime
+            ? { ffmpegRuntime: registration.ffmpegRuntime }
+            : {}),
         };
       }
     }

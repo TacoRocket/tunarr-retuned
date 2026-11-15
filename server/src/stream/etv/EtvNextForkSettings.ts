@@ -3,6 +3,8 @@ import type { ChannelOfflineSettings } from '../../db/schema/base.ts';
 import type { ChannelOrm } from '../../db/schema/Channel.ts';
 import type { TranscodeConfigOrm } from '../../db/schema/TranscodeConfig.ts';
 import { crtWorkerStage } from '../../ffmpeg/builder/filter/crt/CrtFilter.ts';
+import type { FfmpegInfo } from '../../ffmpeg/ffmpegInfo.ts';
+import type { FfmpegRuntimeCapabilities } from '../../ffmpeg/FfmpegRuntimeCapabilities.ts';
 import { usesCrtHardwareProcessing } from '../../ffmpeg/builder/filter/crt/processingTier.ts';
 import type { IgnoredSetting } from './EtvNextChannelConfigMapper.ts';
 import type {
@@ -44,10 +46,15 @@ export function forkVaapiLowPower(
 // they cannot disagree.
 //
 // An HLS Direct v2 channel keeps direct play: see `forkDirectCopy`.
+//
+// `runtime` describes the configured FFmpeg, which the worker also runs. When
+// it is known to lack native NV12, the worker keeps filtered NV12 instead of
+// being asked for an option its FFmpeg rejects.
 export function applyForkChannelSettings(
   config: ChannelConfig,
   channel: Pick<ChannelOrm, 'crt' | 'creditSqueeze'> &
     Partial<Pick<ChannelOrm, 'streamMode'>>,
+  runtime?: Pick<FfmpegRuntimeCapabilities, 'nativeNv12Output'>,
 ): IgnoredSetting[] {
   const ignored: IgnoredSetting[] = [];
   const crt = channel.crt;
@@ -72,6 +79,7 @@ export function applyForkChannelSettings(
       const stage = crtWorkerStage(
         crt,
         FrameSize.withDimensions(video.width ?? 1920, video.height ?? 1080),
+        runtime?.nativeNv12Output !== false,
       );
       video.custom_shader = stage.shader;
       if (stage.inputHeight !== undefined) {
@@ -101,6 +109,18 @@ export function applyForkChannelSettings(
     forkCopiedAudioFallback(config.normalization.audio);
   }
   return ignored;
+}
+
+// The configured FFmpeg's runtime capabilities from the shared cache, or
+// nothing when they cannot be read (then no worker option is gated).
+export async function runtimeCapabilities(
+  ffmpegInfo: Pick<FfmpegInfo, 'getCapabilities'> | undefined,
+): Promise<FfmpegRuntimeCapabilities | undefined> {
+  try {
+    return (await ffmpegInfo?.getCapabilities())?.runtime;
+  } catch {
+    return undefined;
+  }
 }
 
 // Copied audio follows Tunarr's own passthrough, which converts what HLS can't

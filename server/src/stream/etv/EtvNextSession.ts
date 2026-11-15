@@ -9,6 +9,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { IChannelDB } from '../../db/interfaces/IChannelDB.ts';
 import type { ISettingsDB } from '../../db/interfaces/ISettingsDB.ts';
+import type { FfmpegInfo } from '../../ffmpeg/ffmpegInfo.ts';
+import type { FfmpegRuntimeCapabilities } from '../../ffmpeg/FfmpegRuntimeCapabilities.ts';
 import type { ChannelOrmWithTranscodeConfig } from '../../db/schema/derivedTypes.ts';
 import { serverOptions } from '../../globals.ts';
 import type { FeatureFlagService } from '../../services/FeatureFlagService.ts';
@@ -35,6 +37,7 @@ import { dossierDirectory, pruneDossiers } from './EtvNextDossiers.ts';
 import type { EtvNextDynamicTokenRegistry } from './EtvNextDynamicTokenRegistry.ts';
 import {
   applyForkChannelSettings,
+  runtimeCapabilities,
   forkLiveFeedFallback,
 } from './EtvNextForkSettings.ts';
 import { StreamTerminationRequestedError } from './EtvNextPlayoutItemMapper.ts';
@@ -137,6 +140,9 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
   #workspace: EtvNextWorkspace;
   #process?: ChildProcessWrapper;
   #ignoredSettings: string[] = [];
+  // Fork: what the executable this session's worker runs can do. Set at start
+  // and handed to every playout decision, including the dynamic callback.
+  #ffmpegRuntime?: FfmpegRuntimeCapabilities;
 
   #windowItems: PlayoutItem[] = [];
   #subtitleDegradations: PlayoutDegradationInterval[] = [];
@@ -181,6 +187,10 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
     // Fork: reads whether the channel is a live feed. Optional so a session
     // without it keeps upstream's fallback.
     private channelDB?: Pick<IChannelDB, 'loadLineup'>,
+    // Fork: resolves FfmpegInfo for the executable configured when called, so
+    // the worker is not asked for options its FFmpeg lacks. Optional: without
+    // it nothing is gated.
+    private ffmpegInfo?: () => Pick<FfmpegInfo, 'getCapabilities'>,
   ) {
     super(channel, {
       // Tunarr's global default is longer than the worker's own reap window,
@@ -230,9 +240,14 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
 
     await this.#workspace.initialize();
 
+    // Read together with no await between: FfmpegInfo resolves its path from
+    // the same setting, so the capabilities are those of the executable the
+    // worker is given.
+    const ffmpegSettings = this.settingsDB.ffmpegSettings();
+    const ffmpegInfo = this.ffmpegInfo?.();
     const { config, ignored } = toChannelConfig({
       transcodeConfig: this.channel.transcodeConfig,
-      ffmpegSettings: this.settingsDB.ffmpegSettings(),
+      ffmpegSettings,
       playoutFolder: this.#workspace.playoutDirectory,
       reportsFolder: await this.#prepareDossierFolder(),
       subtitleMode: subtitleDeliveryMode(
@@ -240,7 +255,12 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
         this.featureFlagService.get('webvttSidecarEnabled'),
       ),
     });
-    const forkIgnored = applyForkChannelSettings(config, this.channel);
+    this.#ffmpegRuntime = await runtimeCapabilities(ffmpegInfo);
+    const forkIgnored = applyForkChannelSettings(
+      config,
+      this.channel,
+      this.#ffmpegRuntime,
+    );
     if (await this.#isLiveFeed()) {
       forkLiveFeedFallback(
         config,
@@ -340,6 +360,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       const token = this.tokenRegistry.issue(
         this.channel.uuid,
         this.channel.number,
+        this.#ffmpegRuntime,
       );
       this.#dynamicToken = token;
 
@@ -352,6 +373,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       channel: this.channel,
       startMs: Date.now(),
       windowMs: this.#windowMs,
+      ffmpegRuntime: this.#ffmpegRuntime,
     });
 
     if (window.items.length === 0) {
@@ -846,6 +868,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
         startMs: rebuildFromMs,
         windowMs: targetFinishMs - rebuildFromMs,
         idSeed: this.#itemsEmitted,
+        ffmpegRuntime: this.#ffmpegRuntime,
       });
 
       if (window.items.length === 0) {
