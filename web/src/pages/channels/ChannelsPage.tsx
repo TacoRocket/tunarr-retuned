@@ -9,6 +9,7 @@ import { BulkAssignFillersDialog } from '../../components/channels/BulkAssignFil
 import { ChannelMenuButton } from '../../components/channels/ChannelMenuButton.tsx';
 import { ChannelSessionsDialog } from '../../components/channels/ChannelSessionsDialog.tsx';
 import { ChannelsView } from '../../components/channels/ChannelsView.tsx';
+import { DuplicateChannelProfileDialog } from '../../components/channels/DuplicateChannelProfileDialog.tsx';
 import { useChannelBulkActions } from '../../components/channels/useChannelBulkActions.ts';
 import { useChannelsNowPlaying } from '../../components/channels/useChannelsNowPlaying.ts';
 import type { CollectionLayout } from '../../components/ui/patterns/CollectionView/index.ts';
@@ -27,7 +28,8 @@ export default function ChannelsPage() {
   const [fillerChannels, setFillerChannels] = useState<Channel[] | null>(null);
   const { addListener, removeListener } = useServerEvents();
   const m3uUrl = useM3ULink();
-  const { duplicateChannels, deleteChannels } = useChannelBulkActions();
+  const { duplicateChannels, deleteChannels, profileDialog } =
+    useChannelBulkActions();
 
   useEffect(() => {
     const key = addListener((ev) => {
@@ -83,6 +85,7 @@ export default function ChannelsPage() {
           deleteChannels(selected).catch(console.error);
         }}
       />
+      {profileDialog && <DuplicateChannelProfileDialog {...profileDialog} />}
       <ChannelSessionsDialog
         open={sessionsChannel !== null}
         onClose={() => setSessionsChannel(null)}

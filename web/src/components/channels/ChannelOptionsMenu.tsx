@@ -19,10 +19,11 @@ import { deleteApiChannelsByIdSessionsMutation } from '../../generated/@tanstack
 import { invalidateTaggedQueries } from '../../helpers/queryUtil.ts';
 import { isNonEmptyString } from '../../helpers/util.ts';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard.ts';
-import { useCreateChannel } from '../../hooks/useCreateChannel.ts';
 import { useSettings } from '../../store/settings/selectors.ts';
 import type { PopoverAnchorEl } from '../../types/dom.ts';
 import { ChannelDeleteDialog } from './ChannelDeleteDialog.tsx';
+import { DuplicateChannelProfileDialog } from './DuplicateChannelProfileDialog.tsx';
+import { useChannelBulkActions } from './useChannelBulkActions.ts';
 
 type Props = {
   row: Channel;
@@ -65,7 +66,7 @@ export const ChannelOptionsMenu = ({
     [stopSessionsMutation],
   );
 
-  const duplicateChannelMutation = useCreateChannel();
+  const { duplicateChannels, profileDialog } = useChannelBulkActions();
 
   const handleClose = useCallback(
     (e: SyntheticEvent) => {
@@ -211,12 +212,7 @@ export const ChannelOptionsMenu = ({
           <MenuItem
             onClick={(e) => {
               e.stopPropagation();
-              duplicateChannelMutation.mutate({
-                body: {
-                  type: 'copy',
-                  channelId,
-                },
-              });
+              void duplicateChannels([row]);
               handleClose(e);
             }}
           >
@@ -244,6 +240,7 @@ export const ChannelOptionsMenu = ({
           </MenuItem>
         )}
       </Menu>
+      {profileDialog && <DuplicateChannelProfileDialog {...profileDialog} />}
       <ChannelDeleteDialog
         open={deleteConfirmOpen}
         onClose={(e) => {

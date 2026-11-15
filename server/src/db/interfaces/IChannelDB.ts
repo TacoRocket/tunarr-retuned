@@ -116,6 +116,7 @@ export interface IChannelDB {
 
   copyChannel(
     id: string,
+    transcodeConfigId?: string,
   ): Promise<
     ChannelAndLineup<MarkRequired<ChannelOrmWithRelations, 'fillerShows'>>
   >;

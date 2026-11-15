@@ -3424,6 +3424,10 @@ export type CreateChannelV2Data = {
     } | {
         type: 'copy';
         channelId: string;
+        /**
+         * Profile for the copy. Omit to keep the source profile. The profile must work with ErsatzTV next.
+         */
+        transcodeConfigId?: string;
     };
     path?: never;
     query?: never;

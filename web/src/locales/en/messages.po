@@ -1268,6 +1268,7 @@ msgstr "Calculating Slots..."
 #: src/components/channels/BulkAssignFillersDialog.tsx
 #: src/components/channels/ChannelDeleteDialog.tsx
 #: src/components/channels/ChannelsDeleteDialog.tsx
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
 #: src/components/DeleteConfirmationDialog.tsx
 #: src/components/fillers/AssignFillerToChannelsDialog.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
@@ -1489,6 +1490,10 @@ msgstr "Checking…"
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Choose 10 to 200 related shows and movies for the draw."
 msgstr "Choose 10 to 200 related shows and movies for the draw."
+
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "Choose a transcode profile"
+msgstr "Choose a transcode profile"
 
 #: src/pages/settings/MediaSourceSettingsPage.tsx
 msgid "Choose Add → Plex (Auto) or Plex (Manual), then enable a movie or TV library to receive updates."
@@ -1902,6 +1907,7 @@ msgstr "Create a Channel"
 msgid "Create a new profile"
 msgstr "Create a new profile"
 
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
 #: src/pages/channels/NewChannelPage.tsx
 msgid "Create a Next-compatible transcode profile to add a channel."
 msgstr "Create a Next-compatible transcode profile to add a channel."
@@ -2312,6 +2318,7 @@ msgid "Draw seed"
 msgstr "Draw seed"
 
 #: src/components/channels/ChannelsView.tsx
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
@@ -2746,6 +2753,10 @@ msgstr "ErsatzTV next can't play this profile's {0}. Choose another profile, or 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "ErsatzTV next doesn't use these switches."
 msgstr "ErsatzTV next doesn't use these switches."
+
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "ErsatzTV next needs a different profile to play copies of {channelNames}."
+msgstr "ErsatzTV next needs a different profile to play copies of {channelNames}."
 
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
@@ -6807,6 +6818,10 @@ msgstr "Transcode Config <0> <1/></0>"
 msgid "Transcode Configs"
 msgstr "Transcode Configs"
 
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "Transcode Profile"
+msgstr "Transcode Profile"
+
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
 #: src/pages/profiles/TranscodeConfigsPage.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
@@ -6964,6 +6979,10 @@ msgstr "TV shows are grouped by show"
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Type"
 msgstr "Type"
+
+#: src/components/channels/useChannelBulkActions.ts
+msgid "Unable to load compatible transcode profiles."
+msgstr "Unable to load compatible transcode profiles."
 
 #: src/components/UnavailableLibraryIndicator.tsx
 #: src/components/UnavailableLibraryIndicator.tsx

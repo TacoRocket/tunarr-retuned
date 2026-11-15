@@ -462,7 +462,10 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       switch (body.type) {
         case 'copy':
           insertResult = await Result.attemptAsync(() =>
-            req.serverCtx.channelDB.copyChannel(body.channelId),
+            req.serverCtx.channelDB.copyChannel(
+              body.channelId,
+              body.transcodeConfigId,
+            ),
           );
           break;
         case 'new': {
@@ -541,6 +544,9 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
       }
 
       if (insertResult.isFailure()) {
+        const badRequest = findBadRequestError(insertResult.error);
+        if (badRequest)
+          return res.status(400).send({ error: badRequest.message });
         throw insertResult.error;
       }
 

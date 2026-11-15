@@ -1,3 +1,4 @@
+import { getApiTranscodeConfigsOptions } from '@/generated/@tanstack/react-query.gen.ts';
 import { deleteApiChannelsById } from '@/generated/sdk.gen.ts';
 import { invalidateTaggedQueries } from '@/helpers/queryUtil.ts';
 import { useCreateChannel } from '@/hooks/useCreateChannel.ts';
@@ -6,7 +7,8 @@ import { useLingui } from '@lingui/react/macro';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Channel } from '@tunarr/types';
 import { useSnackbar } from 'notistack';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import type { DuplicateChannelProfileDialogProps } from './DuplicateChannelProfileDialog.tsx';
 
 export type RunEachResult = { succeeded: number; failed: number };
 
@@ -45,12 +47,19 @@ export const useChannelBulkActions = () => {
     [snackbar],
   );
 
+  const [profileDialog, setProfileDialog] =
+    useState<DuplicateChannelProfileDialogProps | null>(null);
+
   // Copies get the next free channel numbers, so they run one at a time.
-  const duplicateChannels = useCallback(
-    async (channels: Channel[]) => {
+  const copyChannels = useCallback(
+    async (channels: Channel[], replacements?: ReadonlyMap<string, string>) => {
       const result = await runEach(channels, (channel) =>
         createChannel.mutateAsync({
-          body: { type: 'copy', channelId: channel.id },
+          body: {
+            type: 'copy',
+            channelId: channel.id,
+            transcodeConfigId: replacements?.get(channel.id),
+          },
         }),
       );
       report(
@@ -63,6 +72,48 @@ export const useChannelBulkActions = () => {
       );
     },
     [createChannel, report, t],
+  );
+
+  const duplicateChannels = useCallback(
+    async (channels: Channel[]) => {
+      let profiles;
+      try {
+        profiles = await queryClient.fetchQuery(
+          getApiTranscodeConfigsOptions({ query: { backend: 'etv_next' } }),
+        );
+      } catch (error) {
+        console.error(error);
+        snackbar.enqueueSnackbar(
+          t`Unable to load compatible transcode profiles.`,
+          {
+            variant: 'error',
+          },
+        );
+        return;
+      }
+      const supportedIds = new Set(profiles.map((profile) => profile.id));
+      const incompatible = channels.filter(
+        (channel) => !supportedIds.has(channel.transcodeConfigId),
+      );
+      if (incompatible.length === 0) {
+        await copyChannels(channels);
+        return;
+      }
+
+      setProfileDialog({
+        channels: incompatible,
+        profiles,
+        onCancel: () => setProfileDialog(null),
+        onConfirm: (profileId) => {
+          setProfileDialog(null);
+          const replacements = new Map(
+            incompatible.map((c) => [c.id, profileId]),
+          );
+          void copyChannels(channels, replacements);
+        },
+      });
+    },
+    [copyChannels, queryClient, snackbar, t],
   );
 
   const deleteChannels = useCallback(
@@ -88,5 +139,5 @@ export const useChannelBulkActions = () => {
     [queryClient, report, t],
   );
 
-  return { duplicateChannels, deleteChannels };
+  return { duplicateChannels, deleteChannels, profileDialog };
 };

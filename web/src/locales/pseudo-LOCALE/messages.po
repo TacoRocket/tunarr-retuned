@@ -1269,6 +1269,7 @@ msgstr ""
 #: src/components/channels/BulkAssignFillersDialog.tsx
 #: src/components/channels/ChannelDeleteDialog.tsx
 #: src/components/channels/ChannelsDeleteDialog.tsx
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
 #: src/components/DeleteConfirmationDialog.tsx
 #: src/components/fillers/AssignFillerToChannelsDialog.tsx
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
@@ -1489,6 +1490,10 @@ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Choose 10 to 200 related shows and movies for the draw."
+msgstr ""
+
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "Choose a transcode profile"
 msgstr ""
 
 #: src/pages/settings/MediaSourceSettingsPage.tsx
@@ -1903,6 +1908,7 @@ msgstr ""
 msgid "Create a new profile"
 msgstr ""
 
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
 #: src/pages/channels/NewChannelPage.tsx
 msgid "Create a Next-compatible transcode profile to add a channel."
 msgstr ""
@@ -2313,6 +2319,7 @@ msgid "Draw seed"
 msgstr ""
 
 #: src/components/channels/ChannelsView.tsx
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
@@ -2746,6 +2753,10 @@ msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "ErsatzTV next doesn't use these switches."
+msgstr ""
+
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "ErsatzTV next needs a different profile to play copies of {channelNames}."
 msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
@@ -6808,6 +6819,10 @@ msgstr ""
 msgid "Transcode Configs"
 msgstr ""
 
+#: src/components/channels/DuplicateChannelProfileDialog.tsx
+msgid "Transcode Profile"
+msgstr ""
+
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
 #: src/pages/profiles/TranscodeConfigsPage.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
@@ -6964,6 +6979,10 @@ msgstr ""
 #: src/pages/system/TroubleshootPage.tsx
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Type"
+msgstr ""
+
+#: src/components/channels/useChannelBulkActions.ts
+msgid "Unable to load compatible transcode profiles."
 msgstr ""
 
 #: src/components/UnavailableLibraryIndicator.tsx
