@@ -227,22 +227,26 @@ export const ChannelOptionsMenu = ({
             </ListItemText>
           </MenuItem>
         )}
-        {!hideItems?.includes('convert') && isLegacyChannel(row) && (
-          <MenuItem
-            onClick={(e) => {
-              e.stopPropagation();
-              void convertChannels([row]);
-              handleClose(e);
-            }}
-          >
-            <ListItemIcon>
-              <Upgrade />
-            </ListItemIcon>
-            <ListItemText>
-              <Trans>Convert to ErsatzTV next</Trans>
-            </ListItemText>
-          </MenuItem>
-        )}
+        {/* An offset channel moves when its source converts; its edit page
+            points there. */}
+        {!hideItems?.includes('convert') &&
+          isLegacyChannel(row) &&
+          !row.offset && (
+            <MenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                void convertChannels([row]);
+                handleClose(e);
+              }}
+            >
+              <ListItemIcon>
+                <Upgrade />
+              </ListItemIcon>
+              <ListItemText>
+                <Trans>Convert to ErsatzTV next</Trans>
+              </ListItemText>
+            </MenuItem>
+          )}
         {!hideItems?.includes('delete') && (
           <MenuItem
             onClick={(e) => {

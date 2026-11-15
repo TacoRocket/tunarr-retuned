@@ -1,8 +1,11 @@
+import { RouterButtonLink } from '@/components/base/RouterButtonLink.tsx';
 import { DuplicateChannelProfileDialog } from '@/components/channels/DuplicateChannelProfileDialog.tsx';
 import { useChannelBulkActions } from '@/components/channels/useChannelBulkActions.ts';
+import { getChannelsByNumberV2Options } from '@/generated/@tanstack/react-query.gen.ts';
 import { isLegacyChannel, nextStreamMode } from '@/helpers/nextConversion.ts';
 import { Trans } from '@lingui/react/macro';
 import { Alert, AlertTitle, Box, Button } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import type { Channel } from '@tunarr/types';
 import { useState } from 'react';
 
@@ -26,9 +29,17 @@ type Props = {
  * ErsatzTV next. The channel stays fully editable either way.
  */
 export function LegacyEngineNotice({ channel, onConverted }: Props) {
+  if (!isLegacyChannel(channel)) return null;
+  // An offset channel takes its engine from its source.
+  if (channel.offset) {
+    return <FollowsSourceNotice sourceId={channel.offset.sourceChannelId} />;
+  }
+  return <ConvertNotice channel={channel} onConverted={onConverted} />;
+}
+
+function ConvertNotice({ channel, onConverted }: Props) {
   const { convertChannels, profileDialog } = useChannelBulkActions();
   const [converting, setConverting] = useState(false);
-  if (!isLegacyChannel(channel)) return null;
 
   const nativeOnlyMode = NativeOnlyModeLabels[channel.streamMode];
   const convert = async () => {
@@ -79,5 +90,47 @@ export function LegacyEngineNotice({ channel, onConverted }: Props) {
       </Alert>
       {profileDialog && <DuplicateChannelProfileDialog {...profileDialog} />}
     </>
+  );
+}
+
+function FollowsSourceNotice({ sourceId }: { sourceId: string }) {
+  const { data: source } = useQuery(
+    getChannelsByNumberV2Options({ path: { id: sourceId } }),
+  );
+  const sourceName = source?.name;
+
+  return (
+    <Alert severity="info" sx={{ mb: 2 }}>
+      <AlertTitle>
+        <Trans>This channel uses the legacy playback engine</Trans>
+      </AlertTitle>
+      {sourceName ? (
+        <Trans>
+          It plays {sourceName} later and uses its playback engine. Convert{' '}
+          {sourceName} to ErsatzTV next, and this channel moves with it.
+        </Trans>
+      ) : (
+        <Trans>
+          It plays another channel later and uses that channel's playback
+          engine. Convert that channel to ErsatzTV next, and this channel moves
+          with it.
+        </Trans>
+      )}
+      <Box sx={{ mt: 1.5 }}>
+        <RouterButtonLink
+          to="/channels/$channelId/edit"
+          params={{ channelId: sourceId }}
+          variant="outlined"
+          color="inherit"
+          size="small"
+        >
+          {sourceName ? (
+            <Trans>Open {sourceName}</Trans>
+          ) : (
+            <Trans>Open source channel</Trans>
+          )}
+        </RouterButtonLink>
+      </Box>
+    </Alert>
   );
 }

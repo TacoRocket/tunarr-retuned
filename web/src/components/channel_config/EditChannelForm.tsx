@@ -40,6 +40,7 @@ import ChannelEditActions from './ChannelEditActions.tsx';
 import ChannelEpgConfig from './ChannelEpgConfig.tsx';
 import { ChannelFlexConfig } from './ChannelFlexConfig.tsx';
 import { ChannelLiveRelaySettings } from './ChannelLiveRelaySettings.tsx';
+import { applyConversionToForm } from './applyConversionToForm.ts';
 import { LegacyEngineNotice } from './LegacyEngineNotice.tsx';
 import { ChannelPropertiesEditor } from './ChannelPropertiesEditor.tsx';
 import ChannelTranscodingConfig, {
@@ -383,12 +384,8 @@ export function EditChannelForm({
       {!isNew && (
         <LegacyEngineNotice
           channel={channel}
-          // The server saved the conversion; bring only those fields into the
-          // form, so a later Save neither undoes it nor drops unsaved edits.
           onConverted={(saved) =>
-            formMethods.reset(getDefaultFormValues(saved), {
-              keepDirtyValues: true,
-            })
+            applyConversionToForm(formMethods, getDefaultFormValues(saved))
           }
         />
       )}

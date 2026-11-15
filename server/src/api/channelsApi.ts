@@ -3,6 +3,7 @@ import {
   validateSpelunkrFeed,
 } from '../services/SpelunkrSchedule.ts';
 import { findUnsupportedSettings } from '../stream/etv/EtvNextChannelConfigMapper.ts';
+import { nextProfileUpdateError } from './nextProfileUpdateCheck.ts';
 import { LiveRelayConfigSchema } from '../db/derived_types/Lineup.ts';
 import { liveRelayConfigurationError } from '../stream/LiveRelay.ts';
 import {
@@ -612,6 +613,15 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
             error: `Transcode config with ID ${req.body.transcodeConfigId} not found`,
           });
         }
+
+        // SIGNPOST(native-retirement): see nextProfileUpdateError.
+        const nextProfileError = nextProfileUpdateError(
+          { ...channel, useEtvNext: channel.useEtvNext ?? false },
+          req.body,
+          transcodeConfig,
+        );
+        if (nextProfileError)
+          return res.status(400).send({ error: nextProfileError });
 
         const crtError = crtConfigurationError(
           req.body.crt === undefined ? channel.crt : req.body.crt,

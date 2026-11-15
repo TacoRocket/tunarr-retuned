@@ -1,6 +1,11 @@
-import { getApiTranscodeConfigsOptions } from '@/generated/@tanstack/react-query.gen.ts';
+import {
+  getApiTranscodeConfigsOptions,
+  getApiTranscodeConfigsQueryKey,
+  getChannelsByNumberV2Options,
+} from '@/generated/@tanstack/react-query.gen.ts';
 import { deleteApiChannelsById } from '@/generated/sdk.gen.ts';
 import {
+  conversionFailureReason,
   isLegacyChannel,
   nextConversionUpdate,
 } from '@/helpers/nextConversion.ts';
@@ -34,6 +39,9 @@ export const runEach = async <T>(
   }
   return { succeeded: items.length - failed, failed };
 };
+
+// A snackbar can show a few lines; past that, the count stands in.
+const MaxListedFailures = 5;
 
 export const useChannelBulkActions = () => {
   const { t } = useLingui();
@@ -141,35 +149,120 @@ export const useChannelBulkActions = () => {
     [copyChannels, withNextProfiles],
   );
 
+  // An offset channel's source, by name, for pointing the user at it.
+  const sourceName = useCallback(
+    async (offsetChannel: Channel) => {
+      const sourceId = offsetChannel.offset?.sourceChannelId;
+      if (!sourceId) return t`its source channel`;
+      try {
+        const source = await queryClient.fetchQuery(
+          getChannelsByNumberV2Options({ path: { id: sourceId } }),
+        );
+        return source.name;
+      } catch (error) {
+        console.error(error);
+        return t`its source channel`;
+      }
+    },
+    [queryClient, t],
+  );
+
   // SIGNPOST(native-retirement): conversion goes with native playback.
-  // Moves legacy channels to ErsatzTV next. Channels already on Next are left
-  // alone. `onConverted` receives each channel as the server saved it.
+  // Moves legacy channels to ErsatzTV next, changing only their engine, stream
+  // mode and, where needed, profile. Channels already on Next are left alone.
+  // An offset channel takes its engine from its source, so converting the
+  // source moves both; one selected without its source is pointed at it.
+  // `onConverted` receives each channel as the server saved it.
   const convertChannels = useCallback(
     async (channels: Channel[], onConverted?: (channel: Channel) => void) => {
       const legacy = channels.filter(isLegacyChannel);
-      if (legacy.length === 0) return;
-      await withNextProfiles(legacy, 'convert', async (replacements) => {
-        const result = await runEach(legacy, async (channel) => {
-          const saved = await updateChannel.mutateAsync({
-            path: { id: channel.id },
-            body: nextConversionUpdate(channel, replacements?.get(channel.id)),
-          });
-          onConverted?.(saved);
+      const selected = new Set(channels.map((channel) => channel.id));
+      const followers = legacy.filter(
+        (channel) =>
+          channel.offset && !selected.has(channel.offset.sourceChannelId),
+      );
+      if (followers.length > 0) {
+        const lines = await Promise.all(
+          followers.map(async (channel) => {
+            const source = await sourceName(channel);
+            return t`${channel.name} follows ${source}. Convert ${source} to move both.`;
+          }),
+        );
+        snackbar.enqueueSnackbar(lines.join('\n'), {
+          variant: 'info',
+          style: { whiteSpace: 'pre-line' },
+        });
+      }
+
+      const direct = legacy.filter((channel) => !channel.offset);
+      if (direct.length === 0) return;
+      await withNextProfiles(direct, 'convert', async (replacements) => {
+        // Each failure's channel and reason, to tell the user what to fix.
+        const failures: { channel: Channel; error: unknown }[] = [];
+        const result = await runEach(direct, async (channel) => {
+          try {
+            // The list row lacks filler and subtitle settings; saving it would
+            // erase them. Save from the channel's full, current record.
+            const full = await queryClient.fetchQuery({
+              ...getChannelsByNumberV2Options({ path: { id: channel.id } }),
+              staleTime: 0,
+            });
+            const saved = await updateChannel.mutateAsync({
+              path: { id: channel.id },
+              body: nextConversionUpdate(full, replacements?.get(channel.id)),
+            });
+            if (isLegacyChannel(saved)) {
+              throw new Error(
+                t`It is still on the legacy engine after saving.`,
+              );
+            }
+            onConverted?.(saved);
+          } catch (error) {
+            failures.push({ channel, error });
+            throw error;
+          }
         });
         await queryClient.invalidateQueries({
           predicate: invalidateTaggedQueries('Channels'),
         });
-        report(
-          result,
-          plural(result.succeeded, {
-            one: 'Converted # channel to ErsatzTV next',
-            other: 'Converted # channels to ErsatzTV next',
+        if (result.failed === 0) {
+          snackbar.enqueueSnackbar(
+            plural(result.succeeded, {
+              one: 'Converted # channel to ErsatzTV next',
+              other: 'Converted # channels to ErsatzTV next',
+            }),
+            { variant: 'success' },
+          );
+          return;
+        }
+
+        // A refused profile may have changed since the picker loaded; the
+        // next attempt should see the profiles as they are now.
+        await queryClient.invalidateQueries({
+          queryKey: getApiTranscodeConfigsQueryKey({
+            query: { backend: 'etv_next' },
           }),
-          t`${result.failed} of ${legacy.length} channels failed to convert`,
+        });
+        const listed = failures
+          .slice(0, MaxListedFailures)
+          .map(
+            ({ channel, error }) =>
+              `${channel.name}: ${conversionFailureReason(error)}`,
+          );
+        const more = result.failed - listed.length;
+        snackbar.enqueueSnackbar(
+          [
+            result.succeeded > 0
+              ? t`Converted ${result.succeeded} of ${direct.length} channels. These stay on the legacy engine and still play:`
+              : t`No channels were converted. These stay on the legacy engine and still play:`,
+            ...listed,
+            ...(more > 0 ? [t`and ${more} more`] : []),
+          ].join('\n'),
+          { variant: 'error', style: { whiteSpace: 'pre-line' } },
         );
       });
     },
-    [queryClient, report, t, updateChannel, withNextProfiles],
+    [queryClient, snackbar, sourceName, t, updateChannel, withNextProfiles],
   );
 
   const deleteChannels = useCallback(
