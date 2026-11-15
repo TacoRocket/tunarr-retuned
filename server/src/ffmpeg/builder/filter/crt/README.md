@@ -47,19 +47,19 @@ Omitting `crt` on an update preserves the saved setting. `null` clears it, and
 start disabled. Changes take effect when the next stream session loads the channel
 settings; already-running FFmpeg processes are not restarted by this setting.
 
-## Optional direct NV12 runtime
+## Direct NV12 output
 
-The original fork's direct-output trial requires all three process environment values:
-`TUNARR_CRT_DIRECT_NV12=1`, `ETV_VAAPI_DIRECT_NV12=1`, and
-`ETV_INLINE_NV12_RTZ=1`, with the matching patched FFmpeg/libplacebo build from
-TacoRocket/ErsatzTV-ffmpeg. Setting these against an unpatched runtime is not
-supported. The runtime's `DIRECT_NV12_OUTPUT=1` build option carries the
-libplacebo producer-storage patch; rebuilding Tunarr alone does not supply it.
+Performance and Experimental write NV12 straight from libplacebo whenever the
+configured FFmpeg supports it: `nv12_output=native:range=tv` on the eligible
+libplacebo filter, with no `scale_vulkan` conversion after it. This needs the
+fork's FFmpeg runtime from TacoRocket/ErsatzTV-ffmpeg (`perf/nv12-native-layer`,
+built with `DIRECT_NV12_OUTPUT=1`, which carries the libplacebo producer-storage
+patch); rebuilding Tunarr alone does not supply it. Settings → Features
+**Disable Direct NV12 for CRT** (`TUNARR_DISABLE_CRT_DIRECT_NV12=1`) turns it
+off. The earlier opt-in variables (`TUNARR_CRT_DIRECT_NV12`,
+`ETV_VAAPI_DIRECT_NV12`, `TUNARR_CRT_NV12_OUTPUT`) and the original inline trial
+(`ETV_INLINE_NV12_RTZ`, 1920x1080 only) are no longer read.
 
-The revised fork on `perf/nv12-native-layer` instead uses
-`TUNARR_CRT_NV12_OUTPUT=native` alongside `TUNARR_CRT_DIRECT_NV12=1` and
-`ETV_VAAPI_DIRECT_NV12=1`. This adds `nv12_output=native:range=tv` to the eligible
-libplacebo filter. `ETV_INLINE_NV12_RTZ` is unnecessary with that runtime.
 Tunarr's shared capability discovery reads the image's build-time FFmpeg help
 when the version output matches. If the record lacks native NV12, CRT uses the
 filtered path. Without a matching record, Tunarr asks that build once whether
@@ -71,8 +71,8 @@ This is picture parity for those samples, not live client acceptance or a new
 throughput measurement. The Match HDR mode is not selected by this CRT path.
 
 `performance` and `experimental` Broadcast looks can select native output at
-any positive, even picture dimensions. The native runtime flags and FFmpeg's
-`nv12_output=native` capability are both required. The runtime
+any positive, even picture dimensions. FFmpeg's `nv12_output=native`
+capability is required, and the Features switch must not turn it off. The runtime
 checks actual NV12 plane layout, placement and GPU storage support and retains
 ordinary output when those checks reject the native producer. Use the runtime
 patch that removes its earlier 1920x1080 restriction to receive this optimization
@@ -88,8 +88,7 @@ NV12; Performance retains Mitchell. Eligible HDR10 DVD Broadcast also follows
 the channel resolution. These choices are independent of the native producer's
 internal fallback: a rejected native layout renders through ordinary NV12 with
 the requested sampling. Missing native capability keeps the filtered path and
-HDR bypass. Quality retains Mitchell and `scale_vulkan`. The older inline
-runtime keeps its original 1920x1080 scope.
+HDR bypass. Quality retains Mitchell and `scale_vulkan`.
 
 A separate bounded comparison used current DVD Broadcast composite/half-grain
 shaders and copied SDR/HDR10 clips at 1280x720, 1440x1080, 1920x1080 and
@@ -102,14 +101,13 @@ cross-driver compatibility, throughput or sustained client playback. The worker
 still applies point sampling only when the picture fills its frame; padded
 pictures keep its existing ordinary-NV12 Mitchell handoff.
 
-The storage runtime explicitly assumes the fp16 attachment truncation measured
-on Intel ANV. It is not an automatic cross-driver choice. Unsupported storage
-layouts/features use libplacebo's original output path. Unset
-`TUNARR_CRT_DIRECT_NV12` to restore the filtered NV12 handoff on the next process;
-unset the runtime values and `TUNARR_CRT_NV12_OUTPUT` as well to restore the
-original runtime behavior.
-The runtime flags only make direct output eligible; the per-channel tier selects
-filtered versus point output. They do not enable Experimental.
+The storage runtime assumes the fp16 attachment truncation measured on Intel
+ANV, the only driver it has been checked on. Unsupported storage
+layouts/features use libplacebo's original output path. If another GPU shows a
+broken or miscolored CRT picture, turn on **Disable Direct NV12 for CRT** to
+restore the filtered NV12 handoff for streams that start afterwards.
+FFmpeg support only makes direct output eligible; the per-channel tier selects
+filtered versus point output. It does not enable Experimental.
 
 ## Mechanism
 
@@ -247,17 +245,18 @@ the source; separately rendered subtitles retain their output resolution.
 
 ## HDR10 DVD Broadcast
 
-`VaapiPipelineBuilder` can keep DVD Broadcast enabled for HDR10 when the existing
-opt-ins select native NV12 CRT output and the VAAPI Hable LUT tone mapper:
+`VaapiPipelineBuilder` can keep DVD Broadcast enabled for HDR10 when native NV12
+CRT output and the VAAPI Hable LUT tone mapper are both in use:
 
 - CRT enabled, `look: "dvd-broadcast"`, processing `"performance"` or
   `"experimental"`. HDR CRT completes the opted-in look, so it is a Performance
   feature; Quality keeps the configured tone mapper and HDR bypass.
 - Positive, even active picture dimensions, VAAPI hardware decoding and H.264
   hardware encoding, with hardware filters enabled.
-- Tone mapping enabled and `TUNARR_VAAPI_HABLE_LUT=1`.
-- `TUNARR_CRT_DIRECT_NV12=1`, `ETV_VAAPI_DIRECT_NV12=1`, and
-  `TUNARR_CRT_NV12_OUTPUT=native`.
+- Tone mapping enabled and **Fast HDR Conversion (VAAPI)** on in Settings →
+  Features (or `TUNARR_VAAPI_HABLE_LUT=1`).
+- Direct NV12 output available: FFmpeg has `nv12_output=native` and
+  **Disable Direct NV12 for CRT** is off.
 - Limited-range 10-bit PQ / BT.2020 input without Dolby Vision, and a runtime
   providing `tonemap_vaapi_lut` plus the existing CRT interop/filter support.
   These are custom runtime features; a stock FFmpeg build is not sufficient.

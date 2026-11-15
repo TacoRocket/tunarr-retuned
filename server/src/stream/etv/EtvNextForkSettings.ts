@@ -15,6 +15,7 @@ import type {
   VideoNormalizationConfig,
 } from './generated/channelConfig.ts';
 import { FrameSize } from '../../ffmpeg/builder/types.ts';
+import type { FeatureFlagService } from '../../services/FeatureFlagService.ts';
 import { bundledImagePath, uploadedImagePath } from '../../forkResources.ts';
 import { isNonEmptyString } from '../../util/index.ts';
 
@@ -48,22 +49,28 @@ export function forkVaapiLowPower(
 // An HLS Direct v2 channel keeps direct play: see `forkDirectCopy`. The
 // channel's HLS segment type is `forkHlsSegmentType`.
 //
-// `runtime` describes the configured FFmpeg, which the worker also runs. When
-// it is known to lack native NV12, the worker keeps filtered NV12 instead of
-// being asked for an option its FFmpeg rejects.
+// `runtime` describes the configured FFmpeg, which the worker also runs. Unless
+// it reports native NV12, the worker keeps filtered NV12 instead of being asked
+// for an option its FFmpeg could reject.
+//
+// `flags` reads Settings → Features, where a container variable still wins:
+// the fixed-Hable LUT, driver-default scaling and the direct NV12 off switch.
 export function applyForkChannelSettings(
   config: ChannelConfig,
   channel: Pick<ChannelOrm, 'crt' | 'creditSqueeze'> &
     Partial<Pick<ChannelOrm, 'streamMode' | 'hlsSegmentType'>>,
-  runtime?: Pick<FfmpegRuntimeCapabilities, 'nativeNv12Output'>,
+  runtime: Pick<FfmpegRuntimeCapabilities, 'nativeNv12Output'> | undefined,
+  flags: Pick<FeatureFlagService, 'get'>,
 ): IgnoredSetting[] {
   const ignored: IgnoredSetting[] = forkHlsSegmentType(config, channel);
   const crt = channel.crt;
   const video = config.normalization.video;
+  // Chooses the LUT only when an item needs tone mapping; the mode is unchanged.
+  video.hdr_vaapi_lut = flags.get('vaapiHableLut');
   if (video.accel === 'vaapi') {
     const dedicatedScaler = crt?.enabled
       ? usesCrtHardwareProcessing(crt)
-      : process.env.TUNARR_VAAPI_DEFAULT_SCALING === '1';
+      : flags.get('vaapiDefaultScaling');
     video.filters = {
       ...video.filters,
       scale_vaapi: dedicatedScaler ? { mode: 'default' } : undefined,
@@ -80,7 +87,13 @@ export function applyForkChannelSettings(
       const stage = crtWorkerStage(
         crt,
         FrameSize.withDimensions(video.width ?? 1920, video.height ?? 1080),
-        runtime?.nativeNv12Output !== false,
+        {
+          // Unread capabilities keep filtered NV12, as on Tunarr's pipeline.
+          directNv12Available:
+            runtime?.nativeNv12Output === true &&
+            !flags.get('disableCrtDirectNv12'),
+          hableLut: flags.get('vaapiHableLut'),
+        },
       );
       video.custom_shader = stage.shader;
       if (stage.inputHeight !== undefined) {

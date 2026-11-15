@@ -205,9 +205,8 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       CrtFilter.usesDirectNv12Handoff(
         crt,
         desiredState.scaledSize,
-        this.ffmpegCapabilities.runtime.nativeNv12Output !== false,
+        this.directNv12Available(),
       ) &&
-      process.env.TUNARR_CRT_NV12_OUTPUT === 'native' &&
       canDecode &&
       canEncode &&
       desiredState.videoFormat === VideoFormats.H264 &&
@@ -222,15 +221,18 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
       !CrtFilter.usesDirectNv12Handoff(
         crt,
         desiredState.scaledSize,
-        this.ffmpegCapabilities.runtime.nativeNv12Output !== false,
+        this.directNv12Available(),
       )
     ) {
-      const reason = CrtFilter.usesDirectNv12Handoff(
+      const reason = !CrtFilter.usesDirectNv12Handoff(
         crt,
         desiredState.scaledSize,
+        true,
       )
-        ? "Direct NV12 is unavailable: this FFmpeg's libplacebo has no nv12_output=native; using filtered NV12 with the established Vulkan handoff."
-        : 'Direct NV12 is unavailable for this CRT runtime or geometry; using filtered NV12 with the established Vulkan handoff.';
+        ? 'Direct NV12 is unavailable for this CRT geometry; using filtered NV12 with the established Vulkan handoff.'
+        : this.featureFlagService.get('disableCrtDirectNv12')
+          ? 'Direct NV12 for CRT is turned off in Settings → Features; using filtered NV12 with the established Vulkan handoff.'
+          : "Direct NV12 is unavailable: this FFmpeg's libplacebo did not report nv12_output=native; using filtered NV12 with the established Vulkan handoff.";
       this.logger[
         loggedDirectNv12FallbackReasons.has(reason) ? 'debug' : 'warn'
       ](reason);
@@ -381,7 +383,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           crt,
           desiredState.scaledSize,
           this.useHdrCrt,
-          this.ffmpegCapabilities.runtime.nativeNv12Output !== false,
+          this.directNv12Available(),
         ),
       );
     } else {
@@ -488,7 +490,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         desiredState.paddedSize,
         this.useCrt ? crt : undefined,
         this.videoInputSource.hasInputOption(CopyTimestampInputOption),
-        this.ffmpegCapabilities.runtime.nativeNv12Output !== false,
+        this.directNv12Available(),
       );
     }
   }
@@ -638,9 +640,23 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
     return super.setTonemap(currentState);
   }
 
-  private preferDedicatedScaler(): boolean | undefined {
+  // A CRT channel's tier decides; other channels follow Settings → Features
+  // "Driver-Default VAAPI Scaling".
+  private preferDedicatedScaler(): boolean {
     const crt = this.context.pipelineOptions.crt;
-    return crt?.enabled ? usesCrtHardwareProcessing(crt) : undefined;
+    return crt?.enabled
+      ? usesCrtHardwareProcessing(crt)
+      : this.featureFlagService.get('vaapiDefaultScaling');
+  }
+
+  // The configured FFmpeg reported nv12_output=native, and Settings → Features
+  // has not turned direct NV12 off for CRT. Capabilities that could not be read
+  // keep the filtered path: an FFmpeg without the option would reject it.
+  private directNv12Available(): boolean {
+    return (
+      this.ffmpegCapabilities.runtime.nativeNv12Output === true &&
+      !this.featureFlagService.get('disableCrtDirectNv12')
+    );
   }
 
   // Tries the preferred hardware tonemap first, then the other one.
@@ -649,7 +665,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   // software tonemapping.
   private selectHardwareTonemap(): VaapiTonemapType | 'vaapi-lut' | undefined {
     if (
-      process.env.TUNARR_VAAPI_HABLE_LUT === '1' &&
+      this.featureFlagService.get('vaapiHableLut') &&
       (this.context.pipelineOptions.crt?.enabled !== true ||
         usesCrtHardwareProcessing(this.context.pipelineOptions.crt)) &&
       isVideoPipelineContext(this.context)
@@ -670,7 +686,7 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
           return 'vaapi-lut';
         }
         this.logger.warn(
-          'TUNARR_VAAPI_HABLE_LUT requested but FFmpeg lacks tonemap_vaapi_lut; using the configured tone mapper',
+          'Fast HDR conversion (VAAPI) is on, but this FFmpeg lacks tonemap_vaapi_lut; using the configured tone mapper',
         );
       }
     }

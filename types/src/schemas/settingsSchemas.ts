@@ -231,6 +231,19 @@ export const GlobalMediaSourceSettingsSchema = z.object({
     .describe(
       'Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.',
     ),
+  dailyScanTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .nullable()
+    .default(null)
+    .describe(
+      'Scan libraries once a day at this 24-hour HH:mm time instead of every rescanIntervalHours. Needs dailyScanTimeZone. Collection and custom show syncing still follow the interval. TUNARR_LIBRARY_SCAN_DAILY_TIME and TUNARR_LIBRARY_SCAN_TIME_ZONE, when set, decide instead.',
+    ),
+  dailyScanTimeZone: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe('IANA time zone for dailyScanTime, such as America/Chicago.'),
 });
 
 export type GlobalMediaSourceSettings = z.infer<

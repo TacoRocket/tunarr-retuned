@@ -53,13 +53,9 @@ test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
 
 // The old native path selected point sampling and paired reads without a tier opt-in.
 test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
-  'stored processing gates all three optimizations even with runtime flags (%s)',
+  'stored processing gates all three optimizations even with direct NV12 available (%s)',
   (processing) => {
-    vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '1');
-    vi.stubEnv('ETV_VAAPI_DIRECT_NV12', '1');
-    vi.stubEnv('TUNARR_CRT_NV12_OUTPUT', 'native');
-    vi.stubEnv('TUNARR_VAAPI_DEFAULT_SCALING', '1');
-    try {
+    {
       const settings = ChannelCrtSettingsSchema.parse({
         enabled: true,
         look: 'dvd-broadcast',
@@ -69,7 +65,7 @@ test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
       });
       if (processing === undefined)
         Reflect.deleteProperty(settings, 'processing');
-      const graph = new CrtFilter(settings, FrameSize.FHD, false).filter;
+      const graph = new CrtFilter(settings, FrameSize.FHD, false, true).filter;
       const shader = shaderFrom(graph);
       const experimental = processing === 'experimental';
       expect(graph.includes('plane_downscaler_kernel=box')).toBe(experimental);
@@ -84,8 +80,6 @@ test.each([undefined, 'quality', 'performance', 'experimental'] as const)(
       expect(graph.includes(':mode=default')).toBe(
         processing === 'performance' || experimental,
       );
-    } finally {
-      vi.unstubAllEnvs();
     }
   },
 );
@@ -106,17 +100,14 @@ test.each([
 ] as const)(
   '%ix%i %s uses native output with the selected tier sampling',
   (width, height, processing) => {
-    vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '1');
-    vi.stubEnv('ETV_VAAPI_DIRECT_NV12', '1');
-    vi.stubEnv('TUNARR_CRT_NV12_OUTPUT', 'native');
-    try {
+    {
       const size = FrameSize.withDimensions(width, height);
       const settings = ChannelCrtSettingsSchema.parse({
         enabled: true,
         look: 'dvd-broadcast',
         processing,
       });
-      const graph = new CrtFilter(settings, size, false).filter;
+      const graph = new CrtFilter(settings, size, false, true).filter;
       expect(graph).not.toContain('scale_vulkan=');
       expect(graph).toContain('nv12_output=native');
       expect(graph.includes('plane_downscaler_kernel=box')).toBe(
@@ -126,19 +117,19 @@ test.each([
         processing === 'performance',
       );
       expect(graph).toContain(`libplacebo=w=${width}:h=${height}`);
-      expect(CrtFilter.usesDirectNv12Handoff(settings, size)).toBe(true);
+      expect(CrtFilter.usesDirectNv12Handoff(settings, size, true)).toBe(true);
 
       const quality = new CrtFilter(
         { ...settings, processing: 'quality' },
         size,
+        false,
+        true,
       );
       expect(quality.filter).toContain('scale_vulkan=format=nv12');
-      vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '0');
-      expect(new CrtFilter(settings, size, false).filter).toContain(
+      // Switched off in Settings → Features, or an FFmpeg without native NV12.
+      expect(new CrtFilter(settings, size, false, false).filter).toContain(
         'scale_vulkan=format=nv12',
       );
-    } finally {
-      vi.unstubAllEnvs();
     }
   },
 );

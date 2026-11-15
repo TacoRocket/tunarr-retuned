@@ -5,14 +5,16 @@
 Your container needs GPU access and a VAAPI transcode profile first. See [the container notes](container.md) for that part. Then:
 
 - In your transcode profile, turn on low-power encoding (`vaapiLowPower`).
-- Add `TUNARR_VAAPI_DEFAULT_SCALING=1` to the container's environment.
-- Add `TUNARR_VAAPI_HABLE_LUT=1` to the container's environment.
-- Restart the container.
+- On **Settings → Features**, turn on **Driver-Default VAAPI Scaling** and **Fast HDR Conversion (VAAPI)**, then save.
 
-To turn them off for non-CRT channels, remove those lines and restart. CRT
-channels use their [processing tier](crt.md#processing-tiers): Performance requests
-dedicated scaling and eligible low-power encoding, while Quality keeps baseline
-scaling. The fixed-Hable LUT additionally requires Experimental for CRT channels.
+They apply to streams that start after you save. To turn them off, switch them
+off again. The container variables `TUNARR_VAAPI_DEFAULT_SCALING=1` and
+`TUNARR_VAAPI_HABLE_LUT=1` still work and lock the switches while set.
+
+CRT channels use their [processing tier](crt.md#processing-tiers) for scaling:
+Performance and Experimental request dedicated scaling and eligible low-power
+encoding, while Quality keeps baseline scaling. Fast HDR conversion also needs
+Performance or Experimental on a CRT channel.
 
 ## What you get
 
@@ -30,7 +32,7 @@ On our Intel i3-1220P, five 4K HDR channels at once fell behind on stock Tunarr.
 
 - **HDR only.** SDR channels play fine with these on, but the box tops out at fewer SDR channels at once: about 16% lower in our test. We're looking into why.
 - **HDR picture.** These use a fixed tone curve instead of stock's scene-adaptive one, so some scenes can look a little different. We're still comparing the picture against stock.
-- **Intel only.** Tested on one 12th-gen Intel PC. Other hardware may not work; if it fails, remove the setting.
+- **Intel only.** Tested on one 12th-gen Intel PC. Other hardware may not work; if it fails, switch the option off.
 - **Options off.** With none of these set, the fork runs about the same as stock.
 
 ## Why we did it

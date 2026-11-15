@@ -1017,9 +1017,6 @@ describe('VaapiPipelineBuilder tonemap', () => {
       const size = FrameSize.withDimensions(width, height);
       process.env[TONEMAP_ENABLED] = 'true';
       process.env.TUNARR_VAAPI_HABLE_LUT = '1';
-      process.env.TUNARR_CRT_DIRECT_NV12 = '1';
-      process.env.ETV_VAAPI_DIRECT_NV12 = '1';
-      process.env.TUNARR_CRT_NV12_OUTPUT = 'native';
       const lowPower = new VaapiProfileEntrypoint(
         VaapiProfiles.H264Main,
         VaapiEntrypoint.EncodeLowPower,
@@ -1047,6 +1044,11 @@ describe('VaapiPipelineBuilder tonemap', () => {
           ]),
           new Set(),
           new Set(),
+          {
+            source: 'bundled',
+            nativeNv12Output: true,
+            preservesConcatTimestamps: true,
+          },
         ),
         stateVaapiDevice: '/dev/dri/renderD128',
         desiredState: {
@@ -1100,10 +1102,7 @@ describe('VaapiPipelineBuilder tonemap', () => {
     },
   );
 
-  test('a custom FFmpeg without nv12_output keeps the filtered NV12 handoff', () => {
-    process.env.TUNARR_CRT_DIRECT_NV12 = '1';
-    process.env.ETV_VAAPI_DIRECT_NV12 = '1';
-    process.env.TUNARR_CRT_NV12_OUTPUT = 'native';
+  test('a custom FFmpeg without nv12_output, or the Features switch, keeps the filtered NV12 handoff', () => {
     const size = FrameSize.FHD;
     const lowPower = new VaapiProfileEntrypoint(
       VaapiProfiles.H264Main,
@@ -1169,14 +1168,22 @@ describe('VaapiPipelineBuilder tonemap', () => {
     });
     expect(patched).toContain('nv12_output=native');
     expect(patched).not.toContain('scale_vulkan=format=nv12');
+
+    // Settings → Features "Disable Direct NV12 for CRT", here through its
+    // container variable.
+    process.env.TUNARR_DISABLE_CRT_DIRECT_NV12 = '1';
+    const switchedOff = graphFor({
+      source: 'bundled',
+      nativeNv12Output: true,
+      preservesConcatTimestamps: true,
+    });
+    expect(switchedOff).not.toContain('nv12_output=native');
+    expect(switchedOff).toContain('format=vulkan,scale_vulkan=format=nv12,');
   });
 
   test('Quality bypasses CRT on HDR10 and does not use the fixed-Hable LUT', () => {
     process.env[TONEMAP_ENABLED] = 'true';
     process.env.TUNARR_VAAPI_HABLE_LUT = '1';
-    process.env.TUNARR_CRT_DIRECT_NV12 = '1';
-    process.env.ETV_VAAPI_DIRECT_NV12 = '1';
-    process.env.TUNARR_CRT_NV12_OUTPUT = 'native';
     const pipeline = buildWithTonemap({
       hardwareCapabilities: new VaapiHardwareCapabilities([
         new VaapiProfileEntrypoint(

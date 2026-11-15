@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { TranscodeConfigOrm } from '@/db/schema/TranscodeConfig.js';
+import type { FeatureFlagKey } from '@tunarr/types';
 import {
   crtShader,
   crtWorkerStage,
@@ -21,13 +22,17 @@ const workerConfig = (accel?: 'vaapi' | 'qsv', height = 1080) =>
     normalization: { video: { accel, width: (height * 16) / 9, height } },
   }) as unknown as ChannelConfig;
 
-// the runtime flags of a server with the patched native-NV12 FFmpeg
-const stubNativeRuntime = () => {
-  vi.stubEnv('TUNARR_CRT_DIRECT_NV12', '1');
-  vi.stubEnv('ETV_VAAPI_DIRECT_NV12', '1');
-  vi.stubEnv('TUNARR_CRT_NV12_OUTPUT', 'native');
-  vi.stubEnv('TUNARR_VAAPI_HABLE_LUT', '1');
-};
+// Settings → Features as a test sets it; everything else is off.
+const features = (on: Partial<Record<FeatureFlagKey, boolean>> = {}) => ({
+  get: (flag: FeatureFlagKey) => on[flag] ?? false,
+});
+
+const apply = (
+  config: ChannelConfig,
+  channel: Parameters<typeof applyForkChannelSettings>[1],
+  runtime?: Parameters<typeof applyForkChannelSettings>[2],
+  flags = features(),
+) => applyForkChannelSettings(config, channel, runtime, flags);
 
 const fields = (ignored: { field: string }[]) => ignored.map((s) => s.field);
 
@@ -36,9 +41,8 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     vi.unstubAllEnvs();
   });
 
-  test('VAAPI scaling follows the global switch unless a CRT tier overrides it', () => {
-    for (const enabled of ['0', '1']) {
-      vi.stubEnv('TUNARR_VAAPI_DEFAULT_SCALING', enabled);
+  test('VAAPI scaling follows the Features switch unless a CRT tier overrides it', () => {
+    for (const enabled of [false, true]) {
       for (const processing of [
         null,
         'quality',
@@ -46,27 +50,32 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
         'experimental',
       ] as const) {
         const config = workerConfig('vaapi');
-        applyForkChannelSettings(config, {
-          crt: processing
-            ? { enabled: true, look: 'dvd-broadcast', processing }
-            : null,
-          creditSqueeze: null,
-        });
+        apply(
+          config,
+          {
+            crt: processing
+              ? { enabled: true, look: 'dvd-broadcast', processing }
+              : null,
+            creditSqueeze: null,
+          },
+          undefined,
+          features({ vaapiDefaultScaling: enabled }),
+        );
         const expected =
-          processing === null ? enabled === '1' : processing !== 'quality';
+          processing === null ? enabled : processing !== 'quality';
         expect(config.normalization.video.filters?.scale_vaapi).toEqual(
           expected ? { mode: 'default' } : undefined,
         );
       }
     }
     const qsv = workerConfig('qsv');
-    applyForkChannelSettings(qsv, { crt: null, creditSqueeze: null });
+    apply(qsv, { crt: null, creditSqueeze: null });
     expect(qsv.normalization.video.filters?.scale_vaapi).toBeUndefined();
   });
 
   test('credit squeeze is handled per item, not dropped from the channel', () => {
     const config = workerConfig('vaapi');
-    const ignored = applyForkChannelSettings(config, {
+    const ignored = apply(config, {
       crt: { enabled: true, look: 'dvd-broadcast', processing: 'quality' },
       creditSqueeze: { enabled: true } as never,
     });
@@ -77,7 +86,7 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
 
   test('a CRT look reaches the worker as the shader Quality draws, on VAAPI', () => {
     const config = workerConfig('vaapi');
-    const ignored = applyForkChannelSettings(config, {
+    const ignored = apply(config, {
       crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
       creditSqueeze: null,
     });
@@ -107,22 +116,23 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
       broadcastTexture: 'classic-flat',
     } as const;
     const config = workerConfig('vaapi');
-    applyForkChannelSettings(config, { crt, creditSqueeze: null });
+    apply(config, { crt, creditSqueeze: null });
 
     expect(config.normalization.video.custom_shader).toBe(
       crtShader(crt, FrameSize.FHD),
     );
     expect(config.normalization.video.custom_shader_input_height).toBe(480);
     expect(
-      crtWorkerStage({ ...crt, look: 'tv-broadcast' }, FrameSize.FHD)
-        .inputHeight,
+      crtWorkerStage({ ...crt, look: 'tv-broadcast' }, FrameSize.FHD, {
+        directNv12Available: true,
+        hableLut: false,
+      }).inputHeight,
     ).toBe(360);
   });
 
   test.each([720, 1080, 2160])(
     'a faster tier sends its shader and runtime options at %ip',
     (height) => {
-      stubNativeRuntime();
       const crt = {
         enabled: true,
         look: 'dvd-broadcast',
@@ -133,10 +143,12 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
       } as const;
       const config = workerConfig('vaapi', height);
       const frame = FrameSize.withDimensions((height * 16) / 9, height);
-      const ignored = applyForkChannelSettings(config, {
-        crt,
-        creditSqueeze: null,
-      });
+      const ignored = apply(
+        config,
+        { crt, creditSqueeze: null },
+        { nativeNv12Output: true },
+        features({ vaapiHableLut: true }),
+      );
       const video = config.normalization.video;
 
       expect(video.custom_shader).toBe(crtShader(crt, frame));
@@ -157,28 +169,26 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
   );
 
   test('a custom FFmpeg without native NV12 keeps the worker on filtered NV12', () => {
-    stubNativeRuntime();
     const crt = {
       enabled: true,
       look: 'tv-broadcast',
       processing: 'performance',
     } as const;
+    // Capabilities that could not be read: a stock FFmpeg would reject the option.
+    const unread = workerConfig('vaapi', 720);
+    apply(unread, { crt, creditSqueeze: null }, undefined);
+    expect(unread.normalization.video.custom_shader_options).toEqual({
+      input_scale_mode: 'default',
+    });
+
     const custom = workerConfig('vaapi', 720);
-    applyForkChannelSettings(
-      custom,
-      { crt, creditSqueeze: null },
-      { nativeNv12Output: false },
-    );
+    apply(custom, { crt, creditSqueeze: null }, { nativeNv12Output: false });
     expect(custom.normalization.video.custom_shader_options).toEqual({
       input_scale_mode: 'default',
     });
 
     const patched = workerConfig('vaapi', 720);
-    applyForkChannelSettings(
-      patched,
-      { crt, creditSqueeze: null },
-      { nativeNv12Output: true },
-    );
+    apply(patched, { crt, creditSqueeze: null }, { nativeNv12Output: true });
     expect(patched.normalization.video.custom_shader_options).toEqual({
       input_scale_mode: 'default',
       native_nv12_output: true,
@@ -195,27 +205,44 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
     await expect(runtimeCapabilities(undefined)).resolves.toBeUndefined();
   });
 
-  test('the worker follows a 720p channel with the native runtime and falls back without it', () => {
+  test('direct NV12 is automatic on a faster tier, and the Features switch turns it off', () => {
     const crt = {
       enabled: true,
       look: 'tv-broadcast',
       processing: 'performance',
     } as const;
-    const plain = workerConfig('vaapi');
-    applyForkChannelSettings(plain, { crt, creditSqueeze: null });
-    expect(plain.normalization.video.custom_shader_options).toEqual({
-      input_scale_mode: 'default',
-    });
-    expect(plain.normalization.video.vaapi_low_power).toBe('always');
-
-    stubNativeRuntime();
     const hd = workerConfig('vaapi', 720);
-    applyForkChannelSettings(hd, { crt, creditSqueeze: null });
+    apply(hd, { crt, creditSqueeze: null }, { nativeNv12Output: true });
     expect(hd.normalization.video.custom_shader_options).toEqual({
       input_scale_mode: 'default',
       native_nv12_output: true,
       direct_nv12_handoff: true,
     });
+
+    const off = workerConfig('vaapi', 720);
+    apply(
+      off,
+      { crt, creditSqueeze: null },
+      { nativeNv12Output: true },
+      features({ disableCrtDirectNv12: true }),
+    );
+    expect(off.normalization.video.custom_shader_options).toEqual({
+      input_scale_mode: 'default',
+    });
+    expect(off.normalization.video.vaapi_low_power).toBe('always');
+  });
+
+  test('the fixed-Hable LUT follows the Features switch', () => {
+    for (const on of [false, true]) {
+      const config = workerConfig('vaapi');
+      apply(
+        config,
+        { crt: null, creditSqueeze: null },
+        undefined,
+        features({ vaapiHableLut: on }),
+      );
+      expect(config.normalization.video.hdr_vaapi_lut).toBe(on);
+    }
   });
 
   // A shared profile can be switched off VAAPI after the channel's CRT look
@@ -223,7 +250,7 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
   test('without VAAPI the look is reported as not drawn, whatever the tier', () => {
     for (const processing of ['quality', 'experimental'] as const) {
       const config = workerConfig('qsv');
-      const ignored = applyForkChannelSettings(config, {
+      const ignored = apply(config, {
         crt: { enabled: true, look: 'tv-broadcast', processing },
         creditSqueeze: null,
       });
@@ -244,7 +271,7 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
   test('settings that are off, or never set, are neither drawn nor listed', () => {
     const config = workerConfig('vaapi');
     expect(
-      applyForkChannelSettings(config, {
+      apply(config, {
         crt: { enabled: false, look: 'tv-broadcast', processing: 'quality' },
         creditSqueeze: null,
       }),
@@ -254,7 +281,7 @@ describe('fork-only settings on the ErsatzTV next backend', () => {
       config.normalization.video.custom_shader_input_height,
     ).toBeUndefined();
     expect(
-      applyForkChannelSettings(workerConfig('qsv'), {
+      apply(workerConfig('qsv'), {
         crt: null,
         creditSqueeze: null,
       }),
@@ -294,7 +321,7 @@ describe('HLS Direct v2 keeps direct play on the ErsatzTV next backend', () => {
 
   test('copies video and audio, leaving the worker to transcode items it cannot copy', () => {
     const config = withAudio();
-    const ignored = applyForkChannelSettings(config, {
+    const ignored = apply(config, {
       crt: null,
       creditSqueeze: null,
       streamMode: 'hls_direct_v2',
@@ -308,7 +335,7 @@ describe('HLS Direct v2 keeps direct play on the ErsatzTV next backend', () => {
   test('other stream modes keep transcoding every item', () => {
     for (const streamMode of ['hls', 'mpegts'] as const) {
       const config = withAudio();
-      applyForkChannelSettings(config, {
+      apply(config, {
         crt: null,
         creditSqueeze: null,
         streamMode,
@@ -321,7 +348,7 @@ describe('HLS Direct v2 keeps direct play on the ErsatzTV next backend', () => {
 
   test('a CRT look keeps the video transcoding so it is still drawn', () => {
     const config = withAudio();
-    applyForkChannelSettings(config, {
+    apply(config, {
       crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
       creditSqueeze: null,
       streamMode: 'hls_direct_v2',
@@ -334,7 +361,7 @@ describe('HLS Direct v2 keeps direct play on the ErsatzTV next backend', () => {
 
   test('a CRT look the worker cannot draw does not stop the copy', () => {
     const config = workerConfig('qsv');
-    applyForkChannelSettings(config, {
+    apply(config, {
       crt: { enabled: true, look: 'classic-flat', processing: 'quality' },
       creditSqueeze: null,
       streamMode: 'hls_direct_v2',
@@ -346,7 +373,7 @@ describe('HLS Direct v2 keeps direct play on the ErsatzTV next backend', () => {
 
   test('loudness normalization keeps the audio transcoding', () => {
     const config = withAudio(true);
-    applyForkChannelSettings(config, {
+    apply(config, {
       crt: null,
       creditSqueeze: null,
       streamMode: 'hls_direct_v2',
@@ -373,7 +400,7 @@ describe('copied audio keeps the source surround on items the worker re-encodes'
 
   test('HLS Direct v2 re-encodes what it cannot copy as AC-3 in the source layout', () => {
     const config = profileAudio();
-    applyForkChannelSettings(config, {
+    apply(config, {
       crt: null,
       creditSqueeze: null,
       streamMode: 'hls_direct_v2',
@@ -385,7 +412,7 @@ describe('copied audio keeps the source surround on items the worker re-encodes'
   // AC-3 encodes 32, 44.1 and 48 kHz only; `-ar 96000` makes FFmpeg refuse it.
   test("a profile's 96 kHz does not reach the AC-3 fallback", () => {
     const config = profileAudio({ sample_rate_hz: 96000 });
-    applyForkChannelSettings(config, {
+    apply(config, {
       crt: null,
       creditSqueeze: null,
       streamMode: 'hls_direct_v2',
@@ -397,7 +424,7 @@ describe('copied audio keeps the source surround on items the worker re-encodes'
 
   test('a copy profile does the same in any stream mode', () => {
     const config = profileAudio({ mode: 'copy' });
-    applyForkChannelSettings(config, {
+    apply(config, {
       crt: null,
       creditSqueeze: null,
       streamMode: 'hls',
@@ -408,7 +435,7 @@ describe('copied audio keeps the source surround on items the worker re-encodes'
 
   test("transcoded audio keeps the profile's format, channels, bitrate and sample rate", () => {
     const plain = profileAudio();
-    applyForkChannelSettings(plain, {
+    apply(plain, {
       crt: null,
       creditSqueeze: null,
       streamMode: 'hls',
@@ -422,7 +449,7 @@ describe('copied audio keeps the source surround on items the worker re-encodes'
     expect(plain.normalization.audio.mode).toBeUndefined();
 
     const leveled = profileAudio({ normalize_loudness: true });
-    applyForkChannelSettings(leveled, {
+    apply(leveled, {
       crt: null,
       creditSqueeze: null,
       streamMode: 'hls_direct_v2',
@@ -507,7 +534,7 @@ describe('HLS segment type on the ErsatzTV next backend', () => {
 
   test('fMP4 reaches the worker as hls.segment_type', () => {
     const config = minimalConfig();
-    const ignored = applyForkChannelSettings(config, {
+    const ignored = apply(config, {
       crt: null,
       creditSqueeze: null,
       streamMode: 'hls',
@@ -519,7 +546,13 @@ describe('HLS segment type on the ErsatzTV next backend', () => {
       ffmpeg: {},
       hls: { segment_type: 'fmp4' },
       normalization: {
-        video: { format: 'h264', width: 1920, height: 1080 },
+        // Written either way, as the mapper wrote it before it moved here.
+        video: {
+          format: 'h264',
+          width: 1920,
+          height: 1080,
+          hdr_vaapi_lut: false,
+        },
         audio: { format: 'aac' },
       },
       playout: { folder: '/tmp/etv/1' },
@@ -532,7 +565,7 @@ describe('HLS segment type on the ErsatzTV next backend', () => {
   test('MPEG-TS, or a channel that never set it, leaves the hls key out', () => {
     for (const hlsSegmentType of ['mpegts', undefined] as const) {
       const config = minimalConfig();
-      applyForkChannelSettings(config, {
+      apply(config, {
         crt: null,
         creditSqueeze: null,
         streamMode: 'hls',
@@ -548,7 +581,7 @@ describe('HLS segment type on the ErsatzTV next backend', () => {
   // every later program against it.
   test('MPEG-TS stream mode keeps MPEG-TS segments and says why', () => {
     const config = minimalConfig();
-    const ignored = applyForkChannelSettings(config, {
+    const ignored = apply(config, {
       crt: null,
       creditSqueeze: null,
       streamMode: 'mpegts',

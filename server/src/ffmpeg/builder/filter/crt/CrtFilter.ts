@@ -123,8 +123,9 @@ export function crtShader(
  * What the ErsatzTV next worker draws for a look, decided the way `CrtFilter`
  * and the VAAPI pipeline decide it for a picture that fills `frame`: the
  * tier's shader, the broadcast line count, the driver's dedicated scaler on the
- * faster tiers, native NV12 output where this runtime enables it, point chroma
- * on Experimental, and HDR10 through the fixed-Hable LUT for DVD Broadcast.
+ * faster tiers, native NV12 output where the worker's FFmpeg supports it and
+ * it isn't switched off, point chroma on Experimental, and HDR10 through the
+ * fixed-Hable LUT for DVD Broadcast when that option is on.
  *
  * The worker checks native NV12 and point chroma eligibility against the active
  * picture before padding. The Experimental shader's chroma pairing is sized for
@@ -133,8 +134,13 @@ export function crtShader(
 export function crtWorkerStage(
   settings: ChannelCrtSettings,
   frame: FrameSize,
-  // False when the worker's FFmpeg is known to lack nv12_output=native.
-  nativeNv12Available = true,
+  options: {
+    // True only when the worker's FFmpeg reports nv12_output=native and
+    // Settings → Features has not turned direct NV12 off.
+    directNv12Available: boolean;
+    // Settings → Features "Fast HDR Conversion (VAAPI)".
+    hableLut: boolean;
+  },
 ): {
   shader: string;
   inputHeight?: number;
@@ -146,9 +152,11 @@ export function crtWorkerStage(
 } {
   const broadcastSize = CrtFilter.broadcastSize(settings, frame);
   // The worker checks its own FFmpeg capability before accepting these options.
-  const nativeNv12Output =
-    CrtFilter.usesDirectNv12Handoff(settings, frame, nativeNv12Available) &&
-    process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
+  const nativeNv12Output = CrtFilter.usesDirectNv12Handoff(
+    settings,
+    frame,
+    options.directNv12Available,
+  );
   return {
     shader: crtShader(settings, frame),
     inputHeight: broadcastSize?.height,
@@ -159,11 +167,11 @@ export function crtWorkerStage(
     nativeNv12Output,
     // The worker can retain filtered NV12 handoff when native output is ineligible.
     directNv12Handoff: nativeNv12Output,
-    pointChroma: nativeNv12Output && CrtFilter.usesPointChroma(settings, frame),
-    hdrVaapiLut:
+    pointChroma:
       nativeNv12Output &&
-      settings.look === 'dvd-broadcast' &&
-      process.env.TUNARR_VAAPI_HABLE_LUT === '1',
+      CrtFilter.usesPointChroma(settings, frame, options.directNv12Available),
+    hdrVaapiLut:
+      nativeNv12Output && settings.look === 'dvd-broadcast' && options.hableLut,
   };
 }
 
@@ -172,7 +180,9 @@ export class CrtFilter extends FilterOption {
     private settings: ChannelCrtSettings,
     private size: FrameSize,
     private broadcastInputPrepared = false,
-    private nativeNv12Available = true,
+    // The configured FFmpeg reports nv12_output=native and Settings → Features
+    // has not turned direct NV12 off.
+    private directNv12Available = false,
   ) {
     super();
   }
@@ -197,27 +207,24 @@ export class CrtFilter extends FilterOption {
   static usesPointChroma(
     settings: ChannelCrtSettings,
     size: FrameSize,
-    nativeNv12Available = true,
+    directNv12Available: boolean,
   ): boolean {
     return (
       settings.processing === 'experimental' &&
-      CrtFilter.usesDirectNv12Handoff(settings, size, nativeNv12Available)
+      CrtFilter.usesDirectNv12Handoff(settings, size, directNv12Available)
     );
   }
 
+  // Performance and Experimental write NV12 straight from libplacebo
+  // (nv12_output=native) when the FFmpeg has it: one conversion fewer, the
+  // same picture. Quality keeps the established Vulkan conversion.
   static usesDirectNv12Handoff(
     settings: ChannelCrtSettings,
     size: FrameSize,
-    nativeNv12Available = true,
+    directNv12Available: boolean,
   ): boolean {
-    const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     return (
-      process.env.TUNARR_CRT_DIRECT_NV12 === '1' &&
-      process.env.ETV_VAAPI_DIRECT_NV12 === '1' &&
-      (nativeNv12
-        ? nativeNv12Available
-        : process.env.ETV_INLINE_NV12_RTZ === '1' &&
-          size.equals(FrameSize.FHD)) &&
+      directNv12Available &&
       usesCrtHardwareProcessing(settings) &&
       CrtFilter.broadcastSize(settings, size) !== undefined &&
       Number.isInteger(size.width) &&
@@ -238,22 +245,21 @@ export class CrtFilter extends FilterOption {
     if (broadcastSize !== undefined && !this.broadcastInputPrepared) {
       broadcastScale = `scale_vaapi=w=${broadcastSize.width}:h=${broadcastSize.height}:format=nv12${vaapiScalingModeOption(usesCrtHardwareProcessing(this.settings))},`;
     }
-    const nativeNv12 = process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
     const directNv12 = CrtFilter.usesDirectNv12Handoff(
       this.settings,
       this.size,
-      this.nativeNv12Available,
+      this.directNv12Available,
     );
     const outputSampling = CrtFilter.usesPointChroma(
       this.settings,
       this.size,
-      this.nativeNv12Available,
+      this.directNv12Available,
     )
       ? "chroma_location=topleft:skip_aa=1:extra_opts='plane_downscaler=custom\\:plane_downscaler_kernel=box\\:plane_downscaler_radius=0.5':"
       : "chroma_location=topleft:extra_opts='plane_downscaler=mitchell':";
     // The revised fork selects producer storage per filter; keep legacy builds usable.
-    const outputMode = directNv12 && nativeNv12 ? 'nv12_output=native:' : '';
-    // Direct output requires the opt-in runtime's writable NV12 import fix.
+    const outputMode = directNv12 ? 'nv12_output=native:' : '';
+    // Direct output requires the fork runtime's writable NV12 import fix.
     const outputConversion = directNv12 ? '' : 'scale_vulkan=format=nv12,';
     return (
       broadcastScale +

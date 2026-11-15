@@ -48,7 +48,9 @@ Known movies and episodes need one metadata request per notification refresh, re
 
 ## Daily library scan time
 
-To run automatic library scans around 3 a.m. Central time, set both environment variables and restart Tunarr:
+To run automatic library scans once a day, open **Settings → Scanner**, turn on **Scan once a day at a set time**, pick the time and time zone, and save. The time zone starts as your browser's, and the new time applies without a restart. The same fields are `dailyScanTime` and `dailyScanTimeZone` on `PUT /api/settings/media-source`.
+
+The container variables still work, and when either is set they decide and the Scanner page shows the fields locked:
 
 ```yaml
 environment:
@@ -56,8 +58,8 @@ environment:
   TUNARR_LIBRARY_SCAN_TIME_ZONE: 'America/Chicago'
 ```
 
-This overrides `rescanIntervalHours` for library scans only. Channel schedules, collection and custom-show sync, hourly library refresh, and the container timezone keep their existing behavior. Manual scans remain available. Prefer `HH:30` (for example, 03:30 Chicago with a UTC container) to retain the existing half-hour separation from the hourly library refresh. Any valid `HH:mm`, including 03:00, is supported, but top-of-hour scans start alongside that refresh. The offset is not a completion guarantee; the daily option does not serialize those jobs.
+Restart Tunarr after changing them. A daily time overrides `rescanIntervalHours` for library scans only. Channel schedules, collection and custom-show sync, hourly library refresh, and the container timezone keep their existing behavior. Manual scans remain available. Prefer `HH:30` (for example, 03:30 Chicago with a UTC container) to retain the existing half-hour separation from the hourly library refresh. Any valid `HH:mm`, including 03:00, is supported, but top-of-hour scans start alongside that refresh. The offset is not a completion guarantee; the daily option does not serialize those jobs.
 
-The time must be 24-hour `HH:mm` and the timezone must be an IANA name. Both values are required together; invalid or partial configuration stops startup scheduling with an explicit error. With both unset (or empty), the existing interval and half-hour offset remain unchanged.
+The time must be 24-hour `HH:mm` and the timezone must be an IANA name. Both values are required together. The Scanner page refuses an invalid or partial pair when you save; invalid or partial container variables stop startup scheduling with an explicit error. With neither set, the existing interval and half-hour offset remain unchanged.
 
 The existing `node-schedule` calendar rule follows the selected timezone through daylight saving changes: 03:00 in Chicago is 08:00 UTC in summer and 09:00 UTC in winter. Times skipped by a spring clock change have no invocation that day; repeated fall times follow `node-schedule` behavior. Choose a time such as 03:00 outside that transition window. Missed scans while Tunarr is stopped are not replayed.
