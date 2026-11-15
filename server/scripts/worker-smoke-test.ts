@@ -23,7 +23,7 @@ import { parseArgs } from 'node:util';
 
 const WORKER_COUNT = 2;
 const SERVER_READY_TIMEOUT_MS = 240_000;
-// Once the server is serving, workers have either started or they never will.
+// Once the server is serving, the pool starts within moments or not at all.
 // Waiting the full boot timeout again just to report a failure that is already
 // decided turns a 30 second red into a four minute one.
 const WORKER_GRACE_MS = 30_000;
@@ -194,27 +194,36 @@ async function main() {
     child.stderr.on('data', collect);
     child.on('error', (err) => console.error('spawn failed:', err));
 
-    console.log(`Waiting for the server and ${WORKER_COUNT} workers...`);
-    const serving = await waitFor(
+    console.log('Waiting for the server and the worker pool...');
+    const booted = await waitFor(
       'the server to start serving',
       () => /Tunarr is ready/.test(output),
       SERVER_READY_TIMEOUT_MS,
     );
-    const booted =
-      serving &&
+    // The pool starts after the startup tasks, which can finish after the
+    // server is already serving, so its log line is waited for, not sampled.
+    const poolStarted =
+      booted &&
       (await waitFor(
-        `${WORKER_COUNT} workers to start`,
-        () => countMatches(output, /Tunarr worker started/g) >= WORKER_COUNT,
+        'the worker pool to start',
+        () => /Worker pool starts on demand/.test(output),
         WORKER_GRACE_MS,
       ));
 
     console.log('\nChecks:');
 
-    const workersSeen = countMatches(output, /Tunarr worker started/g);
     check(
-      `all ${WORKER_COUNT} workers report "started"`,
-      workersSeen >= WORKER_COUNT,
-      `saw ${workersSeen}`,
+      'the worker pool starts on demand',
+      poolStarted,
+      'no "Worker pool starts on demand" line in the server log',
+    );
+
+    // Workers start when work arrives, so none should be running yet.
+    const workersAtBoot = countMatches(output, /Tunarr worker started/g);
+    check(
+      'no worker starts before there is work',
+      workersAtBoot === 0,
+      `saw ${workersAtBoot} "Tunarr worker started" lines before any request`,
     );
 
     check(
@@ -259,20 +268,28 @@ async function main() {
         'no time-slots dispatch line in the server log',
       );
 
-      const indices = new Set(
-        [...output.matchAll(/to worker index (\d+)/g)].map((m) => m[1]),
+      // A worker logs from its own thread, so the line can trail the reply.
+      const started = await waitFor(
+        'a worker to report "started"',
+        () => countMatches(output, /Tunarr worker started/g) >= 1,
+        WORKER_GRACE_MS,
       );
       check(
-        'work is spread across every worker in the pool',
-        indices.size >= WORKER_COUNT,
-        `saw dispatches to worker indices: ${[...indices].join(', ') || '(none)'}`,
+        'a worker starts on demand for the requests',
+        started,
+        'no "Tunarr worker started" line after the requests',
       );
+
+      // Spreading work over several workers is not checked here. The pool
+      // gives each job an idle worker before starting another, which the unit
+      // tests cover (two jobs at once start two workers). Forcing that overlap
+      // against real workers here would depend on timing.
     } else {
       for (const label of [
-        'the pool answers a status request from every worker',
+        'the pool answers status requests',
         'a channel can be scheduled through the pool',
         'a time-slots task is dispatched to a worker',
-        'work is spread across every worker in the pool',
+        'a worker starts on demand for the requests',
       ]) {
         check(label, false, 'skipped: server never booted');
       }
@@ -308,8 +325,8 @@ async function main() {
 }
 
 /**
- * Round-trips one request per worker. The pool dispatches round-robin, so
- * WORKER_COUNT status calls reach every worker in the pool.
+ * Round-trips WORKER_COUNT status requests, one after another. The first starts
+ * a worker on demand; the later ones reuse it while it is idle.
  */
 async function checkRoundTrip() {
   const base = `http://localhost:${port}/api`;
@@ -324,7 +341,7 @@ async function checkRoundTrip() {
   }
 
   check(
-    'the pool answers a status request from every worker',
+    'the pool answers status requests',
     results.length === WORKER_COUNT &&
       results.every((r) => r.includes('healthy')),
     `replies: ${results.join(' | ')}`,

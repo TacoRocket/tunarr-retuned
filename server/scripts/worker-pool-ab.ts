@@ -428,25 +428,9 @@ async function runConfiguration(
       throw new Error(`[${label}] server never became ready`);
     }
 
-    // Workers come up asynchronously after the server starts serving, so this
-    // has to be waited on separately rather than sampled at "ready".
-    if (usePool) {
-      await waitFor(
-        () =>
-          (getOutput().match(/Tunarr worker started/g) ?? []).length >=
-          POOL_SIZE,
-        60_000,
-      );
-    }
-    const workersStarted = (getOutput().match(/Tunarr worker started/g) ?? [])
-      .length;
-    if (usePool && workersStarted < POOL_SIZE) {
-      throw new Error(
-        `[${label}] expected ${POOL_SIZE} workers, saw ${workersStarted}. ` +
-          `Measuring the pool without workers would compare it against itself.`,
-      );
-    }
-    log(`[${label}] ready, workers started: ${workersStarted}`);
+    // Fork: the pool starts workers on demand, so none exist yet. The pool
+    // arm's save starts one, and that start is part of what users now pay.
+    log(`[${label}] ready`);
 
     const configs = JSON.parse(
       (await api('GET', '/transcode_configs')).text,
@@ -538,6 +522,22 @@ async function runConfiguration(
     log(
       `[${label}] save returned in ${saveMs.toFixed(0)}ms — ${lineup.length} lineup items, ${contentCount} content`,
     );
+
+    // The worker logs from its own thread, so its line can trail the reply.
+    if (usePool) {
+      await waitFor(
+        () => (getOutput().match(/Tunarr worker started/g) ?? []).length >= 1,
+        30_000,
+      );
+    }
+    const workersStarted = (getOutput().match(/Tunarr worker started/g) ?? [])
+      .length;
+    if (usePool && workersStarted < 1) {
+      throw new Error(
+        `[${label}] the save started no worker. ` +
+          `Measuring the pool without workers would compare it against itself.`,
+      );
+    }
 
     return {
       label,
