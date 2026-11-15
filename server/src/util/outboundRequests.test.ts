@@ -191,16 +191,26 @@ describe('outboundRequestGuard agent lookup', () => {
 });
 
 describe('outboundRequestGuard connections', () => {
-  // A library scan makes thousands of requests to one media server. Opening a
-  // connection for each costs a TCP and TLS handshake every time.
-  it('reuses one connection for back-to-back requests to the same server', async () => {
-    let connections = 0;
+  // A local server that counts the connections opened to it.
+  async function countingServer() {
+    const counts = { connections: 0 };
     const server = http.createServer((_, res) => res.end('ok'));
-    server.on('connection', () => connections++);
+    server.on('connection', () => counts.connections++);
     await new Promise<void>((resolve) =>
       server.listen(0, '127.0.0.1', resolve),
     );
     const { port } = server.address() as AddressInfo;
+    const close = async () => {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    };
+    return { counts, port, close };
+  }
+
+  // A library scan makes thousands of requests to one media server. Opening a
+  // connection for each costs a TCP and TLS handshake every time.
+  it('reuses one connection for back-to-back requests to the same server', async () => {
+    const { counts, port, close } = await countingServer();
 
     try {
       for (let i = 0; i < 3; i++) {
@@ -209,11 +219,37 @@ describe('outboundRequestGuard connections', () => {
         });
       }
     } finally {
-      server.closeAllConnections();
-      await new Promise((resolve) => server.close(resolve));
+      await close();
     }
 
-    expect(connections).toBe(1);
+    expect(counts.connections).toBe(1);
+  });
+
+  // The guards act when a connection is opened. One held open to an allowed
+  // server must not carry, or excuse, a request to a refused destination.
+  it('still refuses a blocked destination while a connection is held open', async () => {
+    const { counts, port, close } = await countingServer();
+    const attempt = (url: string) =>
+      axios
+        .get(url, { ...outboundRequestGuard, timeout: 3000 })
+        .then(() => undefined)
+        .catch((e: unknown) => e);
+
+    try {
+      await axios.get(`http://127.0.0.1:${port}/`, { ...outboundRequestGuard });
+
+      const literal = await attempt(`http://169.254.169.254:${port}/`);
+      const resolved = await attempt(`http://rebind.example:${port}/`);
+      expect(isBlockedOutboundUrlError(literal)).toBe(true);
+      expect(isBlockedOutboundUrlError(resolved)).toBe(true);
+
+      // The held connection is still the one in use afterwards.
+      await axios.get(`http://127.0.0.1:${port}/`, { ...outboundRequestGuard });
+    } finally {
+      await close();
+    }
+
+    expect(counts.connections).toBe(1);
   });
 });
 
