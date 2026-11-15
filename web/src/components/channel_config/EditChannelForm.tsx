@@ -41,6 +41,7 @@ import ChannelEpgConfig from './ChannelEpgConfig.tsx';
 import { ChannelFlexConfig } from './ChannelFlexConfig.tsx';
 import { ChannelLiveRelaySettings } from './ChannelLiveRelaySettings.tsx';
 import { applyConversionToForm } from './applyConversionToForm.ts';
+import { ChannelOffsetSettings } from './ChannelOffsetSettings.tsx';
 import { LegacyEngineNotice } from './LegacyEngineNotice.tsx';
 import { ChannelPropertiesEditor } from './ChannelPropertiesEditor.tsx';
 import ChannelTranscodingConfig, {
@@ -476,6 +477,13 @@ export function EditChannelForm({
               </Box>
             )}
             <ChannelPropertiesEditor />
+            {/* Fork: offset channels. */}
+            {!isNew && (
+              <ChannelOffsetSettings
+                channel={channel}
+                hasUnsavedChanges={formIsDirty}
+              />
+            )}
           </EditChannelTabPanel>
           <EditChannelTabPanel value="flex" currentValue={currentTab}>
             <ChannelFlexConfig />
