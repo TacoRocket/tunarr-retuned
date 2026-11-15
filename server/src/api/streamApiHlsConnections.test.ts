@@ -93,7 +93,10 @@ const baseOptions: BaseHlsSessionOptions = {
   stalenessMs: 120_000,
 };
 
-async function buildApp(sessionManager: unknown) {
+async function buildApp(
+  sessionManager: unknown,
+  channel: Record<string, unknown> = { streamMode: 'hls' },
+) {
   const app: ReturnType<typeof Fastify> = Fastify()
     .setValidatorCompiler(validatorCompiler)
     .setSerializerCompiler(serializerCompiler)
@@ -104,7 +107,7 @@ async function buildApp(sessionManager: unknown) {
       channelDB: {
         getChannel: async () => ({
           uuid: makeChannel().uuid,
-          streamMode: 'hls',
+          ...channel,
         }),
       },
       sessionManager,
@@ -449,6 +452,85 @@ describe('streamApi etv_next mode gate', () => {
 
     expect(res.statusCode).toBe(400);
     expect(getOrCreateEtvNextSession).not.toHaveBeenCalled();
+  });
+
+  // The MPEG-TS copy starts exactly where the tuner route sends a viewer to
+  // it: here a channel switched to MPEG-TS while its fMP4 worker still runs.
+  describe('the MPEG-TS copy', () => {
+    const mpegtsChannel = {
+      streamMode: 'hls',
+      useEtvNext: true,
+      hlsSegmentType: 'mpegts',
+    };
+    const copyRequest = {
+      method: 'GET' as const,
+      url: `/stream/channels/${makeChannel().uuid}.m3u8?mode=etv_next_mpegts`,
+    };
+    const copySession = () => ({
+      recordHeartbeat: vi.fn(),
+      getMasterPlaylist: () => '#EXTM3U',
+    });
+
+    it('starts while the running worker writes fMP4, whatever the setting', async () => {
+      const getOrCreateEtvNextSession = vi.fn(async () =>
+        Result.success(copySession()),
+      );
+      const app = await buildApp(
+        {
+          getOrCreateEtvNextSession,
+          getEtvNextSession: (_id: string, type = 'etv_next') =>
+            type === 'etv_next'
+              ? { writesFmp4Segments: true, stoppingOrStopped: false }
+              : undefined,
+        },
+        mpegtsChannel,
+      );
+
+      const res = await app.inject(copyRequest);
+      await app.close();
+
+      expect(res.statusCode).toBe(200);
+      expect(getOrCreateEtvNextSession).toHaveBeenCalledWith(
+        makeChannel().uuid,
+        expect.anything(),
+        expect.anything(),
+        { sessionType: 'etv_next_mpegts' },
+      );
+    });
+
+    // The wrapper re-reads this playlist for as long as it runs, so a copy
+    // already serving a tuner keeps serving it after its HLS worker exits.
+    it('keeps serving a copy that is already running', async () => {
+      const app = await buildApp(
+        {
+          getOrCreateEtvNextSession: async () => Result.success(copySession()),
+          getEtvNextSession: (_id: string, type = 'etv_next') =>
+            type === 'etv_next_mpegts'
+              ? { stoppingOrStopped: false }
+              : undefined,
+        },
+        mpegtsChannel,
+      );
+
+      const res = await app.inject(copyRequest);
+      await app.close();
+
+      expect(res.statusCode).toBe(200);
+    });
+
+    it('is refused when nothing writes fMP4', async () => {
+      const getOrCreateEtvNextSession = vi.fn();
+      const app = await buildApp(
+        { getOrCreateEtvNextSession, getEtvNextSession: () => undefined },
+        mpegtsChannel,
+      );
+
+      const res = await app.inject(copyRequest);
+      await app.close();
+
+      expect(res.statusCode).toBe(400);
+      expect(getOrCreateEtvNextSession).not.toHaveBeenCalled();
+    });
   });
 });
 

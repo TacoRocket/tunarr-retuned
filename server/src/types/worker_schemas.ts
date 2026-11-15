@@ -8,19 +8,14 @@ import {
   ChannelTimeSlotScheduleRequest,
   ProgramsTimeSlotScheduleRequest,
 } from '../services/scheduling/TimeSlotSchedulerService.ts';
+import {
+  BaseWorkerRequest,
+  WorkerPgsOcrRequest,
+  WorkerRestartRequest,
+  WorkerStatusRequest,
+} from './worker_ocr_schemas.ts';
 
-const BaseWorkerRequest = z.object({
-  requestId: z.uuid(),
-});
-
-const WorkerRestartRequest = BaseWorkerRequest.extend({
-  type: z.literal('restart'),
-  code: z.number().optional(),
-});
-
-const WorkerStatusRequest = BaseWorkerRequest.extend({
-  type: z.literal('status'),
-});
+export { WorkerPgsOcrRequest } from './worker_ocr_schemas.ts';
 
 export const WorkerScheduleTimeSlotsRequest = BaseWorkerRequest.extend({
   type: z.literal('time-slots'),
@@ -46,20 +41,6 @@ export const WorkerScheduleSlotsRequest = z.object({
 export type WorkerScheduleSlotsRequest = z.infer<
   typeof WorkerScheduleSlotsRequest
 >;
-
-export const WorkerPgsOcrRequest = BaseWorkerRequest.extend({
-  type: z.literal('pgs-ocr'),
-  request: z.object({
-    programId: z.string(),
-    inputPath: z.string(),
-    revision: z.string().nullable(),
-    streamIndex: z.number().int().nonnegative(),
-    forced: z.boolean(),
-    sdh: z.boolean(),
-    cacheFolder: z.string(),
-  }),
-});
-export type WorkerPgsOcrRequest = z.infer<typeof WorkerPgsOcrRequest>;
 
 export const WorkerRequest = z.discriminatedUnion('type', [
   WorkerRestartRequest,

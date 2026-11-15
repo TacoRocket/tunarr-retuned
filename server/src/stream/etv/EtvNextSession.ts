@@ -37,6 +37,7 @@ import { dossierDirectory, pruneDossiers } from './EtvNextDossiers.ts';
 import type { EtvNextDynamicTokenRegistry } from './EtvNextDynamicTokenRegistry.ts';
 import {
   applyForkChannelSettings,
+  forkWritesFmp4Segments,
   runtimeCapabilities,
   forkLiveFeedFallback,
 } from './EtvNextForkSettings.ts';
@@ -46,6 +47,7 @@ import type { EtvNextPlayoutWriter } from './EtvNextPlayoutWriter.ts';
 import { DefaultWindowMs } from './EtvNextPlayoutWriter.ts';
 import { DefaultStalenessMs, EtvNextWorkspace } from './EtvNextWorkspace.ts';
 import type { PlayoutItem } from './generated/playout.ts';
+import type { EtvNextSessionType } from './EtvNextRouting.ts';
 
 /**
  * How often the window is rebuilt, as a fraction of its length.
@@ -108,6 +110,13 @@ export type EtvNextSessionOptions = SessionOptions & {
    * may since have changed, and makes each rebuild cost more.
    */
   windowMs?: number;
+
+  /**
+   * Which of the channel's worker sessions this is. `etv_next_mpegts` writes
+   * MPEG-TS segments whatever the channel's segment type, for the continuous
+   * MPEG-TS stream of an fMP4 channel. Defaults to `etv_next`.
+   */
+  sessionType?: EtvNextSessionType;
 };
 
 export type EtvNextPlayoutMode = 'dynamic' | 'materialized';
@@ -135,7 +144,6 @@ export type EtvNextSessionProvider = (
  */
 export class EtvNextSession extends Session<EtvNextSessionOptions> {
   readonly seedWatch = new SeedWatchTimeline();
-  public readonly sessionType = 'etv_next' as const;
 
   #workspace: EtvNextWorkspace;
   #process?: ChildProcessWrapper;
@@ -203,6 +211,22 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       this.baseDirectory,
       `${this.channel.uuid}_${this.instanceId}`,
     );
+
+    this.writesFmp4Segments =
+      this.sessionType !== 'etv_next_mpegts' &&
+      forkWritesFmp4Segments(this.channel);
+  }
+
+  /**
+   * Whether this session's worker writes fMP4 segments, fixed from the channel
+   * as it was when the session was created. A setting changed later reaches
+   * only the next session, so the tuner route reads this rather than the
+   * saved setting to decide which worker it can share.
+   */
+  readonly writesFmp4Segments: boolean;
+
+  get sessionType(): EtvNextSessionType {
+    return this.sessionOptions.sessionType ?? 'etv_next';
   }
 
   get baseDirectory() {
@@ -256,9 +280,12 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       ),
     });
     this.#ffmpegRuntime = await runtimeCapabilities(ffmpegInfo);
+    // The MPEG-TS copy writes no `hls` key, so its worker writes MPEG-TS.
     const forkIgnored = applyForkChannelSettings(
       config,
-      this.channel,
+      this.sessionType === 'etv_next_mpegts'
+        ? { ...this.channel, hlsSegmentType: 'mpegts' }
+        : this.channel,
       this.#ffmpegRuntime,
     );
     if (await this.#isLiveFeed()) {
@@ -360,6 +387,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
       const token = this.tokenRegistry.issue(
         this.channel.uuid,
         this.channel.number,
+        this.sessionType,
         this.#ffmpegRuntime,
       );
       this.#dynamicToken = token;
@@ -486,7 +514,11 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
 
   #revokeToken() {
     if (this.#dynamicToken !== undefined) {
-      this.tokenRegistry.revoke(this.channel.uuid, this.#dynamicToken);
+      this.tokenRegistry.revoke(
+        this.channel.uuid,
+        this.#dynamicToken,
+        this.sessionType,
+      );
       this.#dynamicToken = undefined;
     }
   }

@@ -55,18 +55,27 @@ const { values } = parseArgs({
     days: { type: 'string', default: '45' },
     'slots-per-day': { type: 'string', default: '48' },
     tasks: { type: 'string', default: '4' },
-    modes: { type: 'string', default: 'full,lean' },
+    modes: { type: 'string', default: 'full,lean,ocr' },
+    'search-down-check': { type: 'boolean', default: true },
     json: { type: 'boolean', default: false },
     // Internal: run one trial and print one JSON line.
     trial: { type: 'string' },
+    job: { type: 'string', default: 'schedule' },
+    'search-down': { type: 'boolean', default: false },
+    'write-pgs-fixture': { type: 'string' },
     work: { type: 'string' },
   },
   allowPositionals: true,
+  // --no-search-down-check skips the search-down observation.
+  allowNegative: true,
 });
 
 const APP_DIR = path.resolve(values['app-dir']);
 const BUNDLE = path.join(APP_DIR, 'bundle.cjs');
 const LEAN = path.join(APP_DIR, 'tunarr-worker.cjs');
+const OCR_ENTRY = path.join(APP_DIR, 'tunarr-ocr-worker.cjs');
+// How long a task may wait on a search server that is down.
+const SEARCH_DOWN_TIMEOUT_MS = 15_000;
 const READY_TIMEOUT_MS = 120_000;
 const TASK_TIMEOUT_MS = 600_000;
 // How long a worker sits after 'started' (and after its tasks) before RSS is
@@ -96,16 +105,20 @@ function diff(a, b) {
 // ---------------------------------------------------------------- one trial
 
 /**
- * Answers Meilisearch's health check. Before every schedule the worker waits
- * for /health on the search port the server gave it (with retries that run
- * for minutes), and custom-show slots make no other search call. Anything else
- * is counted and refused, so a schedule that starts depending on search shows
- * up in the report instead of silently timing out.
+ * Answers Meilisearch's health check and counts every call. Before its first
+ * schedule a scheduling worker waits for /health on the search port the
+ * server gave it; custom-show slots make no other search call. Anything else
+ * is counted and refused. Listens on every interface, because the client
+ * dials "localhost", which may be ::1.
+ *
+ * `down` reserves a port and closes it again, so nothing answers there: the
+ * search server is down.
  */
-async function startSearchStub() {
-  const stub = { other: 0 };
+async function startSearchStub(down = false) {
+  const stub = { other: 0, health: [] };
   const server = http.createServer((req, res) => {
     if (req.url === '/health') {
+      stub.health.push(performance.now());
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end('{"status":"available"}');
       return;
@@ -116,12 +129,20 @@ async function startSearchStub() {
   });
   await new Promise((resolve) => server.listen(0, resolve));
   stub.port = server.address().port;
+  if (down) await new Promise((resolve) => server.close(resolve));
   stub.close = () => server.close();
   return stub;
 }
 
-async function runTrial(mode, workDir) {
-  const search = await startSearchStub();
+const ENTRIES = { full: BUNDLE, lean: LEAN, ocr: OCR_ENTRY };
+
+/**
+ * One worker in one fresh process. `job` is what it is sent after the status
+ * request: `schedule` (time-slot tasks, the scheduling slots' work) or `ocr`
+ * (one PGS OCR task, the dedicated OCR slot's work).
+ */
+async function runTrial(mode, workDir, job, searchDown) {
+  const search = await startSearchStub(searchDown);
   const fixture = JSON.parse(
     fs.readFileSync(path.join(workDir, 'fixture.json'), 'utf8'),
   );
@@ -130,7 +151,6 @@ async function runTrial(mode, workDir) {
   await delay(200);
   const before = memory();
 
-  const entry = mode === 'lean' ? LEAN : BUNDLE;
   const serverOptions = {
     database: dbDir,
     databaseDirectory: dbDir,
@@ -139,13 +159,13 @@ async function runTrial(mode, workDir) {
     searchPort: search.port,
   };
   const t0 = performance.now();
-  const worker = new Worker(entry, {
+  const worker = new Worker(ENTRIES[mode], {
     // Exactly what workerArgv() passes when log_level is unset.
     argv: ['--hide_banner', 'start-worker', '--database', dbDir],
     workerData:
-      mode === 'lean'
-        ? { serverOptions, fallbackEntry: BUNDLE }
-        : { serverOptions },
+      mode === 'full'
+        ? { serverOptions }
+        : { serverOptions, fallbackEntry: BUNDLE },
     execArgv: [],
     stdout: true,
     stderr: true,
@@ -186,53 +206,106 @@ async function runTrial(mode, workDir) {
   const idle = memory();
   const heapIdle = (await worker.getHeapStatistics?.())?.used_heap_size;
 
-  const taskMs = [];
-  const hashes = new Set();
-  let nonFlex = 0;
-  for (let i = 0; i < fixture.tasks; i++) {
+  // Resolves to the reply, or to null on timeout.
+  const send = async (message, timeoutMs) => {
     const requestId = randomUUID();
     const reply = new Promise((resolve) => pending.set(requestId, resolve));
     const start = performance.now();
-    worker.postMessage({
-      type: 'time-slots',
-      requestId,
-      request: fixture.request,
-    });
-    const msg = await Promise.race([
-      reply,
-      delay(TASK_TIMEOUT_MS).then(() => ({
-        type: 'error',
-        message: 'timeout',
-      })),
-    ]);
-    taskMs.push(performance.now() - start);
-    if (msg.type !== 'success') throw new Error(`task failed: ${msg.message}`);
-    const lineup = msg.data.result.lineup;
-    nonFlex = lineup.filter((item) => item.type !== 'flex').length;
-    hashes.add(
-      createHash('sha256').update(JSON.stringify(lineup)).digest('hex'),
+    worker.postMessage({ ...message, requestId });
+    const msg = await Promise.race([reply, delay(timeoutMs).then(() => null)]);
+    return { msg, ms: performance.now() - start, start };
+  };
+
+  const status = await send({ type: 'status' }, 30_000);
+  if (status.msg?.type !== 'success') throw new Error('status request failed');
+
+  const result = { mode, job, readyMs, statusMs: status.ms, heapIdle };
+  const hashes = new Set();
+  let firstTaskStart;
+  if (job === 'schedule') {
+    const taskMs = [];
+    for (let i = 0; i < (searchDown ? 1 : fixture.tasks); i++) {
+      const { msg, ms, start } = await send(
+        { type: 'time-slots', request: fixture.request },
+        searchDown ? SEARCH_DOWN_TIMEOUT_MS : TASK_TIMEOUT_MS,
+      );
+      firstTaskStart ??= start;
+      taskMs.push(ms);
+      if (msg === null) {
+        result.timedOut = true;
+        break;
+      }
+      if (msg.type !== 'success') {
+        if (searchDown) {
+          result.taskError = msg.message;
+          break;
+        }
+        throw new Error(`task failed: ${msg.message}`);
+      }
+      const lineup = msg.data.result.lineup;
+      result.nonFlex = lineup.filter((item) => item.type !== 'flex').length;
+      hashes.add(sha256(JSON.stringify(lineup)));
+    }
+    result.task1Ms = taskMs[0];
+    result.taskWarmMs = median(taskMs.slice(1));
+  } else {
+    const cacheFolder = path.join(workDir, `ocr-cache-${randomUUID()}`);
+    const { msg, ms, start } = await send(
+      {
+        type: 'pgs-ocr',
+        request: {
+          programId: 'bench-program',
+          inputPath: path.join(workDir, 'fixture.mkv'),
+          revision: null,
+          streamIndex: 0,
+          forced: false,
+          sdh: false,
+          cacheFolder,
+        },
+      },
+      searchDown ? SEARCH_DOWN_TIMEOUT_MS : TASK_TIMEOUT_MS,
     );
+    firstTaskStart = start;
+    result.ocrMs = ms;
+    if (msg === null) {
+      result.timedOut = true;
+    } else if (msg.type === 'success') {
+      const { path: srtPath, ...rest } = msg.data.result;
+      result.ocrStatus = rest.status;
+      const srt = fs.existsSync(srtPath)
+        ? fs.readFileSync(srtPath, 'utf8')
+        : '';
+      hashes.add(sha256(JSON.stringify([rest, srt])));
+    } else {
+      // Outside Linux the task refuses at once; that refusal must match too.
+      result.ocrError = msg.message;
+      hashes.add(sha256(`error:${msg.message}`));
+    }
   }
+
   await delay(SETTLE_MS);
   const after = memory();
-  const heapAfter = (await worker.getHeapStatistics?.())?.used_heap_size;
+  result.heapAfter = (await worker.getHeapStatistics?.())?.used_heap_size;
   await worker.terminate();
   search.close();
 
   return {
-    mode,
-    readyMs,
+    ...result,
     idle: diff(idle, before),
     afterTask: diff(after, before),
-    heapIdle,
-    heapAfter,
-    task1Ms: taskMs[0],
-    taskWarmMs: median(taskMs.slice(1)),
-    nonFlex,
     hashes: [...hashes],
+    healthCalls: search.health.length,
+    healthWaitMs:
+      search.health.length > 0 && firstTaskStart !== undefined
+        ? search.health[0] - firstTaskStart
+        : undefined,
     otherSearchRequests: search.other,
     fellBack: /falling back to the full server boot/.test(output),
   };
+}
+
+function sha256(text) {
+  return createHash('sha256').update(text).digest('hex');
 }
 
 // ------------------------------------------------------------------ fixture
@@ -385,6 +458,7 @@ async function seedFixture(workDir) {
       })),
     },
   };
+  fs.writeFileSync(path.join(workDir, 'fixture.mkv'), pgsFixture());
   fs.writeFileSync(
     path.join(workDir, 'fixture.json'),
     JSON.stringify({ request, tasks: Number(values.tasks) }),
@@ -409,16 +483,25 @@ function stat(xs, unit) {
 }
 
 async function main() {
+  if (values['write-pgs-fixture']) {
+    fs.writeFileSync(values['write-pgs-fixture'], pgsFixture());
+    return;
+  }
   if (values.trial) {
-    const result = await runTrial(values.trial, values.work);
+    const result = await runTrial(
+      values.trial,
+      values.work,
+      values.job,
+      values['search-down'],
+    );
     console.log(`RESULT ${JSON.stringify(result)}`);
     // The losing sides of the timeout races are still pending timers.
     process.exit(0);
   }
   if (!fs.existsSync(BUNDLE)) throw new Error(`no bundle at ${BUNDLE}`);
   const modes = values.modes.split(',').filter((m) => {
-    if (m === 'lean' && !fs.existsSync(LEAN)) {
-      console.log(`lean: ${LEAN} not present in this build; skipping`);
+    if (m !== 'full' && !fs.existsSync(ENTRIES[m] ?? '')) {
+      console.log(`${m}: ${ENTRIES[m]} not present in this build; skipping`);
       return false;
     }
     return true;
@@ -426,11 +509,29 @@ async function main() {
   const workDir = fs.mkdtempSync(
     path.join(os.tmpdir(), 'tunarr-worker-bench-'),
   );
+  const self = fileURLToPath(import.meta.url);
+  const trialOnce = (mode, job, searchDown = false) => {
+    const args = ['--expose-gc', self, '--trial', mode, '--job', job];
+    args.push('--work', workDir, '--app-dir', APP_DIR);
+    if (searchDown) args.push('--search-down');
+    const res = spawnSync(process.execPath, args, {
+      encoding: 'utf8',
+      timeout: 900_000,
+      maxBuffer: 64 * 2 ** 20,
+    });
+    const line = res.stdout.split('\n').find((l) => l.startsWith('RESULT '));
+    if (!line) {
+      throw new Error(
+        `${job} trial ${mode} failed (exit ${res.status}):\n${res.stdout.slice(-3000)}\n${res.stderr.slice(-3000)}`,
+      );
+    }
+    return JSON.parse(line.slice('RESULT '.length));
+  };
   try {
     console.log(
       `node ${process.version} ${process.platform}/${process.arch}, ${os.cpus().length} CPUs, app ${APP_DIR}`,
     );
-    for (const f of [BUNDLE, LEAN])
+    for (const f of Object.values(ENTRIES))
       if (fs.existsSync(f))
         console.log(
           `  ${path.basename(f)}: ${(fs.statSync(f).size / 2 ** 20).toFixed(2)} MiB`,
@@ -440,105 +541,230 @@ async function main() {
     );
     await seedFixture(workDir);
 
-    const results = [];
-    const self = fileURLToPath(import.meta.url);
     const trials = Number(values.trials);
-    for (let t = 0; t < trials; t++) {
-      const order = t % 2 === 0 ? modes : [...modes].reverse();
-      for (const mode of order) {
-        const res = spawnSync(
-          process.execPath,
-          [
-            '--expose-gc',
-            self,
-            '--trial',
-            mode,
-            '--work',
-            workDir,
-            '--app-dir',
-            APP_DIR,
-          ],
-          { encoding: 'utf8', timeout: 900_000, maxBuffer: 64 * 2 ** 20 },
-        );
-        const line = res.stdout
-          .split('\n')
-          .find((l) => l.startsWith('RESULT '));
-        if (!line) {
-          throw new Error(
-            `trial ${t} ${mode} failed (exit ${res.status}):\n${res.stdout.slice(-3000)}\n${res.stderr.slice(-3000)}`,
+    // The scheduling slots run full or lean; the OCR slot runs any of the
+    // three (on main it runs the full boot).
+    const jobs = [
+      ['schedule', modes.filter((m) => m !== 'ocr')],
+      ['ocr', modes],
+    ];
+    const all = [];
+    let failed = false;
+    for (const [job, jobModes] of jobs) {
+      if (jobModes.length === 0) continue;
+      console.log(
+        `\n== ${job === 'schedule' ? 'scheduling slot' : 'OCR slot'}: ${jobModes.join(', ')}`,
+      );
+      const results = [];
+      for (let t = 0; t < trials; t++) {
+        const order = t % 2 === 0 ? jobModes : [...jobModes].reverse();
+        for (const mode of order) {
+          const r = trialOnce(mode, job);
+          results.push(r);
+          const work =
+            job === 'schedule'
+              ? `task1 ${Math.round(r.task1Ms)} ms`
+              : `ocr ${Math.round(r.ocrMs)} ms (${r.ocrStatus ?? r.ocrError})`;
+          console.log(
+            `  trial ${t + 1}/${trials} ${mode.padEnd(4)} ready ${Math.round(r.readyMs)} ms, idle ${(r.idle.rss / 2 ** 20).toFixed(1)} MiB, after ${(r.afterTask.rss / 2 ** 20).toFixed(1)} MiB, ${work}${r.fellBack ? '  ** FELL BACK TO FULL BOOT **' : ''}`,
           );
         }
-        const r = JSON.parse(line.slice('RESULT '.length));
-        results.push(r);
+      }
+      console.log('\nper worker, median [min..max] over', trials, 'trials');
+      for (const mode of jobModes) {
+        const rs = results.filter((r) => r.mode === mode);
+        console.log(`\n${mode}`);
         console.log(
-          `  trial ${t + 1}/${trials} ${mode.padEnd(4)} ready ${Math.round(r.readyMs)} ms, idle ${(r.idle.rss / 2 ** 20).toFixed(1)} MiB, after ${(r.afterTask.rss / 2 ** 20).toFixed(1)} MiB, task1 ${Math.round(r.task1Ms)} ms${r.fellBack ? '  ** FELL BACK TO FULL BOOT **' : ''}`,
+          `  ready           ${stat(
+            rs.map((r) => r.readyMs),
+            'ms',
+          )}`,
+        );
+        for (const k of ['rss', 'RssAnon', 'RssFile']) {
+          if (rs[0].idle[k] === undefined) continue;
+          console.log(
+            `  idle ${k.padEnd(10)} ${stat(
+              rs.map((r) => r.idle[k]),
+              'MB',
+            )}`,
+          );
+          console.log(
+            `  after ${k.padEnd(9)} ${stat(
+              rs.map((r) => r.afterTask[k]),
+              'MB',
+            )}`,
+          );
+        }
+        console.log(
+          `  heap idle       ${stat(
+            rs.map((r) => r.heapIdle),
+            'MB',
+          )}`,
+        );
+        console.log(
+          `  heap after      ${stat(
+            rs.map((r) => r.heapAfter),
+            'MB',
+          )}`,
+        );
+        console.log(
+          `  status request  ${stat(
+            rs.map((r) => r.statusMs),
+            'ms',
+          )}`,
+        );
+        if (job === 'schedule') {
+          console.log(
+            `  task1 (cold)    ${stat(
+              rs.map((r) => r.task1Ms),
+              'ms',
+            )}`,
+          );
+          console.log(
+            `  task warm       ${stat(
+              rs.map((r) => r.taskWarmMs),
+              'ms',
+            )}`,
+          );
+          console.log(
+            `  scheduled items ${rs[0].nonFlex} non-flex; fell back: ${rs.filter((r) => r.fellBack).length}/${rs.length}; non-health search calls: ${rs.reduce((a, r) => a + r.otherSearchRequests, 0)}`,
+          );
+        } else {
+          console.log(
+            `  ocr task        ${stat(
+              rs.map((r) => r.ocrMs),
+              'ms',
+            )} -> ${rs[0].ocrStatus ?? `error: ${rs[0].ocrError}`}`,
+          );
+          console.log(
+            `  fell back: ${rs.filter((r) => r.fellBack).length}/${rs.length}`,
+          );
+        }
+        console.log(
+          `  search health checks per worker: ${[...new Set(rs.map((r) => r.healthCalls))].join(',')} (for ${job === 'schedule' ? values.tasks : 1} tasks); wait before first answer ${stat(
+            rs.map((r) => r.healthWaitMs),
+            'ms',
+          )}`,
         );
       }
+      const hashes = new Set(results.flatMap((r) => r.hashes));
+      console.log(
+        `\n${job === 'schedule' ? 'lineup' : 'OCR result'} identical across all trials and modes: ${hashes.size === 1 ? 'yes' : `NO (${hashes.size} distinct)`}`,
+      );
+      if (hashes.size !== 1 || results.some((r) => r.fellBack)) failed = true;
+      all.push(...results);
     }
 
-    console.log('\nper worker, median [min..max] over', trials, 'trials');
-    for (const mode of modes) {
-      const rs = results.filter((r) => r.mode === mode);
-      console.log(`\n${mode}`);
+    if (values['search-down-check']) {
+      // Observation only; it does not affect the exit code.
       console.log(
-        `  ready           ${stat(
-          rs.map((r) => r.readyMs),
-          'ms',
-        )}`,
+        `\n== search server down (nothing listening), ${SEARCH_DOWN_TIMEOUT_MS / 1000} s limit`,
       );
-      for (const k of ['rss', 'RssAnon', 'RssFile']) {
-        if (rs[0].idle[k] === undefined) continue;
+      const sched = modes.includes('lean') ? 'lean' : 'full';
+      const s = trialOnce(sched, 'schedule', true);
+      console.log(
+        `  ${sched} time-slot task: ${s.timedOut ? `no reply within ${SEARCH_DOWN_TIMEOUT_MS / 1000} s` : s.taskError ? `error after ${Math.round(s.task1Ms)} ms: ${s.taskError}` : `replied in ${Math.round(s.task1Ms)} ms`}; status request ${Math.round(s.statusMs)} ms`,
+      );
+      for (const mode of modes) {
+        const o = trialOnce(mode, 'ocr', true);
         console.log(
-          `  idle ${k.padEnd(10)} ${stat(
-            rs.map((r) => r.idle[k]),
-            'MB',
-          )}`,
-        );
-        console.log(
-          `  after ${k.padEnd(9)} ${stat(
-            rs.map((r) => r.afterTask[k]),
-            'MB',
-          )}`,
+          `  ${mode} OCR task: ${o.timedOut ? `no reply within ${SEARCH_DOWN_TIMEOUT_MS / 1000} s` : `replied in ${Math.round(o.ocrMs)} ms (${o.ocrStatus ?? o.ocrError})`}`,
         );
       }
-      console.log(
-        `  heap idle       ${stat(
-          rs.map((r) => r.heapIdle),
-          'MB',
-        )}`,
-      );
-      console.log(
-        `  heap after      ${stat(
-          rs.map((r) => r.heapAfter),
-          'MB',
-        )}`,
-      );
-      console.log(
-        `  task1 (cold)    ${stat(
-          rs.map((r) => r.task1Ms),
-          'ms',
-        )}`,
-      );
-      console.log(
-        `  task warm       ${stat(
-          rs.map((r) => r.taskWarmMs),
-          'ms',
-        )}`,
-      );
-      console.log(
-        `  scheduled items ${rs[0].nonFlex} non-flex; fell back: ${rs.filter((r) => r.fellBack).length}/${rs.length}; non-health search calls: ${rs.reduce((a, r) => a + r.otherSearchRequests, 0)}`,
-      );
     }
-    const hashes = new Set(results.flatMap((r) => r.hashes));
-    console.log(
-      `\nlineup identical across all trials and modes: ${hashes.size === 1 ? 'yes' : `NO (${hashes.size} distinct)`}`,
-    );
-    if (values.json) console.log(`JSON ${JSON.stringify(results)}`);
-    if (hashes.size !== 1 || results.some((r) => r.fellBack))
-      process.exitCode = 1;
+    if (values.json) console.log(`JSON ${JSON.stringify(all)}`);
+    if (failed) process.exitCode = 1;
   } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * A minimal Matroska file with one PGS track holding one display set (the
+ * stored-duration case from PgsDecoder.test.ts: a small object on a 320x180
+ * canvas, shown at 1 s for 2 s). Synthetic, so no library media is needed;
+ * Tesseract finds no text in it, and the job still runs the whole path:
+ * read, decode, OCR, write SRT, admit to the cache.
+ */
+function pgsFixture() {
+  const element = (id, ...parts) => {
+    const payload = Buffer.concat(
+      parts.map((p) => (Buffer.isBuffer(p) ? p : Buffer.from(p))),
+    );
+    let width = 1;
+    while (payload.length >= 2 ** (7 * width) - 1) width++;
+    const size = Buffer.alloc(width);
+    let value = BigInt(payload.length) | (1n << BigInt(7 * width));
+    for (let i = width - 1; i >= 0; i--) {
+      size[i] = Number(value & 255n);
+      value >>= 8n;
+    }
+    return Buffer.concat([Buffer.from(id, 'hex'), size, payload]);
+  };
+  const uint = (n, bytes) => {
+    const b = Buffer.alloc(bytes);
+    b.writeUIntBE(n, 0, bytes);
+    return b;
+  };
+  const display = Buffer.from(
+    '160013014000b4100004800000010000000000640096' +
+      '17000a01000064009600080002' +
+      '14000c0000001080800001eb8080ff' +
+      '150015000000800000180008000201010101010101010000' +
+      '15000e0000004001010101010101010000' +
+      '800000',
+    'hex',
+  );
+  const block = Buffer.concat([
+    Buffer.from([0x81]),
+    uint(1000, 2),
+    Buffer.from([0]),
+    display,
+  ]);
+  // The reader times PGS against an audio or video track, so the file also
+  // carries a one-frame video track.
+  const videoBlock = Buffer.concat([
+    Buffer.from([0x82]),
+    uint(0, 2),
+    Buffer.from([0]),
+    Buffer.from([0]),
+  ]);
+  return Buffer.concat([
+    element(
+      '1a45dfa3',
+      element('4286', uint(1, 1)),
+      element('4282', 'matroska'),
+      element('4287', uint(4, 1)),
+      element('4285', uint(2, 1)),
+    ),
+    element(
+      '18538067',
+      element('1549a966', element('2ad7b1', uint(1_000_000, 3))),
+      element(
+        '1654ae6b',
+        element(
+          'ae',
+          element('d7', uint(1, 1)),
+          element('73c5', uint(1, 1)),
+          element('83', uint(17, 1)),
+          element('86', 'S_HDMV/PGS'),
+        ),
+        element(
+          'ae',
+          element('d7', uint(2, 1)),
+          element('73c5', uint(2, 1)),
+          element('83', uint(1, 1)),
+          element('86', 'V_MPEG4/ISO/AVC'),
+        ),
+      ),
+      element(
+        '1f43b675',
+        element('e7', uint(0, 1)),
+        element('a0', element('a1', videoBlock)),
+        element('a0', element('a1', block), element('9b', uint(2000, 2))),
+      ),
+    ),
+  ]);
 }
 
 main().catch((error) => {

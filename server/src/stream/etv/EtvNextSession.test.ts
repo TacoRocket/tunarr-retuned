@@ -13,6 +13,7 @@ import {
 import { DossierRetentionCount } from './EtvNextDossiers.ts';
 import { EtvNextDynamicTokenRegistry } from './EtvNextDynamicTokenRegistry.ts';
 import type { EtvNextPlayoutMode } from './EtvNextSession.ts';
+import type { EtvNextSessionType } from './EtvNextRouting.ts';
 import {
   EtvNextSession,
   ResolverSilenceGraceMs,
@@ -102,6 +103,8 @@ async function makeSession({
   exitsOnKill = true,
   reportsDirectory,
   lineup,
+  channelOverrides,
+  sessionType,
   ffmpegPath = () => '/usr/bin/ffmpeg',
   ffmpegInfo,
 }: {
@@ -126,6 +129,9 @@ async function makeSession({
   /** The channel's lineup as the fork reads it; `'unreadable'` makes the read fail. */
   lineup?: { liveRelay?: unknown } | 'unreadable';
 
+  /** Channel fields that differ from the shared fixture. */
+  channelOverrides?: Partial<ChannelOrmWithTranscodeConfig>;
+  sessionType?: EtvNextSessionType;
   /** The configured FFmpeg, read when the session starts. */
   ffmpegPath?: () => string;
   ffmpegInfo?: () => { getCapabilities: () => Promise<unknown> };
@@ -213,12 +219,13 @@ async function makeSession({
   const tokenRegistry = new EtvNextDynamicTokenRegistry();
 
   const session = new EtvNextSession(
-    channel,
+    { ...channel, ...channelOverrides },
     {
       transcodeDirectory,
       reportsDirectory,
       windowMs,
       tunarrPort,
+      sessionType,
       ...(playoutMode ? { playoutMode } : {}),
     },
     binaryResolver as never,
@@ -406,6 +413,45 @@ describe('startup', () => {
 
     expect(session.state).toBe('error');
     expect(session.error).toBeDefined();
+  });
+});
+
+// Tuner-style clients get a continuous MPEG-TS stream that FFmpeg re-reads from
+// the worker's HLS, and FFmpeg cannot read fMP4 across programs. An fMP4
+// channel gives that stream its own worker writing MPEG-TS.
+describe('the MPEG-TS copy of an fMP4 channel', () => {
+  const fmp4Channel = { streamMode: 'hls', hlsSegmentType: 'fmp4' } as const;
+
+  const startedConfig = async (sessionType?: EtvNextSessionType) => {
+    const { session, transcodeDirectory } = await makeSession({
+      channelOverrides: fmp4Channel,
+      sessionType,
+    });
+    await session.start();
+    const config = JSON.parse(
+      await fs.readFile(
+        path.join(transcodeDirectory, workspaceName, 'channel.json'),
+        'utf-8',
+      ),
+    ) as Record<string, unknown>;
+    return { session, config };
+  };
+
+  test('writes no hls key, while the HLS session asks for fMP4', async () => {
+    const hls = await startedConfig();
+    const copy = await startedConfig('etv_next_mpegts');
+
+    expect(hls.config['hls']).toEqual({ segment_type: 'fmp4' });
+    expect(Object.keys(copy.config)).not.toContain('hls');
+  });
+
+  test('is served under its own session path', async () => {
+    const { session } = await startedConfig('etv_next_mpegts');
+
+    expect(session.sessionType).toBe('etv_next_mpegts');
+    expect(session.getMasterPlaylist(true)).toContain(
+      `/stream/channels/${channelUuid}/etv_next_mpegts/live.m3u8`,
+    );
   });
 });
 
@@ -899,6 +945,7 @@ describe('the dynamic playout window', () => {
     expect(tokenRegistry.resolve(token)).toEqual({
       channelUuid,
       channelNumber: 7,
+      sessionType: 'etv_next',
     });
 
     const { items } = await readWindow(transcodeDirectory);

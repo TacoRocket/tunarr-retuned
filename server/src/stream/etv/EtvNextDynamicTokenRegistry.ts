@@ -4,11 +4,14 @@ import { randomBytes } from 'node:crypto';
 import type { FfmpegRuntimeCapabilities } from '../../ffmpeg/FfmpegRuntimeCapabilities.ts';
 import type { Maybe } from '../../types/util.ts';
 import { safeEqual } from '../../util/basicAuth.ts';
+import type { EtvNextSessionType } from './EtvNextRouting.ts';
 
 /** What a valid token grants access to. */
 type EtvNextTokenGrant = {
   channelUuid: string;
   channelNumber: number;
+  /** Which of the channel's worker sessions the token was minted for. */
+  sessionType: EtvNextSessionType;
   /**
    * Fork: what the executable the session launched its worker with can do, so
    * the callback decides for that binary even after the setting changes.
@@ -32,18 +35,25 @@ type Registration = EtvNextTokenGrant & { token: string };
  */
 @injectable(bindingScopeValues.Singleton)
 export class EtvNextDynamicTokenRegistry {
-  #byChannel = new Map<string, Registration>();
+  // Keyed by channel and session type: an fMP4 channel can run its HLS worker
+  // and its MPEG-TS copy at once, and each holds its own token.
+  #bySession = new Map<string, Registration>();
 
-  /** Mints a token for a channel, replacing any token it already held. */
+  /**
+   * Mints a token for one of a channel's worker sessions, replacing any token
+   * that session type already held.
+   */
   issue(
     channelUuid: string,
     channelNumber: number,
+    sessionType: EtvNextSessionType = 'etv_next',
     ffmpegRuntime?: FfmpegRuntimeCapabilities,
   ): string {
     const token = randomBytes(32).toString('base64url');
-    this.#byChannel.set(channelUuid, {
+    this.#bySession.set(registrationKey(channelUuid, sessionType), {
       channelUuid,
       channelNumber,
+      sessionType,
       token,
       ...(ffmpegRuntime ? { ffmpegRuntime } : {}),
     });
@@ -51,17 +61,22 @@ export class EtvNextDynamicTokenRegistry {
   }
 
   /**
-   * Drops a channel's token, but only if it is still the one given. A session
+   * Drops a session's token, but only if it is still the one given. A session
    * stopping late must not revoke the token of the session that replaced it.
    */
-  revoke(channelUuid: string, token: string): void {
-    if (this.#byChannel.get(channelUuid)?.token === token) {
-      this.#byChannel.delete(channelUuid);
+  revoke(
+    channelUuid: string,
+    token: string,
+    sessionType: EtvNextSessionType = 'etv_next',
+  ): void {
+    const key = registrationKey(channelUuid, sessionType);
+    if (this.#bySession.get(key)?.token === token) {
+      this.#bySession.delete(key);
     }
   }
 
   get size(): number {
-    return this.#byChannel.size;
+    return this.#bySession.size;
   }
 
   /**
@@ -75,11 +90,12 @@ export class EtvNextDynamicTokenRegistry {
       return;
     }
 
-    for (const registration of this.#byChannel.values()) {
+    for (const registration of this.#bySession.values()) {
       if (safeEqual(token, registration.token)) {
         return {
           channelUuid: registration.channelUuid,
           channelNumber: registration.channelNumber,
+          sessionType: registration.sessionType,
           ...(registration.ffmpegRuntime
             ? { ffmpegRuntime: registration.ffmpegRuntime }
             : {}),
@@ -89,6 +105,13 @@ export class EtvNextDynamicTokenRegistry {
 
     return;
   }
+}
+
+function registrationKey(
+  channelUuid: string,
+  sessionType: EtvNextSessionType,
+): string {
+  return `${channelUuid}_${sessionType}`;
 }
 
 /** Pulls the credential out of an `Authorization: Bearer <token>` header. */

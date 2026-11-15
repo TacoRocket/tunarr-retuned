@@ -10,6 +10,7 @@ import type { StreamLineupItem } from '../db/derived_types/StreamLineup.ts';
 import type { ChannelOrmWithTranscodeConfig } from '../db/schema/derivedTypes.ts';
 import type { TranscodeConfigOrm } from '../db/schema/TranscodeConfig.ts';
 import { EtvNextDynamicTokenRegistry } from '../stream/etv/EtvNextDynamicTokenRegistry.ts';
+import { EtvNextBreakAirings } from '../stream/etv/EtvNextBreakAirings.ts';
 import {
   EtvNextPlayoutWriter,
   MaxCallbacksPerWindow,
@@ -127,6 +128,7 @@ async function makeApp({
     } as never,
     { resolve: vi.fn(() => Promise.resolve(undefined)) } as never,
     { select: vi.fn() } as never,
+    new EtvNextBreakAirings(),
   );
 
   const channel = makeChannel(errorScreen);
@@ -219,7 +221,12 @@ describe('authorization', () => {
       nativeNv12Output: false,
       preservesConcatTimestamps: false,
     } as const;
-    const next = tokenRegistry.issue(channelUuid, channelNumber, ffmpegRuntime);
+    const next = tokenRegistry.issue(
+      channelUuid,
+      channelNumber,
+      'etv_next',
+      ffmpegRuntime,
+    );
     await request(app, { ...bearer(next), ...headers });
     expect(resolve.mock.calls[1]?.[0].ffmpegRuntime).toBe(ffmpegRuntime);
   });
@@ -450,6 +457,27 @@ describe('the silence watchdog', () => {
     );
   });
 
+  // An fMP4 channel's MPEG-TS copy resolves against the same channel. Fed to
+  // the HLS session instead, its own watchdog would end it after the grace.
+  test('is fed on the session the token was minted for', async () => {
+    const { app, tokenRegistry, sessionManager } = await makeApp();
+    const copyToken = tokenRegistry.issue(
+      channelUuid,
+      channelNumber,
+      'etv_next_mpegts',
+    );
+
+    await request(app, {
+      ...bearer(copyToken),
+      'x-etv-now': new Date(nowMs).toISOString(),
+    });
+
+    expect(sessionManager.getEtvNextSession).toHaveBeenCalledWith(
+      channelUuid,
+      'etv_next_mpegts',
+    );
+  });
+
   test('is not fed when no item could be resolved', async () => {
     const { app, token, etvSession } = await makeApp({
       scheduleFails: true,
@@ -560,7 +588,10 @@ describe("the 'kill' error screen", () => {
     });
 
     expect(response.statusCode).toBe(503);
-    expect(sessionManager.getEtvNextSession).toHaveBeenCalledWith(channelUuid);
+    expect(sessionManager.getEtvNextSession).toHaveBeenCalledWith(
+      channelUuid,
+      'etv_next',
+    );
     expect(etvSession.stop).toHaveBeenCalled();
   });
 

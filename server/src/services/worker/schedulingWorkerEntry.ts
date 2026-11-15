@@ -6,15 +6,13 @@ import 'reflect-metadata';
 import { dayjsMod } from '@tunarr/shared/util';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration.js';
-import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { parseArgs } from 'node:util';
+import { pathToFileURL } from 'node:url';
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { bootstrapTunarr } from '../../bootstrap.ts';
 import type { ServerOptions } from '../../globals.ts';
 import { setGlobalOptions, setServerOptionsUnchecked } from '../../globals.ts';
-import type { LogLevels } from '../../util/logging/LoggerFactory.ts';
 import { resolveSchedulingWorker } from './SchedulingWorkerContainer.ts';
+import { readGlobalArgs } from './workerArgs.ts';
 
 /**
  * Entry point for scheduling worker threads.
@@ -42,34 +40,6 @@ type SchedulingWorkerData = {
 
 dayjs.extend(duration);
 dayjs.extend(dayjsMod);
-
-// Same flags `workerArgv()` in TunarrSubprocessService passes, read the way
-// the CLI's yargs options read them.
-function readGlobalArgs() {
-  const { values } = parseArgs({
-    args: process.argv.slice(2),
-    options: {
-      database: { type: 'string' },
-      log_level: { type: 'string' },
-      hide_banner: { type: 'boolean' },
-    },
-    strict: false,
-    allowPositionals: true,
-  });
-  if (typeof values.database !== 'string') {
-    throw new Error('Scheduling worker started without --database');
-  }
-  return {
-    database: path.normalize(
-      fileURLToPath(new URL(`file://${values.database}`)),
-    ),
-    log_level:
-      typeof values.log_level === 'string'
-        ? (values.log_level as LogLevels)
-        : undefined,
-    verbose: 0,
-  };
-}
 
 async function startLean(data: SchedulingWorkerData) {
   setGlobalOptions(readGlobalArgs());

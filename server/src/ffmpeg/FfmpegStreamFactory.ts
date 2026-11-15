@@ -209,7 +209,10 @@ export class FfmpegStreamFactory {
       }),
     );
 
-    if (opts.mode === 'etv_next_concat') {
+    if (
+      opts.mode === 'etv_next_concat' ||
+      opts.mode === 'etv_next_mpegts_concat'
+    ) {
       concatInput.addOption(new UserAgentInputOption(hlsWrapperUserAgent));
     }
 

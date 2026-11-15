@@ -12,6 +12,7 @@ describe('issuing', () => {
     expect(registry.resolve(token)).toEqual({
       channelUuid: 'chan-1',
       channelNumber: 7,
+      sessionType: 'etv_next',
     });
   });
 
@@ -31,6 +32,22 @@ describe('issuing', () => {
 
     expect(registry.resolve(first)).toBeUndefined();
     expect(registry.size).toBe(1);
+  });
+
+  // An fMP4 channel runs its HLS worker and an MPEG-TS copy at once. Starting
+  // one must not cut the other off from its callbacks, nor stopping it.
+  test("a channel's two worker sessions keep their own tokens", () => {
+    const registry = new EtvNextDynamicTokenRegistry();
+    const hls = registry.issue('chan-1', 7, 'etv_next');
+    const copy = registry.issue('chan-1', 7, 'etv_next_mpegts');
+
+    expect(registry.resolve(hls)?.sessionType).toBe('etv_next');
+    expect(registry.resolve(copy)?.sessionType).toBe('etv_next_mpegts');
+
+    registry.revoke('chan-1', copy, 'etv_next_mpegts');
+
+    expect(registry.resolve(hls)?.sessionType).toBe('etv_next');
+    expect(registry.resolve(copy)).toBeUndefined();
   });
 });
 
@@ -72,6 +89,7 @@ describe('rejecting', () => {
     expect(registry.resolve(current)).toEqual({
       channelUuid: 'chan-1',
       channelNumber: 7,
+      sessionType: 'etv_next',
     });
   });
 });
