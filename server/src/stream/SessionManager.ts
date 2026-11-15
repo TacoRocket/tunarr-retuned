@@ -13,6 +13,7 @@ import {
   max,
   maxBy,
   omitBy,
+  pickBy,
   once,
   sumBy,
   uniq,
@@ -579,16 +580,21 @@ export class SessionManager {
     try {
       const now = +dayjs();
       let sessionToCheck = session;
-      let pauseTime =
-        (sessionStopped
-          ? max(
-              keys(session.connections()).map((token) =>
-                session.lastHeartbeat(token),
-              ),
-            )
-          : undefined) ??
-        lastConnection.lastHeartbeat ??
-        now;
+      const stoppedHeartbeat = sessionStopped
+        ? max(
+            keys(pickBy(session.connections(), isViewer)).map((token) =>
+              session.lastHeartbeat(token),
+            ),
+          )
+        : undefined;
+      // Whether this check stands for somebody watching. A session that
+      // stopped with no viewer left on it has only its own teardown to
+      // report: its stop handler is handed the connection that opened it,
+      // not one that just left.
+      const sawViewer = sessionStopped
+        ? stoppedHeartbeat !== undefined
+        : isViewer(lastConnection);
+      let pauseTime = stoppedHeartbeat ?? lastConnection.lastHeartbeat ?? now;
       if (session.isConcatSession()) {
         const underlyingType = sessionTypeFromConcatType(session.sessionType);
         const underlyingSession = this.getSession(
@@ -627,10 +633,12 @@ export class SessionManager {
       );
 
       const channelId = session.keyObj.id;
-      pauseTime = Math.max(
-        pauseTime,
-        this.#lastViewerActivity.get(channelId) ?? pauseTime,
-      );
+      const lastActivity = this.#lastViewerActivity.get(channelId);
+      if (lastActivity !== undefined) {
+        pauseTime = sawViewer
+          ? Math.max(pauseTime, lastActivity)
+          : lastActivity;
+      }
 
       // Pause the channel as soon as there are no connections
       // other than internal connections
@@ -648,7 +656,7 @@ export class SessionManager {
         );
       } else {
         // Tunarr's own connections keep requesting after the viewer is gone.
-        if (isViewer(lastConnection)) {
+        if (sawViewer) {
           this.#lastViewerActivity.set(channelId, pauseTime);
         }
         this.logger.debug(

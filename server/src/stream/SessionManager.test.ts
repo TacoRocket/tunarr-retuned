@@ -358,15 +358,24 @@ describe('SessionManager', () => {
       }
     }
 
+    // Starts without FFmpeg but tears down as production does, `stop` event
+    // included.
+    class TearDownConcatSession extends ConcatSession {
+      protected override async startInternal() {
+        this.state = 'started';
+      }
+    }
+
     const hlsViewer = { ip: '10.0.0.2', userAgent: 'TiviMate/5.0' };
     const tunerViewer = { ip: '10.0.0.3', userAgent: 'PlexMediaServer/1.0' };
     const wrapper = { ip: '127.0.0.1', userAgent: 'Tunarr HLS wrapper' };
 
-    const watchBoth = async () => {
+    const watchBoth = async (
+      TunerSession: typeof ConcatSession = StubWorkerConcatSession,
+    ) => {
       const manager = makeSessionManager(
         (channel, options) => new StubHlsSession(channel, options),
-        (channel, options) =>
-          new StubWorkerConcatSession(channel, options, vi.fn()),
+        (channel, options) => new TunerSession(channel, options, vi.fn()),
         (channel, options) => new StubEtvNextSession(channel, options),
       );
       const hls = (
@@ -456,6 +465,29 @@ describe('SessionManager', () => {
       vi.setSystemTime(1_050_000);
       tuner.removeConnection('tuner-viewer');
       await vi.advanceTimersByTimeAsync(0);
+      expect(pauseChannel).not.toHaveBeenCalled();
+      vi.setSystemTime(1_075_000);
+      hls.removeConnection('hls-viewer');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pauseChannel).toHaveBeenCalledTimes(1);
+      expect(pauseChannel).toHaveBeenCalledWith(channelUuid, 1_050_000);
+    });
+
+    // The empty tuner session stops itself five seconds after its viewer
+    // leaves, and stopping asks the pause check again.
+    it('does not count the tuner session’s own teardown as viewing', async () => {
+      vi.setSystemTime(1_000_000);
+      const { hls, tuner, pauseChannel } = await watchBoth(
+        TearDownConcatSession,
+      );
+
+      vi.setSystemTime(1_010_000);
+      hls.recordHeartbeat('hls-viewer');
+      vi.setSystemTime(1_050_000);
+      tuner.removeConnection('tuner-viewer');
+      await vi.advanceTimersByTimeAsync(6_000);
+      expect(tuner.stoppingOrStopped).toBe(true);
       expect(pauseChannel).not.toHaveBeenCalled();
       vi.setSystemTime(1_075_000);
       hls.removeConnection('hls-viewer');
