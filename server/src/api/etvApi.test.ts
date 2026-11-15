@@ -10,6 +10,7 @@ import type { StreamLineupItem } from '../db/derived_types/StreamLineup.ts';
 import type { ChannelOrmWithTranscodeConfig } from '../db/schema/derivedTypes.ts';
 import type { TranscodeConfigOrm } from '../db/schema/TranscodeConfig.ts';
 import { EtvNextDynamicTokenRegistry } from '../stream/etv/EtvNextDynamicTokenRegistry.ts';
+import { EtvNextBreakAirings } from '../stream/etv/EtvNextBreakAirings.ts';
 import {
   EtvNextPlayoutWriter,
   MaxCallbacksPerWindow,
@@ -127,6 +128,7 @@ async function makeApp({
     } as never,
     { resolve: vi.fn(() => Promise.resolve(undefined)) } as never,
     { select: vi.fn() } as never,
+    new EtvNextBreakAirings(),
   );
 
   const channel = makeChannel(errorScreen);
