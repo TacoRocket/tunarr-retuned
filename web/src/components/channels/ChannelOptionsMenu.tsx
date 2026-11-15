@@ -7,6 +7,7 @@ import {
   Edit,
   Stop,
   Tv,
+  Upgrade,
 } from '@mui/icons-material';
 import { ListItemIcon, ListItemText, Menu, MenuItem } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -16,6 +17,7 @@ import { isEmpty, trimEnd } from 'lodash-es';
 import type { SyntheticEvent } from 'react';
 import { useCallback, useState } from 'react';
 import { deleteApiChannelsByIdSessionsMutation } from '../../generated/@tanstack/react-query.gen.ts';
+import { isLegacyChannel } from '../../helpers/nextConversion.ts';
 import { invalidateTaggedQueries } from '../../helpers/queryUtil.ts';
 import { isNonEmptyString } from '../../helpers/util.ts';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard.ts';
@@ -66,7 +68,8 @@ export const ChannelOptionsMenu = ({
     [stopSessionsMutation],
   );
 
-  const { duplicateChannels, profileDialog } = useChannelBulkActions();
+  const { duplicateChannels, convertChannels, profileDialog } =
+    useChannelBulkActions();
 
   const handleClose = useCallback(
     (e: SyntheticEvent) => {
@@ -221,6 +224,22 @@ export const ChannelOptionsMenu = ({
             </ListItemIcon>
             <ListItemText>
               <Trans>Duplicate Channel</Trans>
+            </ListItemText>
+          </MenuItem>
+        )}
+        {!hideItems?.includes('convert') && isLegacyChannel(row) && (
+          <MenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              void convertChannels([row]);
+              handleClose(e);
+            }}
+          >
+            <ListItemIcon>
+              <Upgrade />
+            </ListItemIcon>
+            <ListItemText>
+              <Trans>Convert to ErsatzTV next</Trans>
             </ListItemText>
           </MenuItem>
         )}

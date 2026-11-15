@@ -469,6 +469,7 @@ export const channelsApi: RouterPluginAsyncCallback = async (fastify) => {
           );
           break;
         case 'new': {
+          // SIGNPOST(native-retirement): remove when native channel creation is gone
           if (
             !body.channel.useEtvNext ||
             !supportsEtvNext(body.channel.streamMode)

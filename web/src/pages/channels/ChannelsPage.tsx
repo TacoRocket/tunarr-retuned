@@ -28,7 +28,7 @@ export default function ChannelsPage() {
   const [fillerChannels, setFillerChannels] = useState<Channel[] | null>(null);
   const { addListener, removeListener } = useServerEvents();
   const m3uUrl = useM3ULink();
-  const { duplicateChannels, deleteChannels, profileDialog } =
+  const { duplicateChannels, convertChannels, deleteChannels, profileDialog } =
     useChannelBulkActions();
 
   useEffect(() => {
@@ -81,6 +81,9 @@ export default function ChannelsPage() {
           duplicateChannels(selected).catch(console.error);
         }}
         onAssignFillers={setFillerChannels}
+        onConvertChannels={(selected) => {
+          convertChannels(selected).catch(console.error);
+        }}
         onDeleteChannels={(selected) => {
           deleteChannels(selected).catch(console.error);
         }}

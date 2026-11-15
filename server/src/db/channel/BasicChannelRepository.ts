@@ -473,6 +473,8 @@ export class BasicChannelRepository {
         .insert(Channel)
         .values({
           ...channelFields,
+          // SIGNPOST(native-retirement): copies move to Next; the useEtvNext
+          // flag and the stream mode mapping go with native playback.
           useEtvNext: true,
           streamMode: supportsEtvNext(channel.streamMode)
             ? channel.streamMode

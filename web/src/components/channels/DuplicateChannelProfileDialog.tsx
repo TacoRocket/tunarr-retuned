@@ -14,6 +14,8 @@ import type { Channel, TranscodeConfig } from '@tunarr/types';
 import { useState } from 'react';
 
 export type DuplicateChannelProfileDialogProps = {
+  // Duplicating makes copies; converting moves the channels themselves.
+  purpose?: 'duplicate' | 'convert';
   channels: Channel[];
   profiles: Pick<TranscodeConfig, 'id' | 'name'>[];
   onCancel: () => void;
@@ -21,6 +23,7 @@ export type DuplicateChannelProfileDialogProps = {
 };
 
 export function DuplicateChannelProfileDialog({
+  purpose = 'duplicate',
   channels,
   profiles,
   onCancel,
@@ -37,10 +40,18 @@ export function DuplicateChannelProfileDialog({
       </DialogTitle>
       <DialogContent>
         <DialogContentText>
-          <Trans>
-            ErsatzTV next needs a different profile to play copies of{' '}
-            {channelNames}.
-          </Trans>
+          {purpose === 'convert' ? (
+            <Trans>
+              ErsatzTV next can't play the transcode profile of {channelNames}.
+              Choose one it can play. Everything else about the channel stays
+              the same.
+            </Trans>
+          ) : (
+            <Trans>
+              ErsatzTV next needs a different profile to play copies of{' '}
+              {channelNames}.
+            </Trans>
+          )}
         </DialogContentText>
         {profiles.length > 0 ? (
           <TextField
@@ -75,7 +86,11 @@ export function DuplicateChannelProfileDialog({
           disabled={!profileId}
           onClick={() => onConfirm(profileId)}
         >
-          <Trans>Duplicate</Trans>
+          {purpose === 'convert' ? (
+            <Trans>Convert</Trans>
+          ) : (
+            <Trans>Duplicate</Trans>
+          )}
         </Button>
       </DialogActions>
     </Dialog>

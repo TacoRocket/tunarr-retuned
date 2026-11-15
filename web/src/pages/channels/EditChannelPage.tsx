@@ -34,7 +34,8 @@ export default function EditChannelPage({ initialTab }: Props) {
           <Box>
             <ChannelOptionsButton
               channel={channel}
-              hideItems={['edit', 'duplicate', 'delete']}
+              // The page's own notice converts, and keeps the form in step.
+              hideItems={['edit', 'duplicate', 'delete', 'convert']}
             />
           </Box>
         </Stack>

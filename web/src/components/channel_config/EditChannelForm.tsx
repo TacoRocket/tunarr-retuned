@@ -40,6 +40,7 @@ import ChannelEditActions from './ChannelEditActions.tsx';
 import ChannelEpgConfig from './ChannelEpgConfig.tsx';
 import { ChannelFlexConfig } from './ChannelFlexConfig.tsx';
 import { ChannelLiveRelaySettings } from './ChannelLiveRelaySettings.tsx';
+import { LegacyEngineNotice } from './LegacyEngineNotice.tsx';
 import { ChannelPropertiesEditor } from './ChannelPropertiesEditor.tsx';
 import ChannelTranscodingConfig, {
   ChannelTranscodeProfileSelect,
@@ -379,6 +380,18 @@ export function EditChannelForm({
 
   return (
     <Paper sx={{ p: 2 }}>
+      {!isNew && (
+        <LegacyEngineNotice
+          channel={channel}
+          // The server saved the conversion; bring only those fields into the
+          // form, so a later Save neither undoes it nor drops unsaved edits.
+          onConverted={(saved) =>
+            formMethods.reset(getDefaultFormValues(saved), {
+              keepDirtyValues: true,
+            })
+          }
+        />
+      )}
       <Box sx={{ borderColor: 'primary', borderBottom: 1 }}>
         <Tabs
           value={currentTab}

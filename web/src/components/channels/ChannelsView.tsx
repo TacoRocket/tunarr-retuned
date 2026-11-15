@@ -1,4 +1,5 @@
 import { betterHumanize } from '@/helpers/dayjs.ts';
+import { isLegacyChannel } from '@/helpers/nextConversion.ts';
 import { useThemeTokens } from '@/hooks/useTunarrTheme.ts';
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import {
@@ -9,6 +10,7 @@ import {
   Edit,
   PlaylistAdd,
   SettingsRemote,
+  Upgrade,
 } from '@mui/icons-material';
 import {
   Box,
@@ -73,6 +75,10 @@ export type ChannelsViewProps = {
   onDuplicateChannels: (channels: Channel[]) => void;
   onAssignFillers: (channels: Channel[]) => void;
 
+  // Fork: moves the selected legacy channels to ErsatzTV next. The button
+  // shows only when the selection has one.
+  onConvertChannels?: (channels: Channel[]) => void;
+
   // Called after the user confirms.
   onDeleteChannels: (channels: Channel[]) => void;
   layout?: CollectionLayout;
@@ -93,6 +99,7 @@ export const ChannelsView = ({
   m3uUrl,
   onDuplicateChannels,
   onAssignFillers,
+  onConvertChannels,
   onDeleteChannels,
   layout,
 }: ChannelsViewProps) => {
@@ -330,6 +337,16 @@ export const ChannelsView = ({
       >
         <Trans>Assign fillers</Trans>
       </Button>
+      {onConvertChannels && selected.some(isLegacyChannel) && (
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<Upgrade />}
+          onClick={() => onConvertChannels(selected)}
+        >
+          <Trans>Convert to ErsatzTV next</Trans>
+        </Button>
+      )}
       <Button
         size="small"
         variant="outlined"
