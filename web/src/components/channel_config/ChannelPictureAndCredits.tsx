@@ -421,35 +421,43 @@ function PictureAndCreditsControls({
                 />
               )}
             />
-            <Controller
-              control={control}
-              name="creditSqueeze.advertisementFillerListIds"
-              render={({ field }) => (
-                <Autocomplete
-                  multiple
-                  disabled={!onNext}
-                  options={fillerLists.data ?? []}
-                  getOptionLabel={(list) => list.name}
-                  value={(fillerLists.data ?? []).filter((list) =>
-                    (field.value ?? []).includes(list.id),
-                  )}
-                  onChange={(_, lists) =>
-                    // The API takes at least one list or none at all.
-                    field.onChange(
-                      lists.length > 0 ? lists.map((l) => l.id) : undefined,
-                    )
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t`Ads while the credits shrink (optional)`}
-                      helperText={
-                        onNext
-                          ? t`Plays ads from these filler lists in the main picture while the credits shrink.`
-                          : t`Needs the ErsatzTV next playback engine.`
+            {/* Not a registered field: an empty list must be left out of the
+                request, and a registered empty field is sent as null, which
+                the API refuses. */}
+            <Autocomplete
+              multiple
+              disabled={!onNext}
+              options={fillerLists.data ?? []}
+              getOptionLabel={(list) => list.name}
+              value={(fillerLists.data ?? []).filter((list) =>
+                (creditSqueeze?.advertisementFillerListIds ?? []).includes(
+                  list.id,
+                ),
+              )}
+              onChange={(_, lists) => {
+                if (!creditSqueeze) return;
+                const { advertisementFillerListIds: _old, ...rest } =
+                  creditSqueeze;
+                setValue(
+                  'creditSqueeze',
+                  lists.length > 0
+                    ? {
+                        ...rest,
+                        advertisementFillerListIds: lists.map((l) => l.id),
                       }
-                    />
-                  )}
+                    : rest,
+                  { shouldDirty: true },
+                );
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t`Ads while the credits shrink (optional)`}
+                  helperText={
+                    onNext
+                      ? t`Plays ads from these filler lists in the main picture while the credits shrink.`
+                      : t`Needs the ErsatzTV next playback engine.`
+                  }
                 />
               )}
             />

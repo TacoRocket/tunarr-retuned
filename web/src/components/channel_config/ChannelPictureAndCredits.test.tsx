@@ -148,9 +148,14 @@ test('the final credits are one choice: skipping and squeezing turn each other o
   ).toBeVisible();
   await user.clear(image);
   await user.type(image, '/artwork/credits.png');
-  expect(saved().creditSqueeze).toMatchObject({
+  expect(saved().creditSqueeze).toEqual({
+    enabled: true,
     backgroundImage: '/artwork/credits.png',
   });
+  // No ad lists means no key at all: the API refuses null or an empty list.
+  expect(saved().creditSqueeze).not.toHaveProperty(
+    'advertisementFillerListIds',
+  );
 
   await user.click(screen.getByRole('radio', { name: 'Play them through' }));
   expect(saved()).toMatchObject({

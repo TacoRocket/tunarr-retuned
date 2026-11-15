@@ -82,11 +82,18 @@ export function creditsFields(
       return { advanceAtFinalCredits: false, creditSqueeze: null };
     case 'skip':
       return { advanceAtFinalCredits: true, creditSqueeze: null };
-    case 'squeeze':
+    case 'squeeze': {
+      // Leave an empty ad list out: the API takes one or more lists, or none.
+      const { advertisementFillerListIds: ads, ...rest } = squeeze;
       return {
         advanceAtFinalCredits: false,
-        creditSqueeze: { ...squeeze, enabled: true },
+        creditSqueeze: {
+          ...rest,
+          ...(ads?.length ? { advertisementFillerListIds: ads } : {}),
+          enabled: true,
+        },
       };
+    }
   }
 }
 
