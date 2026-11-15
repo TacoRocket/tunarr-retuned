@@ -22,6 +22,7 @@ import { Program } from '../db/schema/Program.ts';
 import { StreamSelectionProfile } from '../db/schema/StreamSelectionProfile.ts';
 import { CelEvaluationService } from '../services/CelEvaluationService.ts';
 import { StreamSelectionPreviewService } from '../services/StreamSelectionPreviewService.ts';
+import { withRuleDefaults } from './storedStreamSelectionRules.ts';
 
 const ErrorResponseSchema = z.object({ message: z.string() });
 
@@ -117,7 +118,7 @@ export const streamSelectionRouter: RouterPluginCallback = (
         (p) => !p.locked,
         (p) => p.name.toLowerCase(),
       ]).map((profile) => ({
-        ...profile,
+        ...withRuleDefaults(profile),
         isDefault: profile.uuid === defaultProfileId,
         usage: {
           channels: (channelsByProfile[profile.uuid] ?? []).map(
@@ -163,7 +164,7 @@ export const streamSelectionRouter: RouterPluginCallback = (
         return res.status(404).send();
       }
 
-      return res.send(profile);
+      return res.send(withRuleDefaults(profile));
     },
   );
 
