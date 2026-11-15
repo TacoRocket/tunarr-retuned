@@ -82,6 +82,8 @@ import { FrameDataLocation, RateControlMode } from '../../types.ts';
 import { CrtHdrBypassedMessage } from '../../../StreamDegradations.ts';
 
 const loggedLowPowerFallbackReasons = new Set<string>();
+// Fork: the filtered-NV12 fallback is logged once per reason, not per stream.
+const loggedDirectNv12FallbackReasons = new Set<string>();
 
 export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
   // Set in setHardwareAccelState(); used in setScale() to avoid a
@@ -223,9 +225,16 @@ export class VaapiPipelineBuilder extends SoftwarePipelineBuilder {
         this.ffmpegCapabilities.runtime.nativeNv12Output !== false,
       )
     ) {
-      this.logger.warn(
-        'Direct NV12 is unavailable for this CRT runtime or geometry; using filtered NV12 with the established Vulkan handoff.',
-      );
+      const reason = CrtFilter.usesDirectNv12Handoff(
+        crt,
+        desiredState.scaledSize,
+      )
+        ? "Direct NV12 is unavailable: this FFmpeg's libplacebo has no nv12_output=native; using filtered NV12 with the established Vulkan handoff."
+        : 'Direct NV12 is unavailable for this CRT runtime or geometry; using filtered NV12 with the established Vulkan handoff.';
+      this.logger[
+        loggedDirectNv12FallbackReasons.has(reason) ? 'debug' : 'warn'
+      ](reason);
+      loggedDirectNv12FallbackReasons.add(reason);
     }
     if (crt?.enabled && hdr && !this.useHdrCrt) {
       this.logger.warn(

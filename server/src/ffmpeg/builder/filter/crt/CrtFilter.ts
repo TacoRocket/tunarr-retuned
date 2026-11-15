@@ -133,6 +133,8 @@ export function crtShader(
 export function crtWorkerStage(
   settings: ChannelCrtSettings,
   frame: FrameSize,
+  // False when the worker's FFmpeg is known to lack nv12_output=native.
+  nativeNv12Available = true,
 ): {
   shader: string;
   inputHeight?: number;
@@ -145,7 +147,7 @@ export function crtWorkerStage(
   const broadcastSize = CrtFilter.broadcastSize(settings, frame);
   // The worker checks its own FFmpeg capability before accepting these options.
   const nativeNv12Output =
-    CrtFilter.usesDirectNv12Handoff(settings, frame) &&
+    CrtFilter.usesDirectNv12Handoff(settings, frame, nativeNv12Available) &&
     process.env.TUNARR_CRT_NV12_OUTPUT === 'native';
   return {
     shader: crtShader(settings, frame),

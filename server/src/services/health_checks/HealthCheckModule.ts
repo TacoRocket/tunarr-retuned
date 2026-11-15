@@ -7,6 +7,7 @@ import { MissingSeasonNumbersHealthCheck } from '@/services/health_checks/Missin
 import { KEYS } from '@/types/inject.js';
 import { ContainerModule } from 'inversify';
 import { BaseImageHealthCheck } from './BaseImageHealthCheck.ts';
+import { FfmpegFeatureSupportHealthCheck } from './FfmpegFeatureSupportHealthCheck.ts';
 import { FfmpegTranscodeDirectoryHealthCheck } from './FfmpegTranscodeDirectoryHealthCheck.ts';
 
 const HealthCheckModule = new ContainerModule(({ bind }) => {
@@ -17,6 +18,7 @@ const HealthCheckModule = new ContainerModule(({ bind }) => {
   bind<HealthCheck>(KEYS.HealthCheck).to(HardwareAccelerationHealthCheck);
   bind<HealthCheck>(KEYS.HealthCheck).to(MissingSeasonNumbersHealthCheck);
   bind<HealthCheck>(KEYS.HealthCheck).to(FfmpegTranscodeDirectoryHealthCheck);
+  bind<HealthCheck>(KEYS.HealthCheck).to(FfmpegFeatureSupportHealthCheck);
 });
 
 export { HealthCheckModule };

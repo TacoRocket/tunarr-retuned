@@ -62,9 +62,10 @@ The revised fork on `perf/nv12-native-layer` instead uses
 libplacebo filter. `ETV_INLINE_NV12_RTZ` is unnecessary with that runtime.
 Tunarr's shared capability discovery reads the image's build-time FFmpeg help
 when the version output matches. If the record lacks native NV12, CRT uses the
-filtered path. Without a matching record, support is unknown and Tunarr keeps
-the configured output. A custom build missing the requested option can fail at
-playback. An isolated comparison against the original runtime
+filtered path. Without a matching record, Tunarr asks that build once whether
+libplacebo lists `nv12_output=native`; if it does not, or the query fails, CRT
+and the ErsatzTV next worker use the filtered path. An isolated comparison
+against the original runtime
 matched all 360 decoded Eric Andre frames across DVD and TV Broadcast samples.
 This is picture parity for those samples, not live client acceptance or a new
 throughput measurement. The Match HDR mode is not selected by this CRT path.

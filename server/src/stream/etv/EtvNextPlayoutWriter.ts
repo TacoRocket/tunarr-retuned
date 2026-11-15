@@ -19,6 +19,7 @@ import {
 } from '../../ffmpeg/CreditSqueeze.ts';
 import type { CreditSqueezePlayback } from '../../ffmpeg/CreditSqueeze.ts';
 import { StreamSelector } from '../../ffmpeg/StreamSelector.ts';
+import type { FfmpegRuntimeCapabilities } from '../../ffmpeg/FfmpegRuntimeCapabilities.ts';
 import { OnDemandChannelService } from '../../services/OnDemandChannelService.ts';
 import { isNonEmptyString } from '../../util/index.ts';
 import { InjectLogger } from '../../util/inject.ts';
@@ -221,6 +222,11 @@ type CallbackWindowValue = {
  * what a diagnostic transcode needs, and it stays the fallback if the dynamic
  * resolver proves troublesome.
  */
+type WorkerFfmpegRuntime = Pick<
+  FfmpegRuntimeCapabilities,
+  'preservesConcatTimestamps'
+>;
+
 @injectable()
 export class EtvNextPlayoutWriter {
   @InjectLogger() declare private readonly logger: Logger;
@@ -266,12 +272,20 @@ export class EtvNextPlayoutWriter {
     channel,
     lineupItem,
     startMs,
+    ffmpegRuntime,
   }: {
     channel: ChannelOrmWithTranscodeConfig;
     lineupItem: StreamLineupItem;
     startMs: number;
+    /** Fork: the worker's FFmpeg; see `resolveStream`. */
+    ffmpegRuntime?: WorkerFfmpegRuntime;
   }): Promise<MaterializedWindow> {
-    const stream = await this.resolveStream(channel, lineupItem);
+    const stream = await this.resolveStream(
+      channel,
+      lineupItem,
+      channel,
+      ffmpegRuntime,
+    );
     const { item, ignored, degradations } = this.mapOrDegrade({
       ...this.screenOptions(channel),
       id: `${channel.uuid}-troubleshoot`,
@@ -300,11 +314,14 @@ export class EtvNextPlayoutWriter {
     startMs,
     windowMs = DefaultWindowMs,
     idSeed = 0,
+    ffmpegRuntime,
   }: {
     channel: ChannelOrmWithTranscodeConfig;
     startMs: number;
     windowMs?: number;
     idSeed?: number;
+    /** Fork: the worker's FFmpeg; see `resolveStream`. */
+    ffmpegRuntime?: WorkerFfmpegRuntime;
   }): Promise<MaterializedWindow> {
     const endMs = startMs + windowMs;
     const screens = this.screenOptions(channel);
@@ -379,6 +396,7 @@ export class EtvNextPlayoutWriter {
         channel,
         lineupItem,
         channelContext,
+        ffmpegRuntime,
       );
       const id = `${channel.uuid}-${idSeed + items.length}`;
       const mapping = this.mapOrDegrade({
@@ -469,10 +487,13 @@ export class EtvNextPlayoutWriter {
     channel,
     startMs,
     untilMs,
+    ffmpegRuntime,
   }: {
     channel: ChannelOrmWithTranscodeConfig;
     startMs: number;
     untilMs?: number;
+    /** Fork: the worker's FFmpeg; see `resolveStream`. */
+    ffmpegRuntime?: WorkerFfmpegRuntime;
   }): Promise<PlayoutItemMapping> {
     const screens = this.screenOptions(channel);
 
@@ -529,6 +550,7 @@ export class EtvNextPlayoutWriter {
         channel,
         lineupItem,
         channelContext,
+        ffmpegRuntime,
       );
 
       return this.mapOrDegrade({
@@ -836,6 +858,9 @@ export class EtvNextPlayoutWriter {
     channel: ChannelOrmWithTranscodeConfig,
     lineupItem: StreamLineupItem,
     scheduleChannel: ChannelOrm = channel,
+    // Fork: what the FFmpeg the session launched its worker with can do.
+    // Unknown gates nothing.
+    ffmpegRuntime?: WorkerFfmpegRuntime,
   ): Promise<
     | {
         source: StreamSource;
@@ -931,6 +956,23 @@ export class EtvNextPlayoutWriter {
             code: 'credit_squeeze_unavailable',
             message:
               'Credit squeeze requires VAAPI transcoding and final-credit skipping disabled.',
+            firstSeen: Date.now(),
+          },
+        ],
+      };
+      creditSqueeze = undefined;
+    }
+    // The worker's squeeze joins the picture with the concat filter's
+    // preserve_ts patch, as Tunarr's own pipeline does.
+    if (creditSqueeze && ffmpegRuntime?.preservesConcatTimestamps === false) {
+      selection = {
+        ...selection,
+        degradations: [
+          ...(selection?.degradations ?? []),
+          {
+            code: 'credit_squeeze_unavailable',
+            message:
+              'Credit squeeze needs an FFmpeg whose concat filter has preserve_ts; this one does not, so the credits play full-screen.',
             firstSeen: Date.now(),
           },
         ],

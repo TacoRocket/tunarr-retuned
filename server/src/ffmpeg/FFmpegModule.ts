@@ -1,9 +1,10 @@
 import type { TranscodeConfigOrm } from '@/db/schema/TranscodeConfig.js';
 import { FfmpegStreamFactory } from '@/ffmpeg/FfmpegStreamFactory.js';
-import { KEYS } from '@/types/inject.js';
+import { autoFactoryKey, KEYS } from '@/types/inject.js';
 import { ContainerModule } from 'inversify';
 import type { ChannelOrm } from '../db/schema/Channel.ts';
 import { bindAssistedFactory } from '../util/assistedInject.ts';
+import { bindAutoFactory } from '../util/inject.ts';
 import { FfmpegInfo } from './ffmpegInfo.ts';
 import { StreamSelector } from './StreamSelector.ts';
 
@@ -23,6 +24,10 @@ const FFmpegModule = new ContainerModule(({ bind }) => {
   // construction, and those are bound transiently so a settings change takes
   // effect without a restart.
   bind(FfmpegInfo).toSelf();
+  // Fork: `@inject(autoFactoryKey(FfmpegInfo))` resolves FfmpegInfo when
+  // called, so a long-lived holder follows the configured executable.
+  // Capabilities stay cached per executable path.
+  bindAutoFactory(bind, autoFactoryKey(FfmpegInfo), FfmpegInfo);
   bind(StreamSelector).toSelf().inSingletonScope();
 });
 

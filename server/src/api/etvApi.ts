@@ -218,6 +218,7 @@ export class EtvNextApiController implements ApiController {
               channel,
               startMs: nowMs ?? wallClockMs,
               untilMs,
+              ffmpegRuntime: grant.ffmpegRuntime,
             });
 
           if (ignored.length > 0) {
