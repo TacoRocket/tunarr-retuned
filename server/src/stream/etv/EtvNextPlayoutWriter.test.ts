@@ -77,7 +77,6 @@ function makeWriter({
   watermarkFails = false,
   channelContext = channel,
   creditAds = { select: vi.fn() },
-  ffmpegInfo,
 }: {
   items: StreamLineupItem[];
   streamFails?: boolean;
@@ -89,7 +88,6 @@ function makeWriter({
   watermarkFails?: boolean;
   channelContext?: ChannelOrm;
   creditAds?: Pick<CreditSqueezeAdPlanner, 'select'>;
-  ffmpegInfo?: { getCapabilities: () => Promise<unknown> };
 }) {
   let call = 0;
   const programCalculator = {
@@ -157,7 +155,6 @@ function makeWriter({
     streamSelector as never,
     watermarkResolver as never,
     creditAds as never,
-    ffmpegInfo as never,
   );
 
   // The logger is normally supplied by the DI decorator.
@@ -1180,10 +1177,16 @@ describe('credit squeeze handoff', () => {
   );
 });
 
-describe('credit squeeze and the configured FFmpeg', () => {
+describe("credit squeeze and the worker's FFmpeg", () => {
+  const squeezed = {
+    background_image: '/artwork/credits.png',
+    start_ms: 20_000,
+  };
   test.each([
     [false, undefined],
-    [true, { background_image: '/artwork/credits.png', start_ms: 20_000 }],
+    [true, squeezed],
+    // A session that could not read its FFmpeg gates nothing.
+    [undefined, squeezed],
   ])(
     'concat preserve_ts=%s decides whether the worker is asked to squeeze',
     async (preservesConcatTimestamps, expected) => {
@@ -1193,20 +1196,8 @@ describe('credit squeeze and the configured FFmpeg', () => {
         program: { uuid: 'prog-1', mediaSourceId: 'src-1', duration: 30_000 },
         startOffset: 0,
       } as StreamLineupItem;
-      const ffmpegInfo = {
-        getCapabilities: vi.fn(() =>
-          Promise.resolve({
-            runtime: {
-              source: 'custom',
-              probed: true,
-              preservesConcatTimestamps,
-            },
-          }),
-        ),
-      };
       const { writer } = makeWriter({
         items: [item],
-        ffmpegInfo,
         streamDetails: {
           duration: dayjs.duration(30_000),
           videoDetails: [{ width: 1920, height: 1080 } as VideoStreamDetails],
@@ -1236,8 +1227,11 @@ describe('credit squeeze and the configured FFmpeg', () => {
         },
         lineupItem: item,
         startMs,
+        ffmpegRuntime:
+          preservesConcatTimestamps === undefined
+            ? undefined
+            : { preservesConcatTimestamps },
       });
-      expect(ffmpegInfo.getCapabilities).toHaveBeenCalled();
       expect(result.items[0]?.credit_squeeze).toEqual(expected);
     },
   );

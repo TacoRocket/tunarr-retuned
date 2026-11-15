@@ -200,6 +200,30 @@ function request(
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 
 describe('authorization', () => {
+  // The callback outlives any one worker, so the FFmpeg it decides for comes
+  // from the session that holds the token, not from the current setting.
+  test('decides for the FFmpeg of the session holding the token', async () => {
+    const { app, token, tokenRegistry, playoutWriter } = await makeApp();
+    const resolve = vi.spyOn(playoutWriter, 'resolveDynamicItem');
+    const headers = {
+      'x-etv-channel': `${channelNumber}`,
+      'x-etv-now': new Date(nowMs).toISOString(),
+    };
+
+    await request(app, { ...bearer(token), ...headers });
+    expect(resolve.mock.calls[0]?.[0].ffmpegRuntime).toBeUndefined();
+
+    const ffmpegRuntime = {
+      source: 'custom',
+      probed: true,
+      nativeNv12Output: false,
+      preservesConcatTimestamps: false,
+    } as const;
+    const next = tokenRegistry.issue(channelUuid, channelNumber, ffmpegRuntime);
+    await request(app, { ...bearer(next), ...headers });
+    expect(resolve.mock.calls[1]?.[0].ffmpegRuntime).toBe(ffmpegRuntime);
+  });
+
   test('answers a session token with the item it asked for', async () => {
     const { app, token } = await makeApp();
 

@@ -102,6 +102,8 @@ async function makeSession({
   exitsOnKill = true,
   reportsDirectory,
   lineup,
+  ffmpegPath = () => '/usr/bin/ffmpeg',
+  ffmpegInfo,
 }: {
   items?: PlayoutItem[];
   publishesReady?: boolean;
@@ -123,6 +125,10 @@ async function makeSession({
 
   /** The channel's lineup as the fork reads it; `'unreadable'` makes the read fail. */
   lineup?: { liveRelay?: unknown } | 'unreadable';
+
+  /** The configured FFmpeg, read when the session starts. */
+  ffmpegPath?: () => string;
+  ffmpegInfo?: () => { getCapabilities: () => Promise<unknown> };
 } = {}) {
   const transcodeDirectory = await makeTempDir();
   const outputDirectory = path.join(transcodeDirectory, workspaceName, 'out');
@@ -194,7 +200,7 @@ async function makeSession({
 
   const settingsDB = {
     ffmpegSettings: vi.fn(() => ({
-      ffmpegExecutablePath: '/usr/bin/ffmpeg',
+      ffmpegExecutablePath: ffmpegPath(),
       ffprobeExecutablePath: '/usr/bin/ffprobe',
       deinterlaceFilter: 'yadif=1',
       scalingAlgorithm: 'fast_bilinear',
@@ -230,6 +236,7 @@ async function makeSession({
               : Promise.resolve(lineup as never),
           ),
         },
+    ffmpegInfo as never,
   );
 
   // SessionManager attaches one in production; without a listener an emitted
@@ -255,6 +262,78 @@ afterEach(async () => {
     tempDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })),
   );
   tempDirs = [];
+});
+
+describe("the FFmpeg each session's worker runs", () => {
+  const unpatched = {
+    source: 'custom',
+    probed: true,
+    nativeNv12Output: false,
+    preservesConcatTimestamps: false,
+  } as const;
+  const patched = {
+    source: 'custom',
+    probed: true,
+    nativeNv12Output: true,
+    preservesConcatTimestamps: true,
+  } as const;
+  const runtimes: Record<string, unknown> = {
+    '/usr/bin/ffmpeg': unpatched,
+    '/opt/patched/ffmpeg': patched,
+  };
+
+  // Mirrors the container: FfmpegInfo takes its path from the setting when it
+  // is resolved, not when the session is built.
+  function configuredFfmpeg(initial: string) {
+    const configured = { path: initial };
+    return {
+      configured,
+      ffmpegPath: () => configured.path,
+      ffmpegInfo: () => {
+        const runtime = runtimes[configured.path];
+        return { getCapabilities: () => Promise.resolve({ runtime }) };
+      },
+    };
+  }
+
+  async function launched(
+    made: Awaited<ReturnType<typeof makeSession>>,
+  ): Promise<string> {
+    const configPath = made.childProcessHelper.spawn.mock.calls[0]?.[1][1];
+    const config = JSON.parse(await fs.readFile(configPath ?? '', 'utf8')) as {
+      ffmpeg: { ffmpeg_path: string };
+    };
+    return config.ffmpeg.ffmpeg_path;
+  }
+
+  test('a session started after the setting changes hands its callback the new binary', async () => {
+    const ffmpeg = configuredFfmpeg('/usr/bin/ffmpeg');
+    const first = await makeSession({ playoutMode: 'dynamic', ...ffmpeg });
+    await first.session.start();
+    ffmpeg.configured.path = '/opt/patched/ffmpeg';
+    const second = await makeSession({ playoutMode: 'dynamic', ...ffmpeg });
+    await second.session.start();
+
+    const grant = (made: typeof first) =>
+      made.tokenRegistry.resolve(
+        made.childProcessHelper.spawn.mock.calls[0]?.[3]?.[DynamicTokenEnvVar],
+      );
+    expect(await launched(first)).toBe('/usr/bin/ffmpeg');
+    expect(grant(first)?.ffmpegRuntime).toBe(unpatched);
+    expect(await launched(second)).toBe('/opt/patched/ffmpeg');
+    expect(grant(second)?.ffmpegRuntime).toBe(patched);
+  });
+
+  test('a materialized window is decided for the binary the worker runs', async () => {
+    const ffmpeg = configuredFfmpeg('/opt/patched/ffmpeg');
+    const made = await makeSession(ffmpeg);
+    await made.session.start();
+
+    expect(await launched(made)).toBe('/opt/patched/ffmpeg');
+    expect(
+      made.playoutWriter.materializeWindow.mock.calls[0]?.[0],
+    ).toMatchObject({ ffmpegRuntime: patched });
+  });
 });
 
 describe('startup', () => {

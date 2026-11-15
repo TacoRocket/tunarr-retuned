@@ -25,6 +25,7 @@ import {
   runtimeCapabilities,
 } from './EtvNextForkSettings.ts';
 import type { FfmpegInfo } from '../../ffmpeg/ffmpegInfo.ts';
+import type { FfmpegRuntimeCapabilities } from '../../ffmpeg/FfmpegRuntimeCapabilities.ts';
 import { EtvNextWorkspace } from './EtvNextWorkspace.ts';
 
 /**
@@ -92,8 +93,9 @@ export class EtvNextTroubleshootRunner {
     private binaryResolver: EtvNextBinaryResolver,
     private playoutWriter: EtvNextPlayoutWriter,
     private childProcessHelper: ChildProcessHelper,
-    // Fork: gates worker options on the configured FFmpeg, as live sessions do.
-    private ffmpegInfo?: Pick<FfmpegInfo, 'getCapabilities'>,
+    // Fork: resolves FfmpegInfo for the executable configured when called, so
+    // worker options are gated as live sessions gate them.
+    private ffmpegInfo?: () => Pick<FfmpegInfo, 'getCapabilities'>,
   ) {}
 
   /**
@@ -135,6 +137,7 @@ export class EtvNextTroubleshootRunner {
     });
 
     let config: ChannelConfig;
+    let ffmpegRuntime: FfmpegRuntimeCapabilities | undefined;
     const notes: string[] = [];
     try {
       // The dossier is worth having whether or not the user turned on file
@@ -147,10 +150,11 @@ export class EtvNextTroubleshootRunner {
         subtitleMode,
       });
       config = mapping.config;
+      ffmpegRuntime = await runtimeCapabilities(this.ffmpegInfo?.());
       const forkIgnored = applyForkChannelSettings(
         config,
         channel,
-        await runtimeCapabilities(this.ffmpegInfo),
+        ffmpegRuntime,
       );
       notes.push(
         ...[...mapping.ignored, ...forkIgnored].map(
@@ -172,6 +176,7 @@ export class EtvNextTroubleshootRunner {
         channel,
         lineupItem,
         startMs: Date.now(),
+        ffmpegRuntime,
       });
     } catch (e) {
       if (e instanceof StreamTerminationRequestedError) {

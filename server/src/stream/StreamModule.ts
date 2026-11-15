@@ -89,7 +89,7 @@ const configure = ({ bind }: ContainerModuleLoadOptions) => {
         ctx.get(FeatureFlagService),
         ctx.get(EtvNextDynamicTokenRegistry),
         ctx.get<IChannelDB>(KEYS.ChannelDB),
-        ctx.get(FfmpegInfo),
+        ctx.get<() => FfmpegInfo>(autoFactoryKey(FfmpegInfo)),
       );
     };
   });
@@ -101,10 +101,7 @@ const configure = ({ bind }: ContainerModuleLoadOptions) => {
           ctx.get(EtvNextBinaryResolver),
           ctx.get(EtvNextPlayoutWriter),
           ctx.get(ChildProcessHelper),
-          {
-            // Resolved per run: FfmpegInfo follows the configured path.
-            getCapabilities: () => ctx.get(FfmpegInfo).getCapabilities(),
-          },
+          ctx.get<() => FfmpegInfo>(autoFactoryKey(FfmpegInfo)),
         ),
     )
     .inSingletonScope();
