@@ -20,18 +20,17 @@ behavior. Tunarr keeps scheduling, recommendations and application-wide features
 
 Bug fixes while native playback is being retired:
 
-- Fix bugs on the Next path or in engine-neutral code (scheduling, lineups, settings, the
-  channel editor). A bug that happens only on a channel still on the native engine is
-  won't fix: the answer is to convert that channel to Next (Edit → **Convert to ErsatzTV
-  next**). Review findings follow the same rule: one that affects only native channels is
-  closed as won't fix, not raised as a change request.
-- Keep fixes engine-neutral. Don't add native-only handling to shared code, such as an
-  off-Next branch in the channel editor or a native fallback in a new feature.
-- Two exceptions:
-  - Security problems, at any time.
-  - Small, obviously safe native fixes during the conversion window, while people move
-    their channels over: until the release that locks native channels in the web app
-    (#258). A few lines and no new code paths. Anything bigger is still won't fix.
+- Don't spend time on native-only bugs. Fix on the Next path or in engine-neutral code
+  (scheduling, lineups, settings, the channel editor), and keep shared code free of
+  native-only handling, such as an off-Next branch in the channel editor.
+- Still fix, on either engine:
+  - security problems;
+  - a channel that is plainly broken (won't play, errors out, loses its settings) when
+    someone reports it and the fix is reasonable: small and contained, not new machinery.
+    Check first whether converting the channel to Next fixes it; if it does, that is the
+    answer.
+- Other native-only bugs are won't fix: edge cases, polish, and review findings that
+  affect only native channels. Close them pointing at **Convert to ErsatzTV next**.
 - Keep native fixes in this fork; do not open upstream PRs for the native pipeline.
 - Once this fork disables native playback, fix only problems this fork's own code causes.
   Problems in upstream's native code are not fixed here.
