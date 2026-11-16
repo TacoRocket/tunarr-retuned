@@ -45,10 +45,13 @@ only helps.
    step 1, with **Convert to ErsatzTV next** as the first thing to try.
 3. **Native channels read-only in the web app** (#258), then in the API a release later.
    A broken native channel's answer is Convert. Native code gets security fixes only.
-4. **Native playback inert:** no channel reaches the native path, so its bugs aren't
-   fixed; someone still on it is told to update Tunarr. Problems the fork's own
-   retirement code causes (the inert switch, any automatic conversion) are still fixed.
-5. **Removed along with upstream's removal:** nothing more is done to it.
+4. **Native playback inert:** the code stays in the tree but can't run, so merging
+   upstream stays easy. Don't delete or rewrite it before step 5. No channel reaches the
+   native path, so its bugs aren't fixed; someone still on it is told to update Tunarr.
+   Problems the fork's own retirement code causes (the inert switch, any automatic
+   conversion) are still fixed.
+5. **Removed along with upstream's removal:** the inert code is deleted, and nothing more
+   is done to it.
 
 Saving seed-generated programming selects Next in all three modes.
 
