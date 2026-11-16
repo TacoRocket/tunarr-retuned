@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { tag } from '@tunarr/types';
 import dayjs from 'dayjs';
-import { inArray } from 'drizzle-orm';
+import { inArray, not, sql } from 'drizzle-orm';
 import tmp from 'tmp-promise';
 import { v4 } from 'uuid';
 import { test as baseTest, describe, expect } from 'vitest';
@@ -16,7 +16,10 @@ import { MediaSourceLibrary } from '../schema/MediaSourceLibrary.ts';
 import { Program } from '../schema/Program.ts';
 import type { ProgramGroupingType } from '../schema/ProgramGrouping.ts';
 import { ProgramGrouping } from '../schema/ProgramGrouping.ts';
-import { ProgramStateRepository } from './ProgramStateRepository.ts';
+import {
+  groupingHasLiveProgram,
+  ProgramStateRepository,
+} from './ProgramStateRepository.ts';
 
 type Fixture = {
   db: string;
@@ -328,6 +331,31 @@ describe('ProgramStateRepository.syncGroupingStatesForLibrary', () => {
       [otherSeason]: 'ok',
       [album]: 'ok',
     });
+  });
+});
+
+describe('ProgramStateRepository live-program check', () => {
+  // Nearly every program is 'ok'. Reached through the state index, the check
+  // walks the whole program table once per grouping.
+  test('reaches a grouping’s programs through the grouping indexes', async ({
+    drizzle,
+  }) => {
+    const plan = await drizzle.all<{ detail: string }>(
+      sql`EXPLAIN QUERY PLAN SELECT ${ProgramGrouping.uuid} FROM ${ProgramGrouping} WHERE ${not(groupingHasLiveProgram)}`,
+    );
+    const steps = plan.map(({ detail }) => detail);
+
+    for (const index of [
+      'program_season_uuid_index',
+      'program_tv_show_uuid_index',
+      'program_album_uuid_index',
+      'program_artist_uuid_index',
+    ]) {
+      expect(steps.join('\n')).toContain(index);
+    }
+    expect(steps.join('\n')).not.toContain('program_state_index');
+    // `p` is the program table's alias inside the check.
+    expect(steps.filter((step) => /^SCAN p\b/.test(step))).toEqual([]);
   });
 });
 

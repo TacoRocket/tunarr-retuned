@@ -8,6 +8,24 @@ import { ProgramGrouping } from '../schema/ProgramGrouping.ts';
 import type { ProgramState } from '../schema/base.ts';
 import type { DrizzleDBAccess } from '../schema/index.ts';
 
+/**
+ * Whether a program grouping still has an 'ok' program under it.
+ *
+ * The unary plus on `state` is deliberate: it stops SQLite from using
+ * program_state_index for this check. Nearly every program is 'ok', so
+ * through that index each grouping walks the whole program table, about two
+ * seconds of one blocking statement for 1,600 groupings and 20,000 programs.
+ * Kept off it, the planner reaches the programs through the four `*_uuid`
+ * indexes instead. The plus changes how the rows are found, not which rows
+ * match.
+ */
+export const groupingHasLiveProgram = sql`EXISTS (SELECT 1 FROM ${Program} p
+  WHERE +p.state = 'ok'
+    AND (p.season_uuid = ${ProgramGrouping.uuid}
+      OR p.album_uuid = ${ProgramGrouping.uuid}
+      OR p.tv_show_uuid = ${ProgramGrouping.uuid}
+      OR p.artist_uuid = ${ProgramGrouping.uuid}))`;
+
 @injectable()
 export class ProgramStateRepository {
   constructor(@inject(KEYS.DrizzleDB) private drizzleDB: DrizzleDBAccess) {}
@@ -63,12 +81,7 @@ export class ProgramStateRepository {
     libraryId: string,
     types: readonly ProgramGroupingType[],
   ): Promise<{ missingIds: string[]; restoredIds: string[] }> {
-    const hasLiveProgram = sql`EXISTS (SELECT 1 FROM ${Program} p
-      WHERE p.state = 'ok'
-        AND (p.season_uuid = ${ProgramGrouping.uuid}
-          OR p.album_uuid = ${ProgramGrouping.uuid}
-          OR p.tv_show_uuid = ${ProgramGrouping.uuid}
-          OR p.artist_uuid = ${ProgramGrouping.uuid}))`;
+    const hasLiveProgram = groupingHasLiveProgram;
 
     const inScope = and(
       eq(ProgramGrouping.libraryId, libraryId),
