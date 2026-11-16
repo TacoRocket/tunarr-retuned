@@ -3918,6 +3918,10 @@ msgstr ""
 msgid "Library programming"
 msgstr ""
 
+#: src/pages/settings/ScannerSettingsPage.tsx
+msgid "Library scans run once a day at this time instead of on the interval above. Collections and custom shows still sync on the interval. Half past the hour keeps scans clear of the hourly library refresh."
+msgstr ""
+
 #. placeholder {0}: library.name
 #: src/routes/media_sources_/$mediaSourceId/libraries_.$libraryId.tsx
 msgid "Library: {0}"
@@ -5970,6 +5974,10 @@ msgstr ""
 msgid "Scan {0}"
 msgstr ""
 
+#: src/pages/settings/ScannerSettingsPage.tsx
+msgid "Scan once a day at a set time"
+msgstr ""
+
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Scan your libraries"
 msgstr ""
@@ -7140,6 +7148,10 @@ msgstr ""
 msgid "Thumbnail URL"
 msgstr ""
 
+#: src/pages/settings/ScannerSettingsPage.tsx
+msgid "Time"
+msgstr ""
+
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Time before first break"
 msgstr ""
@@ -7170,6 +7182,10 @@ msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingOrganizeOptions.tsx
 msgid "Time Slots..."
+msgstr ""
+
+#: src/pages/settings/ScannerSettingsPage.tsx
+msgid "Time zone"
 msgstr ""
 
 #: src/pages/system/SystemLogsPage.tsx
