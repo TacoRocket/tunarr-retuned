@@ -55,7 +55,7 @@ The image includes the optional filters. Three hardware options are switches on 
 | Driver-Default VAAPI Scaling | Off |
 | Disable Direct NV12 for CRT | Off (direct NV12 on) |
 
-They have no container variables. The earlier `TUNARR_VAAPI_HABLE_LUT` and `TUNARR_VAAPI_DEFAULT_SCALING` are no longer read: if you set them, turn on the matching switch and remove them from your Compose file.
+They have no container variables. The earlier `TUNARR_VAAPI_HABLE_LUT` and `TUNARR_VAAPI_DEFAULT_SCALING` are no longer read: if you set them, turn on the matching switch and remove them from your Compose file. If one of these switches is edited by hand in `settings.json` to anything but `true` or `false`, Tunarr turns it off, keeps the rest of the file, and logs which switch it changed.
 
 CRT channels on Performance or Experimental write their picture straight to NV12 whenever this image's FFmpeg supports it. That skips one conversion and gives the same picture, so it needs no switch to turn on. It has been checked on Intel only; if a GPU shows a broken or miscolored CRT picture, turn on **Disable Direct NV12 for CRT**. The earlier `TUNARR_CRT_DIRECT_NV12`, `ETV_VAAPI_DIRECT_NV12`, `TUNARR_CRT_NV12_OUTPUT` and `ETV_INLINE_NV12_RTZ` variables are no longer read; remove them from your Compose file.
 

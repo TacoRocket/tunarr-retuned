@@ -2,6 +2,10 @@ import type { GlobalMediaSourceSettings } from '@tunarr/types/schemas';
 import parser from 'cron-parser';
 import { RecurrenceRule } from 'node-schedule';
 import { container } from '../../container.ts';
+import {
+  isDailyScanTime,
+  isIanaTimeZone,
+} from '../../db/forkSettingsRepair.ts';
 import type { ISettingsDB } from '../../db/interfaces/ISettingsDB.ts';
 import { ScanLibrariesTask } from '../../tasks/ScanLibrariesTask.ts';
 import { ScheduledTask } from '../../tasks/ScheduledTask.ts';
@@ -20,18 +24,11 @@ export function dailyLibraryScanRule(
   if (time === null || timeZone === null) {
     throw new Error('Set both a daily scan time and its time zone');
   }
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+  if (!isDailyScanTime(time)) {
     throw new Error('The daily scan time must use HH:mm (00:00–23:59)');
   }
-  try {
-    if (/^[+-]/.test(timeZone)) {
-      throw new Error('Numeric offsets are not IANA time zones');
-    }
-    new Intl.DateTimeFormat('en-US', { timeZone });
-  } catch (cause) {
-    throw new Error('The daily scan time zone must be a valid IANA time zone', {
-      cause,
-    });
+  if (!isIanaTimeZone(timeZone)) {
+    throw new Error('The daily scan time zone must be a valid IANA time zone');
   }
 
   const rule = new RecurrenceRule();

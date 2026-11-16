@@ -3,6 +3,7 @@ export * from './Collections.js';
 export * from './CustomShow.js';
 export * from './Event.js';
 export * from './FeatureFlags.js';
+export * from './ForkFeatureFlags.js';
 export * from './FfmpegSettings.js';
 export * from './FillerList.js';
 export * from './GuideApi.js';

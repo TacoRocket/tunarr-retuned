@@ -14,6 +14,7 @@ import type { DeepPartial } from 'ts-essentials';
 import { SchemaBackedDbAdapter } from './json/SchemaBackedJsonDBAdapter.ts';
 import { SyncSchemaBackedDbAdapter } from './json/SyncSchemaBackedJSONDBAdapter.ts';
 import type { SettingsFile } from './SettingsDB.ts';
+import { repairForkFeatureFlags } from './forkSettingsRepair.ts';
 import {
   CURRENT_VERSION,
   SettingsDB,
@@ -24,9 +25,14 @@ import {
 // The ordinary settings schema strips retired flags. Read the previous value
 // before the synchronous startup write replaces settings.json.
 const startupSettingsSchema = SettingsFileSchema.extend({
-  featureFlags: FeatureFlagsSchema.extend({
-    ersatzTvNextEnabled: z.boolean().optional(),
-  }).default(() => FeatureFlagsSchema.parse({})),
+  featureFlags: z
+    .preprocess(
+      (raw) => repairForkFeatureFlags(raw),
+      FeatureFlagsSchema.extend({
+        ersatzTvNextEnabled: z.boolean().optional(),
+      }),
+    )
+    .default(() => FeatureFlagsSchema.parse({})),
 });
 
 @injectable()
