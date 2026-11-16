@@ -51,21 +51,9 @@ export function ChannelAdBreaksPage({ channelId }: { channelId: string }) {
   const lineup = programming.data?.lineup;
   const schedule = programming.data?.schedule;
   const recipes = useMemo(() => breakRecipes(schedule), [schedule]);
-  // Time Slots fill to the clock and refuse pods; on Random Slots only the
-  // recipe's pools are ad breaks (see breakStats).
   const stats = useMemo(
-    () =>
-      breakStats(
-        schedule?.type === 'time' ? [] : (lineup ?? []),
-        schedule
-          ? new Set(
-              recipes.flatMap((r) =>
-                r.positions.flatMap((p) => p.fillerListIds),
-              ),
-            )
-          : undefined,
-      ),
-    [lineup, schedule, recipes],
+    () => breakStats(lineup ?? [], schedule),
+    [lineup, schedule],
   );
   const padding = clockPaddingMinutes(schedule);
 
@@ -290,8 +278,13 @@ function RedrawAds({
         predicate: invalidateTaggedQueries('Channels'),
       });
       // The programming editor only reloads a channel when a different one
-      // opens; give it the redrawn lineup if it holds this channel.
-      if (useStore.getState().channelEditor.currentEntity?.id === channel.id) {
+      // opens, so it gets the redrawn lineup if it holds this channel. Edits
+      // made there while Redraw ran are kept: checked again right before
+      // replacing, since the reload waits on the network.
+      const editor = () => useStore.getState().channelEditor;
+      const holdsThis = () => editor().currentEntity?.id === channel.id;
+      let keptEdits = false;
+      if (holdsThis()) {
         try {
           const [fresh, lineup] = await Promise.all([
             queryClient.fetchQuery({
@@ -303,14 +296,24 @@ function RedrawAds({
               staleTime: 0,
             }),
           ]);
-          replaceCurrentChannel(fresh, lineup);
+          if (holdsThis() && !editor().dirty.programs) {
+            replaceCurrentChannel(fresh, lineup);
+          } else {
+            keptEdits = holdsThis();
+          }
         } catch {
-          replaceCurrentChannel(channel);
+          if (holdsThis() && !editor().dirty.programs) {
+            replaceCurrentChannel(channel);
+          } else {
+            keptEdits = holdsThis();
+          }
         }
       }
       snackbar.enqueueSnackbar(
-        t`Redrew ${result.refreshedPositions} of ${result.matchedPositions} ads`,
-        { variant: 'success' },
+        keptEdits
+          ? t`Redrew ${result.refreshedPositions} of ${result.matchedPositions} ads. Your unsaved Programming changes were kept; saving them puts the previous ads back.`
+          : t`Redrew ${result.refreshedPositions} of ${result.matchedPositions} ads`,
+        { variant: keptEdits ? 'warning' : 'success' },
       );
     },
     onError: (error) =>

@@ -27,6 +27,7 @@ const redraw = vi.hoisted(() =>
 const server = vi.hoisted(() => ({
   channel: {} as Record<string, unknown>,
   programming: {} as Record<string, unknown>,
+  failProgramming: false,
 }));
 vi.mock('@/generated/@tanstack/react-query.gen.ts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -45,7 +46,10 @@ vi.mock('@/generated/@tanstack/react-query.gen.ts', async (importOriginal) => ({
   }),
   getApiChannelsByIdProgrammingOptions: () => ({
     queryKey: ['programming'],
-    queryFn: () => Promise.resolve(server.programming),
+    queryFn: () =>
+      server.failProgramming
+        ? Promise.reject(new Error('offline'))
+        : Promise.resolve(server.programming),
   }),
 }));
 
@@ -97,13 +101,19 @@ function render() {
     }),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
-  return renderWithProviders(<RouterProvider router={router} />, {
-    queryClient: seededQueryClient([]),
-  });
+  const queryClient = seededQueryClient([]);
+  return {
+    ...renderWithProviders(<RouterProvider router={router} />, { queryClient }),
+    queryClient,
+  };
 }
 
 beforeEach(() => {
   redraw.mockClear();
+  server.failProgramming = false;
+  useStore.setState((s) => {
+    s.channelEditor.dirty.programs = false;
+  });
   server.channel = channel();
   server.programming = programming(1, lineup);
 });
@@ -177,4 +187,45 @@ test('redraws the ticked pools and refreshes an open editor', async () => {
         .channelEditor.programList.map((p) => ('id' in p ? p.id : p.type)),
     ).toEqual(['ep-1', 'x', 'b', 'ep-2', 'y', 'd']),
   );
+});
+
+// Codex review of #259: Programming edits made while a Redraw was still
+// running were thrown away when it finished.
+test('a Redraw that finishes after Programming edits keeps the edits', async () => {
+  setCurrentChannel(channel(), programming(1, lineup) as never);
+  let finish: (value: unknown) => void = () => {};
+  redraw.mockImplementationOnce(
+    () => new Promise((resolve) => (finish = resolve)),
+  );
+  const { user, queryClient } = render();
+  await user.click(await screen.findByRole('button', { name: 'Redraw' }));
+  // Meanwhile, on the Programming page:
+  useStore.setState((s) => {
+    s.channelEditor.programList = s.channelEditor.programList.slice(0, 1);
+    s.channelEditor.dirty.programs = true;
+  });
+  finish({ refreshedPositions: 4, matchedPositions: 4 });
+  await vi.waitFor(() => expect(queryClient.isMutating()).toBe(0));
+  expect(useStore.getState().channelEditor.dirty.programs).toBe(true);
+  expect(useStore.getState().channelEditor.programList).toHaveLength(1);
+});
+
+// The same when the lineup can't be read again afterwards.
+test('a Redraw whose reload fails keeps unsaved Programming edits', async () => {
+  setCurrentChannel(channel(), programming(1, lineup) as never);
+  let finish: (value: unknown) => void = () => {};
+  redraw.mockImplementationOnce(
+    () => new Promise((resolve) => (finish = resolve)),
+  );
+  const { user, queryClient } = render();
+  await user.click(await screen.findByRole('button', { name: 'Redraw' }));
+  useStore.setState((s) => {
+    s.channelEditor.programList = s.channelEditor.programList.slice(0, 1);
+    s.channelEditor.dirty.programs = true;
+  });
+  server.failProgramming = true;
+  finish({ refreshedPositions: 4, matchedPositions: 4 });
+  await vi.waitFor(() => expect(queryClient.isMutating()).toBe(0));
+  expect(useStore.getState().channelEditor.dirty.programs).toBe(true);
+  expect(useStore.getState().channelEditor.programList).toHaveLength(1);
 });
