@@ -1,3 +1,4 @@
+import { podBreaks, type PodSchedule } from '@tunarr/shared/util';
 import type { AdPool, AdPoolChannel } from '@tunarr/types/api';
 
 type PoolList = {
@@ -21,27 +22,17 @@ type ChannelLineup = {
       fillerType?: string;
       fillerListId?: string;
     }[];
-    schedule?: {
-      type: string;
-      slots?: readonly {
-        type: string;
-        postProgramPod?: readonly { fillerListIds: readonly string[] }[];
-      }[];
-    };
+    schedule?: PodSchedule;
   };
 };
 
 /**
  * Fork: the ad pools page. A pool is a filler list that ad breaks draw from:
  * one linked to a Smart Collection, or one a channel's break recipe or saved
- * breaks use. Upstream's own one-clip "post" filler looks the same in a saved
- * lineup, so only pods count:
- * - Random Slots: the pools in the recipe, and their saved ad spots.
- * - A lineup edited by hand (no schedule): its saved after-show clips, which
- *   only an earlier generated schedule leaves behind.
- * - Time Slots: none; they fill slots to the clock and refuse pods.
- * Channels that play another channel later are skipped: their breaks are
- * their source's.
+ * breaks use. Saved ad spots are counted with podBreaks, the rule Redraw and
+ * the Ad Breaks page use, so upstream's ordinary post-roll isn't counted;
+ * Time Slots, which refuse pods, are skipped. Channels that play another
+ * channel later are skipped too: their breaks are their source's.
  */
 export function adPools(
   lists: readonly PoolList[],
@@ -69,23 +60,22 @@ export function adPools(
   for (const { channel, lineup } of lineups) {
     if (channel.offsetSourceChannelId) continue;
     if (lineup.schedule?.type === 'time') continue;
-    const recipe = new Set<string>();
     for (const slot of lineup.schedule?.slots ?? []) {
       for (const position of slot.postProgramPod ?? []) {
         for (const listId of position.fillerListIds) {
-          recipe.add(listId);
           use(listId, channel).inRecipe = true;
         }
       }
     }
-    for (const item of lineup.items) {
-      if (
-        item.type === 'content' &&
-        item.fillerType === 'post' &&
-        item.fillerListId &&
-        (!lineup.schedule || recipe.has(item.fillerListId))
-      ) {
-        use(item.fillerListId, channel).adSpots++;
+    const clips = lineup.items.map((item) => ({
+      afterShowPool:
+        item.type === 'content' && item.fillerType === 'post'
+          ? (item.fillerListId ?? null)
+          : null,
+    }));
+    for (const run of podBreaks(clips, lineup.schedule)) {
+      for (const index of run) {
+        use(clips[index]!.afterShowPool!, channel).adSpots++;
       }
     }
   }

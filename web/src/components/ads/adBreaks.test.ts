@@ -27,16 +27,11 @@ const randomSchedule = (padMs: number, slots: object[]) =>
 
 describe('ad breaks', () => {
   test('a break is a run of after-show clips between programs', () => {
-    const stats = breakStats([
-      show,
-      ad('g'),
-      ad('g'),
-      ad('p'),
-      show,
-      ad('g'),
-      ad('p'),
-      show,
-    ]);
+    // A hand-edited lineup (no schedule): runs of two or more are breaks.
+    const stats = breakStats(
+      [show, ad('g'), ad('g'), ad('p'), show, ad('g'), ad('p'), show],
+      undefined,
+    );
     expect(stats.breaks).toBe(2);
     expect([stats.minAds, stats.maxAds]).toEqual([2, 3]);
     expect([...stats.adSpotsByPool]).toEqual([
@@ -45,10 +40,33 @@ describe('ad breaks', () => {
     ]);
   });
 
+  // Codex review of #259: a station ID from the same pool as a break, placed
+  // by an ordinary post-roll, isn't a break.
+  test("upstream's post-roll from a break's own pool isn't a break", () => {
+    const stats = breakStats(
+      [show, ad('p'), ad('p'), show, ad('p'), show],
+      randomSchedule(1, [
+        {
+          type: 'show',
+          postProgramPod: [{ fillerListIds: ['p'] }, { fillerListIds: ['p'] }],
+        },
+        { type: 'show', filler: [{ types: ['post'], fillerListId: 'p' }] },
+      ]),
+    );
+    expect(stats.breaks).toBe(1);
+    expect([...stats.adSpotsByPool]).toEqual([['p', 2]]);
+  });
+
   test("upstream's post filler from other pools isn't a break", () => {
     const stats = breakStats(
       [show, ad('flex'), show, ad('g'), ad('g'), show],
-      new Set(['g']),
+      randomSchedule(1, [
+        {
+          type: 'show',
+          postProgramPod: [{ fillerListIds: ['g'] }, { fillerListIds: ['g'] }],
+        },
+        { type: 'show', filler: [{ types: ['post'], fillerListId: 'flex' }] },
+      ]),
     );
     expect(stats.breaks).toBe(1);
     expect([...stats.adSpotsByPool.keys()]).toEqual(['g']);

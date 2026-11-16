@@ -79,8 +79,10 @@ describe('ad pools', () => {
     );
 
     expect(pools.map((p) => p.id)).toEqual(['gaming', 'promos', 'recipe-only']);
+    // Only the first run matches the two-spot recipe; the lone clip after the
+    // second show isn't a break.
     expect(pools[0]?.channels).toEqual([
-      { id: 'a', number: 4, name: 'Channel 4', adSpots: 2, inRecipe: true },
+      { id: 'a', number: 4, name: 'Channel 4', adSpots: 1, inRecipe: true },
     ]);
     expect(pools[1]?.channels.map((c) => [c.number, c.adSpots])).toEqual([
       [4, 1],
@@ -102,5 +104,38 @@ describe('ad pools', () => {
         channels: [],
       },
     ]);
+  });
+
+  // Codex review of #259: an ordinary post-roll from a pool a break also uses
+  // isn't an ad spot.
+  test("counts only the break, not upstream's post-roll from the same pool", () => {
+    const pools = adPools(
+      [list('promos')],
+      [
+        {
+          channel: channel('a', 4),
+          lineup: {
+            items: [show, ad('promos'), ad('promos'), show, ad('promos')],
+            schedule: {
+              type: 'random',
+              slots: [
+                {
+                  type: 'show',
+                  postProgramPod: [
+                    { fillerListIds: ['promos'] },
+                    { fillerListIds: ['promos'] },
+                  ],
+                },
+                {
+                  type: 'show',
+                  filler: [{ types: ['post'], fillerListId: 'promos' }],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    );
+    expect(pools[0]?.channels[0]?.adSpots).toBe(2);
   });
 });

@@ -1,3 +1,4 @@
+import { podBreaks } from '@tunarr/shared/util';
 import type { CondensedChannelProgram } from '@tunarr/types';
 import type { LineupSchedule, PostProgramPod } from '@tunarr/types/api';
 
@@ -12,33 +13,27 @@ export type BreakStats = {
   adSpotsByPool: Map<string, number>;
 };
 
-// A break is a run of saved after-show clips between programs. Upstream's
-// own one-clip "post" filler looks the same in a saved lineup, so a
-// Random Slots channel passes its recipe's pools and only those count.
+// The saved breaks, by the rule Redraw and the Ad Pools page use
+// (podBreaks): upstream's ordinary post-roll looks the same in a saved lineup
+// and isn't counted, and Time Slots have none.
 export function breakStats(
   lineup: readonly CondensedChannelProgram[],
-  onlyPools?: ReadonlySet<string>,
+  schedule: LineupSchedule | undefined,
 ): BreakStats {
+  const clips = lineup.map((program) => ({
+    afterShowPool:
+      program.type === 'filler' && program.fillerType === 'post'
+        ? program.fillerListId
+        : null,
+  }));
+  const breaks = podBreaks(clips, schedule);
   const adSpotsByPool = new Map<string, number>();
-  const sizes: number[] = [];
-  let run = 0;
-  for (const program of lineup) {
-    if (
-      program.type === 'filler' &&
-      program.fillerType === 'post' &&
-      (!onlyPools || onlyPools.has(program.fillerListId))
-    ) {
-      run++;
-      adSpotsByPool.set(
-        program.fillerListId,
-        (adSpotsByPool.get(program.fillerListId) ?? 0) + 1,
-      );
-    } else if (run > 0) {
-      sizes.push(run);
-      run = 0;
-    }
+  for (const index of breaks.flat()) {
+    const pool = clips[index]?.afterShowPool;
+    if (!pool) continue;
+    adSpotsByPool.set(pool, (adSpotsByPool.get(pool) ?? 0) + 1);
   }
-  if (run > 0) sizes.push(run);
+  const sizes = breaks.map((run) => run.length);
   return {
     breaks: sizes.length,
     minAds: sizes.length ? Math.min(...sizes) : 0,
