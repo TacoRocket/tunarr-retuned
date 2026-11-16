@@ -105,7 +105,9 @@ Keep that rectangle plain and dark. Put your branding and message on the right o
 
 ## Enable it through the API
 
-There is no settings-page control yet. This example requires `curl` and `jq`. Replace the server URL, channel ID and artwork path. Keep the fetched JSON as your settings checkpoint.
+In the web app: open the channel, choose **Edit → Streaming**, and under **Picture & Credits → At the final credits** pick **Shrink them over a background image**. Enter the image path, and on ErsatzTV next optionally pick ad filler lists. Off ErsatzTV next, lists saved earlier can be removed there but none added. Choosing it turns final-credit skipping off.
+
+From a script, this example requires `curl` and `jq`. Replace the server URL, channel ID and artwork path. Keep the fetched JSON as your settings checkpoint.
 
 ```bash
 TUNARR_URL=http://localhost:8000

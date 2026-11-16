@@ -18,13 +18,40 @@ New playback and streaming work goes in the ErsatzTV next worker (TacoRocket/nex
 Tunarr's Next integration (playout mapping, channel config, sessions), whichever owns the
 behavior. Tunarr keeps scheduling, recommendations and application-wide features.
 
-Fixes to the native path, until it is removed:
+Bug fixes while native playback is being retired:
 
-- While native playback is still available, small fixes that keep existing channels working
-  are allowed. Keep them in this fork; do not open upstream PRs for the native pipeline.
-- Once this fork disables native playback, fix only problems this fork's own code causes.
-  Problems in upstream's native code are not fixed here.
-- After upstream removes the pipeline, nothing more is done to it.
+- Don't spend time on native-only bugs. Fix on the Next path or in engine-neutral code
+  (scheduling, lineups, settings, the channel editor), and keep shared code free of
+  native-only handling, such as an off-Next branch in the channel editor.
+- A channel that can't be converted to Next is worth a report and gets fixed. It's a gap in
+  Next or in Convert, not a native bug: fix it here, or raise it with the owner (upstream
+  Tunarr, or TacoRocket/next for the worker).
+- Other native-only bugs are won't fix: edge cases, polish, and review findings that
+  affect only native channels. Close them pointing at moving the channel to Next (see the
+  steps below for how, in each release).
+- Keep native fixes in this fork; do not open upstream PRs for the native pipeline.
+
+What still gets fixed on the native path narrows with each retirement step. Steps follow
+public releases, not `main`: a step starts when the release that carries it ships, and
+that release moves the _now_ marker here. Someone running `main` is a step ahead, which
+only helps.
+
+1. **No new native channels in the web app** (#217) — _now_. Existing channels switch by
+   hand: Streaming → **Playback engine** → ErsatzTV next. Still fixed: security problems,
+   and a channel that is plainly broken (won't play, errors out, loses its settings) when
+   someone reports it and the fix is reasonable: small and contained, not new machinery.
+   Check first whether switching to Next fixes it; if it does, that is the answer.
+2. **Convert on every native channel; the API creates no new ones** (#218). Same fixes as
+   step 1, with **Convert to ErsatzTV next** as the first thing to try.
+3. **Native channels read-only in the web app** (#258), then in the API a release later.
+   A broken native channel's answer is Convert. Native code gets security fixes only.
+4. **Native playback inert:** the code stays in the tree but can't run, so merging
+   upstream stays easy. Don't delete or rewrite it before step 5. No channel reaches the
+   native path, so its bugs aren't fixed; someone still on it is told to update Tunarr.
+   Problems the fork's own retirement code causes (the inert switch, any automatic
+   conversion) are still fixed.
+5. **Removed along with upstream's removal:** the inert code is deleted, and nothing more
+   is done to it.
 
 Saving seed-generated programming selects Next in all three modes.
 
