@@ -115,6 +115,17 @@ export class ScheduledTask<TaskInputSchemaT extends z.ZodType, OutputT> {
     }
   }
 
+  // Runs an instance of this task now and leaves the schedule alone.
+  // runNow stands in for the next scheduled run: it holds the schedule back
+  // until its own run ends. This is for a run that does only part of the
+  // scheduled work, so every scheduled run still happens, once, on time.
+  async runBesideSchedule(
+    request: z.infer<TaskInputSchemaT>,
+  ): Promise<OutputT> {
+    const result = await this.runJobInternal(request);
+    return result.getOrThrow();
+  }
+
   cancel(reschedule: boolean = false) {
     this.scheduledJob.cancel(reschedule);
   }
