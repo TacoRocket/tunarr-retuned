@@ -374,6 +374,8 @@ Commercial, promo and closer are example assignments, not required roles. A supp
 
 Turn this on and the channel moves on to whatever's next when a movie or episode reaches its **final credits**, the way TV cuts away. Shows without a credits marker just play to the end, and your files are never changed.
 
+In the web app: **Edit → Streaming → Picture & Credits → At the final credits → Skip to the next program**. From a script:
+
 ```bash
 TUNARR=http://localhost:8000
 CHANNEL=paste-the-id-here
@@ -417,7 +419,7 @@ Everything that uses filler lists works the same way with a linked list, includi
 
 An offset channel plays another channel's lineup **a few hours later**, like an East Coast/West Coast feed: miss the 8 pm movie, catch it at 11 on the "+3" channel. It isn't a second channel to program. It follows its source: reprogram, refresh or re-time the source and the offset channel shows the same thing that many hours later, with nothing to copy by hand.
 
-Make a channel the way you normally would (just its name, number and artwork matter), then point it at its source:
+Make a channel the way you normally would (just its name, number and artwork matter), then point it at its source. In the web app: **Edit → Properties → Plays another channel later**, choose the source, the hours and the picture. A look of its own needs a source that can draw one; for an HLS Direct source, or a profile without VAAPI hardware encoding and filters, the dialog offers only **Same as the source** and **No CRT look** and says why. Changing only the hours keeps the saved picture as it is. **Stop following** turns it back into an ordinary channel. From a script:
 
 ```bash
 TUNARR=http://localhost:8000

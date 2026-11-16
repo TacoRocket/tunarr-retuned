@@ -20,6 +20,8 @@ The two broadcast looks are about the *feel*. They aren't a real analog signal.
 
 You need a GPU transcode profile first (Intel or AMD with VAAPI). See [the container notes](container.md) if you haven't set that up.
 
+In the web app: open the channel, choose **Edit → Streaming**, and pick a **CRT look** under **Picture & Credits**. **More options** has the processing tier and, for the broadcast looks, the extras below. If the channel's stream mode or transcode profile can't draw a look, the control is disabled and says why. To set it from a script instead:
+
 1. Find your channel's ID:
 
    ```bash
