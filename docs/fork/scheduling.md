@@ -345,9 +345,14 @@ These names describe programming styles. Primetime does not automatically start 
 
 ## After-show ad pods
 
-An **ad pod** is a commercial break that plays after each show: for example a bumper, two commercials, then a station ID, each picked from a filler list you choose. Every break comes out a little different, like real TV.
+An **ad pod** is a commercial break that plays after each show: for example a bumper, two commercials, then a station ID, each picked from a pool you choose. Every break comes out a little different, like streaming TV. A break is as long as its ads add up to and then the next show starts; it doesn't pad to the clock the way Tunarr's flex filler does.
 
-Pods work with [Random Slots](https://tunarr.com/configure/scheduling/random-slots/) schedules. There's no button for them yet, so you add them to a slot or preset request through the API. Here's the shape:
+Ad pods have their own home in the web app:
+
+- **Library → Ad Pools** lists the pools breaks draw from, where their clips come from and which channels use them. Start a pool from a Smart Collection with **New pool**, or link a hand-picked one with **Link…**. See [filler lists from a Smart Collection](#filler-lists-from-a-smart-collection).
+- **Ad Breaks** in a channel's menu (on the Channels page or the channel's Programming page) shows that channel's breaks: how many and how long, the break recipe, the pools it draws from, and **Redraw ads**. It warns when the schedule pads to the clock, which adds dead air after each break, or when slots also have Tunarr's timed mid-roll breaks.
+
+Pods work with [Random Slots](https://tunarr.com/configure/scheduling/random-slots/) schedules. The recipe editor isn't in the app yet, so you add the recipe to a slot or preset request through the API. Here's the shape:
 
 Program-count content slots can include `postProgramPod`, an ordered array of positions. Each position selects one whole clip from one of its `fillerListIds`. For example, two commercial positions followed by a cross-channel promo and a closer use four entries:
 
@@ -369,6 +374,12 @@ A pool can fill itself from a saved search instead of a hand-picked list. See [F
 The pod follows each complete program, and its full duration is included before the next program starts. It replaces that slot's legacy single post-program filler; head, pre and tail filler remain independent. Empty or missing selected pools fail generation instead of producing a partial break. Fixed-duration and time-slot schedules reject pods. Schedules without `postProgramPod` keep their existing behavior.
 
 Commercial, promo and closer are example assignments, not required roles. A supplied recipe must contain at least one position; an empty array is rejected. Omitting `postProgramPod` retains the legacy post-filler configuration. Clips are selected when the schedule is generated or regenerated and saved in the lineup, rather than selected again during each airing.
+
+### Redraw the ads
+
+Breaks keep the clips they were given until the schedule is generated again. To pick fresh ones without touching the shows, open the channel's **Ad Breaks** page and use **Redraw ads**. It lists the pools behind the channel's saved breaks, with how many ad spots each fills; untick any you want to keep as they are, then **Redraw**. The ad on screen right now isn't changed, and each break is redrawn as a whole, so it still skips clips it already has.
+
+Redraw works on any looping channel with saved after-show ads, including a schedule you've since edited by hand. It isn't offered for Time Slots or on-demand channels, and a channel that plays another one later follows its source: redraw the source. Save or reset any open programming changes first. From a script: `POST /api/channels/{id}/programming/refresh-fillers` with `{"fillerListIds": ["..."]}`.
 
 ## Skip the end credits
 
@@ -404,7 +415,9 @@ tags = "/commercials/Nintendo" AND type = "other_video"
 
 Keep a `type` condition in the search, so that a show or movie sharing a tag never ends up in a commercial break.
 
-Linking is available through the API for now:
+In the web app, use **Library → Ad Pools**: **New pool** creates a list filled from the Smart Collection you choose, and **Link…** points a hand-picked pool at one, replacing its clips. **Sync now** refreshes a linked pool straight away, and **Unlink** keeps the current clips so you can edit them by hand again (under **Library → Filler Lists**).
+
+From a script:
 
 - Create a linked list: `POST /api/filler-lists` with `name` and `smartCollectionId` instead of `programs`.
 - Link an existing list: `PUT /api/filler-lists/{id}` with `smartCollectionId`. This replaces the list's programs.

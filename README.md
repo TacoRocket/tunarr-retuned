@@ -38,7 +38,7 @@ Make a channel look like it is playing on an old tube TV: scanlines, a soft glow
 
 ### 📼 After-show ad pods
 
-A real commercial break after each show: a bumper, a couple of ads, a station ID, drawn from your own filler lists. On program-count Random Slots schedules, you add it through the API; there is no switch in the app yet. [Ad pods](docs/fork/scheduling.md#after-show-ad-pods)
+A real commercial break after each show: a bumper, a couple of ads, a station ID, drawn from pools that fill themselves from your tags, then straight back to the show. Pools live under Library → Ad Pools and each channel has an Ad Breaks page with Redraw; the break recipe itself is still set through the API on program-count Random Slots schedules. [Ad pods](docs/fork/scheduling.md#after-show-ad-pods)
 
 ### 🎞️ Credits the way TV does them
 
