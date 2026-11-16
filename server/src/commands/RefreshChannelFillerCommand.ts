@@ -34,14 +34,28 @@ export class RefreshChannelFillerCommand {
     }
 
     const pools = new Set(request.fillerListIds);
-    const positions = original.lineup.items.flatMap((item, index) =>
-      isContentItem(item) &&
-      item.fillerType === 'post' &&
-      item.fillerListId &&
-      pools.has(item.fillerListId)
-        ? [{ index, poolId: item.fillerListId }]
-        : [],
-    );
+    // Fork: a break is a run of saved after-show positions between programs.
+    // Its positions are redrawn together so they skip clips already in the
+    // break, as when the schedule was generated. Positions from pools not
+    // being redrawn keep their clip and aren't counted against the others.
+    const breaks: { index: number; poolId: string }[][] = [];
+    let inBreak = false;
+    for (const [index, item] of original.lineup.items.entries()) {
+      const isPost = isContentItem(item) && item.fillerType === 'post';
+      if (!isPost) {
+        inBreak = false;
+        continue;
+      }
+      if (!inBreak) {
+        breaks.push([]);
+        inBreak = true;
+      }
+      if (item.fillerListId && pools.has(item.fillerListId)) {
+        breaks.at(-1)?.push({ index, poolId: item.fillerListId });
+      }
+    }
+    const redrawn = breaks.filter((positions) => positions.length > 0);
+    const positions = redrawn.flat();
     for (const poolId of pools) {
       if (!positions.some((position) => position.poolId === poolId)) {
         throw new ScheduleValidationError(
@@ -51,9 +65,9 @@ export class RefreshChannelFillerCommand {
     }
 
     const generated = await this.blocks.generate({
-      entries: positions.map(({ poolId }) => ({
+      entries: redrawn.map((positions) => ({
         type: 'break',
-        positions: [{ fillerListIds: [poolId] }],
+        positions: positions.map(({ poolId }) => ({ fillerListIds: [poolId] })),
       })),
       seed: request.seed,
     });
