@@ -1460,4 +1460,17 @@ describe('SubtitleExtractorTask lookahead after a guide change', () => {
 
     expect(loaded(h)).toEqual(['kept', 'kept']);
   });
+
+  // "Finished" means the program was loaded and needed nothing. A program
+  // whose record could not be found was never looked at.
+  it('checks a program again when its record was missing last time', async () => {
+    const h = makeHarness({ subtitles: [] });
+    await showing(h, ['late']);
+    h.getProgramById.mockResolvedValueOnce(undefined);
+    await run(h);
+
+    await runAfterGuideChange(h);
+
+    expect(loaded(h)).toEqual(['late', 'late']);
+  });
 });

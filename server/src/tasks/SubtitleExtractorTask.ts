@@ -456,8 +456,9 @@ export class SubtitleExtractorTask extends Task2<
           program.id,
         );
       } else if (!result.get()) {
-        // Nothing to extract and nothing to request: finished until the next
-        // full run. A program with work queued is looked at again each time.
+        // Loaded, nothing to extract and nothing to request: finished until
+        // the next full run. A program with work queued, or one whose record
+        // was missing, is looked at again each time.
         cleared.set(program.id, checkedAgainst);
       }
     }
@@ -773,10 +774,12 @@ export class SubtitleExtractorTask extends Task2<
     files: Map<string, ExtractionFile>,
     acquisitions: Map<string, AutomaticPreparation>,
   ): Promise<boolean> {
-    // Whether this program left work behind: a file to read or text to request.
+    // Whether this program has to be looked at again: it left a file to read
+    // or text to request, or it could not be looked at.
     let queuedWork = false;
     const dbProgram = await this.prepareProgram(program.id, mediaSource);
-    if (!dbProgram) return false;
+    // No record to load is not "nothing to do". The record may arrive later.
+    if (!dbProgram) return true;
     const settings = this.settingsDB.ffmpegSettings();
     const contexts = [...program.contexts.values()];
     const scheduledContent = contexts.some((ctx) => !ctx.fillerListId);

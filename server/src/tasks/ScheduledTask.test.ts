@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import z from 'zod';
 import { ScheduledTask } from './ScheduledTask.ts';
 import { Task2 } from './Task.ts';
@@ -95,5 +95,67 @@ describe('ScheduledTask', () => {
       { channelId: 'call-1' },
       { channelId: 'call-2' },
     ]);
+  });
+});
+
+class SlowTask extends Task2<typeof TestTaskRequest, void> {
+  public readonly ID = 'SlowTask';
+  readonly schema = TestTaskRequest;
+
+  constructor(
+    private readonly received: TestTaskRequest[],
+    private readonly runMs: number,
+  ) {
+    super();
+  }
+
+  protected async runInternal(request: TestTaskRequest): Promise<void> {
+    this.received.push(request);
+    await new Promise((resolve) => setTimeout(resolve, this.runMs));
+  }
+}
+
+describe('ScheduledTask.runNow for a run that does less than the scheduled one', () => {
+  const EveryHour = '0 0 * * * *';
+  let task: ScheduledTask<typeof TestTaskRequest, void> | undefined;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    task?.removeFromSchedule();
+    task = undefined;
+    vi.useRealTimers();
+  });
+
+  // runNow holds the schedule back until its run ends. When that run is only
+  // part of the scheduled work, the scheduled run it held back still has to
+  // happen.
+  test('runs the scheduled run afterwards when it came due meanwhile', async () => {
+    const received: TestTaskRequest[] = [];
+    const hourly = new ScheduledTask<typeof TestTaskRequest, void>(
+      'hour-boundary',
+      EveryHour,
+      () => new SlowTask(received, 2000),
+      {},
+    );
+    task = hourly;
+    const due = hourly.nextExecution();
+    if (!due) throw new Error('The hourly job has no next run');
+    // One second before the scheduled run, whatever the machine's time zone.
+    await vi.advanceTimersByTimeAsync(due.getTime() - Date.now() - 1000);
+
+    const partial = hourly.runNow(
+      true,
+      { channelId: 'partial' },
+      { standsInForScheduledRun: false },
+    );
+    await vi.advanceTimersByTimeAsync(2000);
+    await partial;
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(received).toEqual([{ channelId: 'partial' }, {}]);
+    expect(hourly.nextExecution()?.getTime()).toBe(due.getTime() + 3600000);
   });
 });

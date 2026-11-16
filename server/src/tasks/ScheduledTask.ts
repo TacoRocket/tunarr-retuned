@@ -24,6 +24,13 @@ type ScheduledTaskOptions = {
 
 export type UnknownScheduledTask = ScheduledTask<z.ZodType, unknown>;
 
+export type RunNowOptions = {
+  // runNow holds the schedule back until its run ends, because that run does
+  // the scheduled work. Pass false for a run that does only part of it: a
+  // scheduled run that came due meanwhile is then run once this one ends.
+  standsInForScheduledRun?: boolean;
+};
+
 export class ScheduledTask<TaskInputSchemaT extends z.ZodType, OutputT> {
   protected logger: Logger;
   protected scheduledJob: schedule.Job;
@@ -88,13 +95,24 @@ export class ScheduledTask<TaskInputSchemaT extends z.ZodType, OutputT> {
   async runNow(
     background: boolean = true,
     request?: z.infer<TaskInputSchemaT>,
+    options?: RunNowOptions,
   ): Promise<OutputT> {
+    const heldBack =
+      options?.standsInForScheduledRun === false
+        ? this.scheduledJob.nextInvocation()
+        : null;
     this.scheduledJob.cancelNext(false);
-    // Can't reschedule a one-off job
-    const rescheduleCb = () =>
-      isDate(this.schedule)
-        ? void 0
-        : this.scheduledJob.reschedule(this.schedule);
+    const rescheduleCb = () => {
+      // Can't reschedule a one-off job
+      if (!isDate(this.schedule)) {
+        this.scheduledJob.reschedule(this.schedule);
+      }
+      if (heldBack && heldBack.getTime() <= Date.now()) {
+        Promise.resolve(this.run()).catch((err) =>
+          this.logger.error(err, 'Error while running job: %s', this.name),
+        );
+      }
+    };
     if (background) {
       return new Promise<OutputT>((resolve, reject) => {
         this.runJobInternal(request)

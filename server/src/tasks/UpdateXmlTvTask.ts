@@ -103,9 +103,14 @@ export class UpdateXmlTvTask extends Task2<typeof UpdateXmlTvTaskRequest> {
       }
 
       // The scheduled run checks the whole window every hour. A guide change
-      // only needs the programs that run has not already found finished.
+      // only needs the programs that run has not already found finished, so
+      // this run does not stand in for the hourly one.
       GlobalScheduler.getScheduledJob(SubtitleExtractorTask.ID)
-        .runNow(true, { newProgramsOnly: true })
+        .runNow(
+          true,
+          { newProgramsOnly: true },
+          { standsInForScheduledRun: false },
+        )
         .catch((err) => this.logger.error(err));
 
       this.logger.info('XMLTV Updated at %s', dayjs().format());
