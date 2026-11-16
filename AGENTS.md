@@ -27,23 +27,28 @@ Bug fixes while native playback is being retired:
   Next or in Convert, not a native bug: fix it here, or raise it with the owner (upstream
   Tunarr, or TacoRocket/next for the worker).
 - Other native-only bugs are won't fix: edge cases, polish, and review findings that
-  affect only native channels. Close them pointing at **Convert to ErsatzTV next**.
+  affect only native channels. Close them pointing at moving the channel to Next (see the
+  steps below for how, in each release).
 - Keep native fixes in this fork; do not open upstream PRs for the native pipeline.
 
-What still gets fixed on the native path narrows with each retirement step. The PR that
-takes a step moves the "now" marker here.
+What still gets fixed on the native path narrows with each retirement step. Steps follow
+public releases, not `main`: a step starts when the release that carries it ships, and
+that release moves the *now* marker here. Someone running `main` is a step ahead, which
+only helps.
 
-1. **No new native channels; Convert on every one** (#217, #218) — *now*. Still fixed:
-   security problems, and a channel that is plainly broken (won't play, errors out, loses
-   its settings) when someone reports it and the fix is reasonable: small and contained,
-   not new machinery. Check first whether converting fixes it; if it does, that is the
-   answer.
-2. **Native channels read-only in the web app** (#258), then in the API a release later.
+1. **No new native channels in the web app** (#217) — *now*. Existing channels switch by
+   hand: Streaming → **Playback engine** → ErsatzTV next. Still fixed: security problems,
+   and a channel that is plainly broken (won't play, errors out, loses its settings) when
+   someone reports it and the fix is reasonable: small and contained, not new machinery.
+   Check first whether switching to Next fixes it; if it does, that is the answer.
+2. **Convert on every native channel; the API creates no new ones** (#218). Same fixes as
+   step 1, with **Convert to ErsatzTV next** as the first thing to try.
+3. **Native channels read-only in the web app** (#258), then in the API a release later.
    A broken native channel's answer is Convert. Native code gets security fixes only.
-3. **Native playback inert:** no channel reaches the native path, so its bugs aren't
+4. **Native playback inert:** no channel reaches the native path, so its bugs aren't
    fixed; someone still on it is told to update Tunarr. Problems the fork's own
    retirement code causes (the inert switch, any automatic conversion) are still fixed.
-4. **Removed along with upstream's removal:** nothing more is done to it.
+5. **Removed along with upstream's removal:** nothing more is done to it.
 
 Saving seed-generated programming selects Next in all three modes.
 
