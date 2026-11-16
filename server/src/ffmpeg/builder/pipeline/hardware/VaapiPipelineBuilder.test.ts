@@ -1,5 +1,8 @@
 import { ColorFormat } from '@/ffmpeg/builder/format/ColorFormat.js';
 import { TONEMAP_ENABLED, TUNARR_ENV_VARS } from '@/util/env.js';
+import type { FeatureFlagKey } from '@tunarr/types';
+import type { FeatureFlagService } from '../../../../services/FeatureFlagService.ts';
+import { resolveFeatureFlagFromEnv } from '../../../../services/FeatureFlagService.ts';
 import { FileStreamSource } from '../../../../stream/types.ts';
 import {
   EmptyFfmpegCapabilities,
@@ -918,6 +921,8 @@ describe('VaapiPipelineBuilder tonemap', () => {
     subtitles?: SubtitlesInputSource | null;
     stateVaapiDevice?: string;
     openclInterop?: boolean;
+    // Settings → Features; anything not listed reads as upstream's flags do.
+    features?: Partial<Record<FeatureFlagKey, boolean>>;
   }): Pipeline {
     const capabilities =
       opts.hardwareCapabilities ??
@@ -958,6 +963,11 @@ describe('VaapiPipelineBuilder tonemap', () => {
       opts.subtitles ?? null,
       null,
     );
+    const features = opts.features ?? {};
+    builder.setFeatureFlagService({
+      get: (flag: FeatureFlagKey) =>
+        features[flag] ?? resolveFeatureFlagFromEnv(flag),
+    } as FeatureFlagService);
 
     const state = FfmpegState.create({
       version: fakeVersion,
@@ -1016,7 +1026,6 @@ describe('VaapiPipelineBuilder tonemap', () => {
     (processing, width, height, inputWidth) => {
       const size = FrameSize.withDimensions(width, height);
       process.env[TONEMAP_ENABLED] = 'true';
-      process.env.TUNARR_VAAPI_HABLE_LUT = '1';
       const lowPower = new VaapiProfileEntrypoint(
         VaapiProfiles.H264Main,
         VaapiEntrypoint.EncodeLowPower,
@@ -1065,6 +1074,7 @@ describe('VaapiPipelineBuilder tonemap', () => {
             broadcastGrain: 'half',
           },
         } satisfies Partial<PipelineOptions>,
+        features: { vaapiHableLut: true },
       };
       const pipeline = buildWithTonemap({
         ...options,
@@ -1109,8 +1119,12 @@ describe('VaapiPipelineBuilder tonemap', () => {
       VaapiEntrypoint.EncodeLowPower,
     );
     lowPower.addRateControlMode(RateControlMode.VBR);
-    const graphFor = (runtime: FfmpegCapabilities['runtime']) =>
+    const graphFor = (
+      runtime: FfmpegCapabilities['runtime'],
+      features: Partial<Record<FeatureFlagKey, boolean>> = {},
+    ) =>
       buildWithTonemap({
+        features,
         videoStream: createHdrVideoStream(ColorFormat.bt709),
         hardwareCapabilities: new VaapiHardwareCapabilities([
           lowPower,
@@ -1169,22 +1183,23 @@ describe('VaapiPipelineBuilder tonemap', () => {
     expect(patched).toContain('nv12_output=native');
     expect(patched).not.toContain('scale_vulkan=format=nv12');
 
-    // Settings → Features "Disable Direct NV12 for CRT", here through its
-    // container variable.
-    process.env.TUNARR_DISABLE_CRT_DIRECT_NV12 = '1';
-    const switchedOff = graphFor({
-      source: 'bundled',
-      nativeNv12Output: true,
-      preservesConcatTimestamps: true,
-    });
+    // Settings → Features "Disable Direct NV12 for CRT".
+    const switchedOff = graphFor(
+      {
+        source: 'bundled',
+        nativeNv12Output: true,
+        preservesConcatTimestamps: true,
+      },
+      { disableCrtDirectNv12: true },
+    );
     expect(switchedOff).not.toContain('nv12_output=native');
     expect(switchedOff).toContain('format=vulkan,scale_vulkan=format=nv12,');
   });
 
   test('Quality bypasses CRT on HDR10 and does not use the fixed-Hable LUT', () => {
     process.env[TONEMAP_ENABLED] = 'true';
-    process.env.TUNARR_VAAPI_HABLE_LUT = '1';
     const pipeline = buildWithTonemap({
+      features: { vaapiHableLut: true },
       hardwareCapabilities: new VaapiHardwareCapabilities([
         new VaapiProfileEntrypoint(
           VaapiProfiles.HevcMain10,

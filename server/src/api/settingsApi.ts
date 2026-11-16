@@ -2,19 +2,11 @@ import { z } from 'zod/v4';
 import { GlobalMediaSourceSettingsSchema } from '@tunarr/types/schemas';
 import {
   dailyLibraryScanRule,
-  dailyScanSetByEnvironment,
   scheduleLibraryScans,
 } from '../services/startup/LibraryScanSchedule.ts';
 import type { RouterPluginAsyncCallback } from '../types/serverType.js';
 
 const fields = GlobalMediaSourceSettingsSchema.shape;
-
-// Fork: the Scanner page locks the daily time while the container variables
-// decide it.
-const MediaSourceSettingsResponseSchema =
-  GlobalMediaSourceSettingsSchema.extend({
-    dailyScanSetByEnvironment: z.boolean(),
-  });
 
 // eslint-disable-next-line @typescript-eslint/require-await
 export const settingsApi: RouterPluginAsyncCallback = async (fastify) => {
@@ -24,16 +16,13 @@ export const settingsApi: RouterPluginAsyncCallback = async (fastify) => {
       schema: {
         tags: ['Settings'],
         response: {
-          200: MediaSourceSettingsResponseSchema,
+          200: GlobalMediaSourceSettingsSchema,
         },
       },
     },
     async (req, res) => {
       const settings = req.serverCtx.settings.globalMediaSourceSettings();
-      return res.send({
-        ...settings,
-        dailyScanSetByEnvironment: dailyScanSetByEnvironment(),
-      });
+      return res.send(settings);
     },
   );
 
@@ -54,10 +43,11 @@ export const settingsApi: RouterPluginAsyncCallback = async (fastify) => {
             dailyScanTimeZone: fields.dailyScanTimeZone.removeDefault(),
           })
           .partial(),
-        // No 400 schema: fastify's own validation errors are objects, and a
-        // string schema would turn them into 500s.
+        // Shaped like fastify's own validation errors, which carry `message`
+        // too; a string schema would turn those into 500s.
         response: {
-          200: MediaSourceSettingsResponseSchema,
+          200: GlobalMediaSourceSettingsSchema,
+          400: z.object({ message: z.string() }),
         },
       },
     },
@@ -75,10 +65,9 @@ export const settingsApi: RouterPluginAsyncCallback = async (fastify) => {
             dailyScanTimeZone === undefined
               ? current.dailyScanTimeZone
               : dailyScanTimeZone,
-            'settings',
           );
         } catch (e) {
-          return res.status(400).send((e as Error).message);
+          return res.status(400).send({ message: (e as Error).message });
         }
       }
       await req.serverCtx.settings.directUpdate((file) => {
@@ -87,10 +76,7 @@ export const settingsApi: RouterPluginAsyncCallback = async (fastify) => {
       if (changesDailyScan) {
         scheduleLibraryScans(req.serverCtx.settings);
       }
-      return res.send({
-        ...req.serverCtx.settings.globalMediaSourceSettings(),
-        dailyScanSetByEnvironment: dailyScanSetByEnvironment(),
-      });
+      return res.send(req.serverCtx.settings.globalMediaSourceSettings());
     },
   );
 };

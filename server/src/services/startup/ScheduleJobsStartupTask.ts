@@ -28,10 +28,7 @@ import {
 } from '../Scheduler.ts';
 import { ChannelLineupMigratorStartupTask } from './ChannelLineupMigratorStartupTask.ts';
 import { SimpleStartupTask } from './IStartupTask.ts';
-import {
-  libraryScanSchedule,
-  scheduleLibraryScans,
-} from './LibraryScanSchedule.ts';
+import { scheduleLibraryScans } from './LibraryScanSchedule.ts';
 
 @injectable()
 export class ScheduleJobsStartupTask extends SimpleStartupTask {
@@ -45,8 +42,6 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
   }
 
   getPromise(): Promise<void> {
-    // Read first: invalid container variables stop scheduling before any job.
-    const scanSchedule = libraryScanSchedule(this.settingsDB);
     const xmlTvSettings = this.settingsDB.xmlTvSettings();
 
     GlobalScheduler.scheduleTask(
@@ -120,7 +115,7 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       ),
     );
 
-    scheduleLibraryScans(this.settingsDB, scanSchedule);
+    scheduleLibraryScans(this.settingsDB);
 
     GlobalScheduler.scheduleTask(
       SyncCollectionsTask.ID,

@@ -3,7 +3,6 @@ import type { RecurrenceRule } from 'node-schedule';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   dailyLibraryScanRule,
-  dailyScanSetByEnvironment,
   libraryScanSchedule,
 } from './LibraryScanSchedule.ts';
 
@@ -61,20 +60,14 @@ describe('when automatic library scans run', () => {
     ).toBe('2026-07-01T08:30:00.000Z');
   });
 
-  it('lets the container variables decide over a saved time', () => {
+  // An install upgraded with the old variables still in its Compose file.
+  it('ignores the retired container variables', () => {
     vi.stubEnv('TUNARR_LIBRARY_SCAN_DAILY_TIME', '05:00');
     vi.stubEnv('TUNARR_LIBRARY_SCAN_TIME_ZONE', 'UTC');
-    expect(dailyScanSetByEnvironment()).toBe(true);
     expect(
       nextRun(libraryScanSchedule(settings('03:30', 'America/Chicago'))),
-    ).toBe('2026-07-01T05:00:00.000Z');
-  });
-
-  it('still refuses partial container variables', () => {
-    vi.stubEnv('TUNARR_LIBRARY_SCAN_DAILY_TIME', '05:00');
-    expect(() => libraryScanSchedule(settings(null, null))).toThrow(
-      'Set both TUNARR_LIBRARY_SCAN_DAILY_TIME and TUNARR_LIBRARY_SCAN_TIME_ZONE',
-    );
+    ).toBe('2026-07-01T08:30:00.000Z');
+    expect(libraryScanSchedule(settings(null, null))).toBe('0 30 */6 * * *');
   });
 
   it('falls back to the interval when a saved time cannot be read', () => {
@@ -86,14 +79,5 @@ describe('when automatic library scans run', () => {
       }),
     };
     expect(libraryScanSchedule(handEdited)).toBe('0 30 */6 * * *');
-  });
-
-  it('names the setting, not a variable, when a saved pair is wrong', () => {
-    expect(() => dailyLibraryScanRule('03:30', null, 'settings')).toThrow(
-      'Set both a daily scan time and its time zone',
-    );
-    expect(() =>
-      dailyLibraryScanRule('03:30', 'Not/AZone', 'settings'),
-    ).toThrow('The daily scan time zone must be a valid IANA time zone');
   });
 });

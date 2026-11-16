@@ -295,8 +295,7 @@ before enabling the option elsewhere.
 
 ## VAAPI driver-default scaling (fork option)
 
-Turn on **Driver-Default VAAPI Scaling** on Settings → Features (or set
-`TUNARR_VAAPI_DEFAULT_SCALING=1`, which wins and locks the switch) to request
+Turn on **Driver-Default VAAPI Scaling** on Settings → Features to request
 `mode=default` on `scale_vaapi` for video resizing, anamorphic correction, Broadcast
 CRT pre-scaling and bitmap subtitle resizing. FFmpeg normally requests `hq`
 when the mode is omitted. Intel's driver can use its dedicated scaler for the
@@ -323,8 +322,7 @@ override the bundled worker.
 
 ## Fixed-Hable VAAPI LUT (fork option)
 
-**Fast HDR Conversion (VAAPI)** on Settings → Features (or
-`TUNARR_VAAPI_HABLE_LUT=1`, which wins and locks the switch) selects the
+**Fast HDR Conversion (VAAPI)** on Settings → Features selects the
 optional `tonemap_vaapi_lut` filter for 10-bit, limited-range BT.2020 non-constant-luminance/PQ video. Tone mapping and
 hardware filters must already be enabled. The FFmpeg image must be built with
 `VAAPI_HABLE_LUT=1`, which bundles the filter and its table; no extra volume or

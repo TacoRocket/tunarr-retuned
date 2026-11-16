@@ -15396,14 +15396,13 @@ export type GetApiSettingsMediaSourceResponses = {
          */
         repairReaddedItemsOnStartup: boolean;
         /**
-         * Scan libraries once a day at this 24-hour HH:mm time instead of every rescanIntervalHours. Needs dailyScanTimeZone. Collection and custom show syncing still follow the interval. TUNARR_LIBRARY_SCAN_DAILY_TIME and TUNARR_LIBRARY_SCAN_TIME_ZONE, when set, decide instead.
+         * Scan libraries once a day at this 24-hour HH:mm time instead of every rescanIntervalHours. Needs dailyScanTimeZone. Collection and custom show syncing still follow the interval.
          */
         dailyScanTime: string | null;
         /**
          * IANA time zone for dailyScanTime, such as America/Chicago.
          */
         dailyScanTimeZone: string | null;
-        dailyScanSetByEnvironment: boolean;
     };
 };
 
@@ -15423,6 +15422,17 @@ export type PutApiSettingsMediaSourceData = {
     url: '/api/settings/media-source';
 };
 
+export type PutApiSettingsMediaSourceErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+};
+
+export type PutApiSettingsMediaSourceError = PutApiSettingsMediaSourceErrors[keyof PutApiSettingsMediaSourceErrors];
+
 export type PutApiSettingsMediaSourceResponses = {
     /**
      * Default Response
@@ -15439,14 +15449,13 @@ export type PutApiSettingsMediaSourceResponses = {
          */
         repairReaddedItemsOnStartup: boolean;
         /**
-         * Scan libraries once a day at this 24-hour HH:mm time instead of every rescanIntervalHours. Needs dailyScanTimeZone. Collection and custom show syncing still follow the interval. TUNARR_LIBRARY_SCAN_DAILY_TIME and TUNARR_LIBRARY_SCAN_TIME_ZONE, when set, decide instead.
+         * Scan libraries once a day at this 24-hour HH:mm time instead of every rescanIntervalHours. Needs dailyScanTimeZone. Collection and custom show syncing still follow the interval.
          */
         dailyScanTime: string | null;
         /**
          * IANA time zone for dailyScanTime, such as America/Chicago.
          */
         dailyScanTimeZone: string | null;
-        dailyScanSetByEnvironment: boolean;
     };
 };
 

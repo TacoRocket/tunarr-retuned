@@ -55,8 +55,7 @@ libplacebo filter, with no `scale_vulkan` conversion after it. This needs the
 fork's FFmpeg runtime from TacoRocket/ErsatzTV-ffmpeg (`perf/nv12-native-layer`,
 built with `DIRECT_NV12_OUTPUT=1`, which carries the libplacebo producer-storage
 patch); rebuilding Tunarr alone does not supply it. Settings → Features
-**Disable Direct NV12 for CRT** (`TUNARR_DISABLE_CRT_DIRECT_NV12=1`) turns it
-off. The earlier opt-in variables (`TUNARR_CRT_DIRECT_NV12`,
+**Disable Direct NV12 for CRT** turns it off. The earlier opt-in variables (`TUNARR_CRT_DIRECT_NV12`,
 `ETV_VAAPI_DIRECT_NV12`, `TUNARR_CRT_NV12_OUTPUT`) and the original inline trial
 (`ETV_INLINE_NV12_RTZ`, 1920x1080 only) are no longer read.
 
@@ -254,7 +253,7 @@ CRT output and the VAAPI Hable LUT tone mapper are both in use:
 - Positive, even active picture dimensions, VAAPI hardware decoding and H.264
   hardware encoding, with hardware filters enabled.
 - Tone mapping enabled and **Fast HDR Conversion (VAAPI)** on in Settings →
-  Features (or `TUNARR_VAAPI_HABLE_LUT=1`).
+  Features.
 - Direct NV12 output available: FFmpeg has `nv12_output=native` and
   **Disable Direct NV12 for CRT** is off.
 - Limited-range 10-bit PQ / BT.2020 input without Dolby Vision, and a runtime

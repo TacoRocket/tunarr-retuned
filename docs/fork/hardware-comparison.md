@@ -8,8 +8,8 @@ Your container needs GPU access and a VAAPI transcode profile first. See [the co
 - On **Settings → Features**, turn on **Driver-Default VAAPI Scaling** and **Fast HDR Conversion (VAAPI)**, then save.
 
 They apply to streams that start after you save. To turn them off, switch them
-off again. The container variables `TUNARR_VAAPI_DEFAULT_SCALING=1` and
-`TUNARR_VAAPI_HABLE_LUT=1` still work and lock the switches while set.
+off again. The earlier `TUNARR_VAAPI_DEFAULT_SCALING` and
+`TUNARR_VAAPI_HABLE_LUT` container variables are no longer read.
 
 CRT channels use their [processing tier](crt.md#processing-tiers) for scaling:
 Performance and Experimental request dedicated scaling and eligible low-power

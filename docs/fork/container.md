@@ -47,13 +47,15 @@ devices:
   - /dev/dri:/dev/dri
 ```
 
-The image includes the optional filters. Three hardware options live on **Settings → Features**, and each still answers to its container variable, which wins and locks the switch when set:
+The image includes the optional filters. Three hardware options are switches on **Settings → Features**:
 
-| Switch | Variable | Default |
-| --- | --- | --- |
-| Fast HDR Conversion (VAAPI) | `TUNARR_VAAPI_HABLE_LUT=1` | Off |
-| Driver-Default VAAPI Scaling | `TUNARR_VAAPI_DEFAULT_SCALING=1` | Off |
-| Disable Direct NV12 for CRT | `TUNARR_DISABLE_CRT_DIRECT_NV12=1` | Off (direct NV12 on) |
+| Switch | Default |
+| --- | --- |
+| Fast HDR Conversion (VAAPI) | Off |
+| Driver-Default VAAPI Scaling | Off |
+| Disable Direct NV12 for CRT | Off (direct NV12 on) |
+
+They have no container variables. The earlier `TUNARR_VAAPI_HABLE_LUT` and `TUNARR_VAAPI_DEFAULT_SCALING` are no longer read: if you set them, turn on the matching switch and remove them from your Compose file.
 
 CRT channels on Performance or Experimental write their picture straight to NV12 whenever this image's FFmpeg supports it. That skips one conversion and gives the same picture, so it needs no switch to turn on. It has been checked on Intel only; if a GPU shows a broken or miscolored CRT picture, turn on **Disable Direct NV12 for CRT**. The earlier `TUNARR_CRT_DIRECT_NV12`, `ETV_VAAPI_DIRECT_NV12`, `TUNARR_CRT_NV12_OUTPUT` and `ETV_INLINE_NV12_RTZ` variables are no longer read; remove them from your Compose file.
 

@@ -13,7 +13,7 @@ import { inject, injectable } from 'inversify';
 export function resolveFeatureFlagFromEnv(flag: FeatureFlagKey): boolean {
   const meta = FeatureFlagMetadata.find((m) => m.key === flag);
   if (meta) {
-    const envValue = process.env[meta.envVar];
+    const envValue = meta.envVar ? process.env[meta.envVar] : undefined;
     if (envValue !== undefined && envValue !== '') {
       return TruthyQueryParam.catch(false).parse(envValue);
     }
@@ -29,7 +29,7 @@ export class FeatureFlagService {
     const envResult = resolveFeatureFlagFromEnv(flag);
     const meta = FeatureFlagMetadata.find((m) => m.key === flag);
     if (meta) {
-      const envValue = process.env[meta.envVar];
+      const envValue = meta.envVar ? process.env[meta.envVar] : undefined;
       if (envValue !== undefined && envValue !== '') {
         return envResult;
       }
@@ -40,7 +40,7 @@ export class FeatureFlagService {
   getAll(): FeatureFlags {
     const persisted = { ...this.settings.featureFlags() };
     for (const meta of FeatureFlagMetadata) {
-      const envValue = process.env[meta.envVar];
+      const envValue = meta.envVar ? process.env[meta.envVar] : undefined;
       if (envValue !== undefined && envValue !== '') {
         persisted[meta.key] = TruthyQueryParam.catch(false).parse(envValue);
       }
@@ -51,7 +51,7 @@ export class FeatureFlagService {
   getEnvOverrides(): Partial<Record<FeatureFlagKey, boolean>> {
     const result: Partial<Record<FeatureFlagKey, boolean>> = {};
     for (const meta of FeatureFlagMetadata) {
-      const envValue = process.env[meta.envVar];
+      const envValue = meta.envVar ? process.env[meta.envVar] : undefined;
       if (envValue !== undefined && envValue !== '') {
         result[meta.key] = true;
       }

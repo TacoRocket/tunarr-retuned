@@ -22,7 +22,8 @@ export type FeatureFlagMeta = {
   key: FeatureFlagKey;
   displayName: string;
   description: string;
-  envVar: string;
+  // Fork: flags without a variable are set only in Settings → Features.
+  envVar?: string;
   category: 'experimental' | 'escape-hatch';
 };
 

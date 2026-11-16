@@ -237,7 +237,7 @@ export const GlobalMediaSourceSettingsSchema = z.object({
     .nullable()
     .default(null)
     .describe(
-      'Scan libraries once a day at this 24-hour HH:mm time instead of every rescanIntervalHours. Needs dailyScanTimeZone. Collection and custom show syncing still follow the interval. TUNARR_LIBRARY_SCAN_DAILY_TIME and TUNARR_LIBRARY_SCAN_TIME_ZONE, when set, decide instead.',
+      'Scan libraries once a day at this 24-hour HH:mm time instead of every rescanIntervalHours. Needs dailyScanTimeZone. Collection and custom show syncing still follow the interval.',
     ),
   dailyScanTimeZone: z
     .string()
