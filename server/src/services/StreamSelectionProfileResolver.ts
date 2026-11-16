@@ -15,6 +15,7 @@ import { StreamSelectionProfile as StreamSelectionProfileTable } from '../db/sch
 import { KEYS } from '../types/inject.ts';
 import { InjectLogger } from '../util/inject.ts';
 import type { Logger } from '../util/logging/LoggerFactory.ts';
+import { rememberForRun } from './streamSelectionRunMemo.ts';
 
 export type StreamSelectionContext = {
   channelId: string;
@@ -93,10 +94,13 @@ export class StreamSelectionProfileResolver {
       chain.push({ level, sourceId, profile });
     };
 
-    if (ctx.programId) {
+    const { programId, fillerListId, customShowId, channelId } = ctx;
+    if (programId) {
       push(
         'program',
-        await this.getProfileForProgram(ctx.programId),
+        await rememberForRun(`profile:program:${programId}`, () =>
+          this.getProfileForProgram(programId),
+        ),
         ctx.programId,
       );
     }
@@ -111,30 +115,39 @@ export class StreamSelectionProfileResolver {
       );
     }
 
-    if (ctx.fillerListId) {
+    if (fillerListId) {
       push(
         'filler',
-        await this.getProfileForFillerList(ctx.fillerListId),
+        await rememberForRun(`profile:filler:${fillerListId}`, () =>
+          this.getProfileForFillerList(fillerListId),
+        ),
         ctx.fillerListId,
       );
-    } else if (ctx.customShowId) {
+    } else if (customShowId) {
       push(
         'custom_show',
-        await this.getProfileForCustomShow(ctx.customShowId),
+        await rememberForRun(`profile:custom_show:${customShowId}`, () =>
+          this.getProfileForCustomShow(customShowId),
+        ),
         ctx.customShowId,
       );
     }
 
     push(
       'channel',
-      await this.getProfileForChannel(ctx.channelId),
+      await rememberForRun(`profile:channel:${channelId}`, () =>
+        this.getProfileForChannel(channelId),
+      ),
       ctx.channelId,
     );
 
     const defaultProfileId =
       this.settingsDB.streamSelectionSettings().defaultProfileId;
     if (defaultProfileId !== BuiltInStreamSelectionProfileId) {
-      const defaultProfile = await this.getProfileById(defaultProfileId);
+      const defaultProfile = await rememberForRun(
+        `profile:id:${defaultProfileId}`,
+        () => this.getProfileById(defaultProfileId),
+      );
       if (!defaultProfile) {
         this.logger.warn(
           'Default stream selection profile %s does not exist; falling back to the built-in profile',
@@ -146,8 +159,10 @@ export class StreamSelectionProfileResolver {
 
     push(
       'built_in',
-      (await this.getProfileById(BuiltInStreamSelectionProfileId)) ??
-        BuiltInStreamSelectionProfile,
+      (await rememberForRun(
+        `profile:id:${BuiltInStreamSelectionProfileId}`,
+        () => this.getProfileById(BuiltInStreamSelectionProfileId),
+      )) ?? BuiltInStreamSelectionProfile,
     );
 
     return chain;

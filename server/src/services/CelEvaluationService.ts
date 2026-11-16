@@ -1,3 +1,4 @@
+import type { ParseResult } from '@marcbachmann/cel-js';
 import { Environment } from '@marcbachmann/cel-js';
 import { injectable } from 'inversify';
 import { isNativeError } from 'node:util/types';
@@ -46,12 +47,21 @@ export type StreamSelectionCelContext = {
   };
 };
 
+const BooleanResult = z.boolean();
+
+// Rule conditions are a handful of strings evaluated against many contexts.
+// The cap only guards against a caller that generates conditions.
+const MaxParsedExpressions = 500;
+
 @injectable()
 export class CelEvaluationService {
   @InjectLogger() declare private readonly logger: Logger;
 
   private currentContext!: StreamSelectionCelContext;
   private env: Environment;
+  // Parsing depends only on the expression text and the environment, which
+  // is built once per service.
+  private parsed = new Map<string, ParseResult>();
 
   constructor() {
     this.env = this.buildEnvironment();
@@ -60,8 +70,8 @@ export class CelEvaluationService {
   evaluate(expression: string, context: StreamSelectionCelContext): boolean {
     try {
       this.currentContext = context;
-      const result = this.env.evaluate(expression, context) as unknown;
-      return z.boolean().parse(result);
+      const result = this.parse(expression)(context) as unknown;
+      return BooleanResult.parse(result);
     } catch (err) {
       this.logger.warn(
         { err, expression },
@@ -69,6 +79,19 @@ export class CelEvaluationService {
       );
       return false;
     }
+  }
+
+  private parse(expression: string): ParseResult {
+    const known = this.parsed.get(expression);
+    if (known) {
+      return known;
+    }
+    const parsed = this.env.parse(expression);
+    if (this.parsed.size >= MaxParsedExpressions) {
+      this.parsed.clear();
+    }
+    this.parsed.set(expression, parsed);
+    return parsed;
   }
 
   validate(expression: string): Maybe<CelEvaluationError> {
