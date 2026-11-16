@@ -482,6 +482,7 @@ export function EditChannelForm({
               <ChannelOffsetSettings
                 channel={channel}
                 hasUnsavedChanges={formIsDirty}
+                transcodeConfigs={transcodeConfigs}
               />
             )}
           </EditChannelTabPanel>

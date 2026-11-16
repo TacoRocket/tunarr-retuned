@@ -5,6 +5,7 @@ import {
 } from '@/generated/@tanstack/react-query.gen.ts';
 import { conversionFailureReason } from '@/helpers/nextConversion.ts';
 import { invalidateTaggedQueries } from '@/helpers/queryUtil.ts';
+import { setCurrentChannel } from '@/store/channelEditor/actions.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
   Alert,
@@ -24,7 +25,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Channel } from '@tunarr/types';
+import type { Channel, TranscodeConfig } from '@tunarr/types';
 import { useSnackbar } from 'notistack';
 import { useState } from 'react';
 import {
@@ -32,6 +33,7 @@ import {
   CrtLooks,
   cannotFollowReason,
   offsetSources,
+  pictureBlocker,
 } from './forkChannelSettings.ts';
 import type { ChannelCrtSettings } from './forkChannelSettings.ts';
 
@@ -46,9 +48,11 @@ type PictureChoice = 'source' | 'off' | CrtLook;
 export function ChannelOffsetSettings({
   channel,
   hasUnsavedChanges,
+  transcodeConfigs,
 }: {
   channel: Channel;
   hasUnsavedChanges: boolean;
+  transcodeConfigs: TranscodeConfig[];
 }) {
   const { t } = useLingui();
   const queryClient = useQueryClient();
@@ -65,6 +69,9 @@ export function ChannelOffsetSettings({
   const [sourceId, setSourceId] = useState('');
   const [hours, setHours] = useState('3');
   const [picture, setPicture] = useState<PictureChoice>('source');
+  // What the dialog opened with: an unchanged choice is left out of the
+  // request, and the API keeps the saved picture with all its options.
+  const [openedPicture, setOpenedPicture] = useState<PictureChoice>('source');
 
   const refresh = () =>
     queryClient.invalidateQueries({
@@ -74,9 +81,13 @@ export function ChannelOffsetSettings({
     snackbar.enqueueSnackbar(conversionFailureReason(error), {
       variant: 'error',
     });
+  // The other tabs read the editor's copy of this channel, which only reloads
+  // when the channel changes; put the saved one there.
+  const keep = (saved: Channel) => setCurrentChannel(saved);
   const link = useMutation({
     ...setChannelOffsetMutation(),
-    onSuccess: async () => {
+    onSuccess: async (saved) => {
+      keep(saved);
       setDialog(null);
       await refresh();
       snackbar.enqueueSnackbar(t`Channel now plays its source later`, {
@@ -87,7 +98,8 @@ export function ChannelOffsetSettings({
   });
   const stop = useMutation({
     ...clearChannelOffsetMutation(),
-    onSuccess: async () => {
+    onSuccess: async (saved) => {
+      keep(saved);
       setDialog(null);
       await refresh();
       snackbar.enqueueSnackbar(t`Channel no longer follows another channel`, {
@@ -101,13 +113,14 @@ export function ChannelOffsetSettings({
     setSourceId(channel.offset?.sourceChannelId ?? '');
     setHours(String(channel.offset?.hours ?? 3));
     const saved = channel.offset?.picture;
-    setPicture(
+    const choice: PictureChoice =
       saved?.mode === 'custom'
         ? saved.crt.look
         : saved?.mode === 'off'
           ? 'off'
-          : 'source',
-    );
+          : 'source';
+    setPicture(choice);
+    setOpenedPicture(choice);
     setDialog('link');
   };
   const hoursValue = Number(hours);
@@ -116,19 +129,33 @@ export function ChannelOffsetSettings({
     Number.isInteger(hoursValue) &&
     hoursValue >= 0 &&
     hoursValue <= 168;
+  // The offset channel plays through the source's stream mode and profile, so
+  // those decide whether it can draw a look of its own.
+  const selected = all.find((c) => c.id === sourceId);
+  const sourceBlocker = selected
+    ? pictureBlocker(
+        selected.streamMode,
+        transcodeConfigs.find((p) => p.id === selected.transcodeConfigId),
+      )
+    : undefined;
+  const ownLook = picture !== 'source' && picture !== 'off';
   const submitLink = () => {
-    const crt: ChannelCrtSettings | undefined =
-      picture === 'source' || picture === 'off'
-        ? undefined
-        : { enabled: true, look: picture, processing: 'quality' };
+    const crt: ChannelCrtSettings | undefined = ownLook
+      ? { enabled: true, look: picture, processing: 'quality' }
+      : undefined;
+    const keepSaved = !!channel.offset && picture === openedPicture;
     link.mutate({
       path: { id: channel.id },
       body: {
         sourceChannelId: sourceId,
         hours: hoursValue,
-        picture: crt
-          ? { mode: 'custom', crt }
-          : { mode: picture as 'source' | 'off' },
+        ...(keepSaved
+          ? {}
+          : {
+              picture: crt
+                ? { mode: 'custom', crt }
+                : { mode: picture as 'source' | 'off' },
+            }),
       },
     });
   };
@@ -275,11 +302,31 @@ export function ChannelOffsetSettings({
                   <Trans>No CRT look</Trans>
                 </MenuItem>
                 {CrtLooks.map((value) => (
-                  <MenuItem key={value} value={value}>
+                  <MenuItem
+                    key={value}
+                    value={value}
+                    disabled={!!sourceBlocker}
+                  >
                     {lookLabels[value]}
                   </MenuItem>
                 ))}
               </Select>
+              {sourceBlocker && (
+                <FormHelperText error={ownLook}>
+                  {sourceBlocker === 'passthrough' ? (
+                    <Trans>
+                      The source uses HLS Direct, which passes the video through
+                      untouched, so this channel can't draw a look of its own.
+                    </Trans>
+                  ) : (
+                    <Trans>
+                      The source's transcode profile can't draw a look: it needs
+                      VAAPI hardware acceleration, hardware encoding and
+                      hardware filters turned on.
+                    </Trans>
+                  )}
+                </FormHelperText>
+              )}
             </FormControl>
             {!channel.offset && (
               <Alert severity="warning">
@@ -297,7 +344,12 @@ export function ChannelOffsetSettings({
           </Button>
           <Button
             variant="contained"
-            disabled={!sourceId || !hoursValid || link.isPending}
+            disabled={
+              !sourceId ||
+              !hoursValid ||
+              (ownLook && !!sourceBlocker) ||
+              link.isPending
+            }
             onClick={submitLink}
           >
             <Trans>Save</Trans>

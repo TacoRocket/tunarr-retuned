@@ -149,6 +149,10 @@ function PictureAndCreditsControls({
       ? t`HLS Direct passes the video through untouched, so there is nothing to draw on. Choose HLS or MPEG-TS under Channel Stream Mode.`
       : t`This needs a transcode profile with VAAPI hardware acceleration, hardware encoding and hardware filters turned on.`;
 
+  const savedAdLists = (fillerLists.data ?? []).filter((list) =>
+    (creditSqueeze?.advertisementFillerListIds ?? []).includes(list.id),
+  );
+
   const crtOn = !!crt?.enabled;
   const look = crtOn ? crt.look : 'off';
   const setCrt = (next: ChannelCrtSettings | null) =>
@@ -388,6 +392,13 @@ function PictureAndCreditsControls({
           <FormHelperText>
             {choice === 'squeeze' && blocker ? (
               blockerText
+            ) : choice === 'squeeze' && onNext && savedAdLists.length > 0 ? (
+              <Trans>
+                Uses final-credit markers from your media server. With ads, an
+                episode's ending chapter also works: the ads stop at the end of
+                the chapter and the episode returns full screen for its preview
+                or the rest of the story. Programs with neither play to the end.
+              </Trans>
             ) : (
               <Trans>
                 Uses final-credit markers from your media server. Programs
@@ -424,16 +435,14 @@ function PictureAndCreditsControls({
             {/* Not a registered field: an empty list must be left out of the
                 request, and a registered empty field is sent as null, which
                 the API refuses. */}
+            {/* Off Next, lists already saved can still be removed (the
+                warning below asks for it), but none can be added. */}
             <Autocomplete
               multiple
-              disabled={!onNext}
-              options={fillerLists.data ?? []}
+              disabled={!onNext && savedAdLists.length === 0}
+              options={onNext ? (fillerLists.data ?? []) : savedAdLists}
               getOptionLabel={(list) => list.name}
-              value={(fillerLists.data ?? []).filter((list) =>
-                (creditSqueeze?.advertisementFillerListIds ?? []).includes(
-                  list.id,
-                ),
-              )}
+              value={savedAdLists}
               onChange={(_, lists) => {
                 if (!creditSqueeze) return;
                 const { advertisementFillerListIds: _old, ...rest } =
@@ -456,7 +465,9 @@ function PictureAndCreditsControls({
                   helperText={
                     onNext
                       ? t`Plays ads from these filler lists in the main picture while the credits shrink.`
-                      : t`Needs the ErsatzTV next playback engine.`
+                      : savedAdLists.length > 0
+                        ? t`Needs the ErsatzTV next playback engine. Remove these lists to keep a still-image squeeze.`
+                        : t`Needs the ErsatzTV next playback engine.`
                   }
                 />
               )}

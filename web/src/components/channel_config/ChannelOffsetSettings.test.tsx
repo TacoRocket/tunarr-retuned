@@ -5,12 +5,17 @@ import {
   seededQueryClient,
   within,
 } from '@/test/utils.tsx';
-import type { Channel } from '@tunarr/types';
+import useStore from '@/store/index.ts';
+import type { Channel, TranscodeConfig } from '@tunarr/types';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { ChannelOffsetSettings } from './ChannelOffsetSettings.tsx';
 
-const setOffset = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
-const clearOffset = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
+const setOffset = vi.hoisted(() =>
+  vi.fn((_vars: unknown): Promise<unknown> => Promise.resolve({})),
+);
+const clearOffset = vi.hoisted(() =>
+  vi.fn((_vars: unknown): Promise<unknown> => Promise.resolve({})),
+);
 vi.mock('@/generated/@tanstack/react-query.gen.ts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   setChannelOffsetMutation: () => ({ mutationFn: setOffset }),
@@ -24,8 +29,19 @@ const channel = (id: string, number: number, extra: Partial<Channel> = {}) =>
     name: `Channel ${number}`,
     onDemand: { enabled: false },
     offset: null,
+    streamMode: 'hls',
+    transcodeConfigId: 'vaapi',
     ...extra,
   }) as Channel;
+
+const profiles = [
+  {
+    id: 'vaapi',
+    hardwareAccelerationMode: 'vaapi',
+    disableHardwareEncoding: false,
+    disableHardwareFilters: false,
+  },
+] as TranscodeConfig[];
 
 const source = channel('src', 1);
 const plain = channel('me', 2);
@@ -41,6 +57,7 @@ function render(me: Channel, others: Channel[], hasUnsavedChanges = false) {
     <ChannelOffsetSettings
       channel={me}
       hasUnsavedChanges={hasUnsavedChanges}
+      transcodeConfigs={profiles}
     />,
     {
       queryClient: seededQueryClient([
@@ -112,4 +129,123 @@ test('unsaved channel changes must be saved or discarded first', () => {
   expect(
     screen.getByRole('button', { name: 'Play another channel later…' }),
   ).toBeDisabled();
+});
+
+// Codex review of #252: a delay-only edit sent the look as Quality with no
+// extras, overwriting the saved picture.
+test('changing only the hours keeps the saved custom picture', async () => {
+  const styled = channel('s', 5, {
+    offset: {
+      sourceChannelId: 'src',
+      hours: 3,
+      picture: {
+        mode: 'custom',
+        crt: {
+          enabled: true,
+          look: 'tv-broadcast',
+          processing: 'experimental',
+          broadcastGrain: 'half',
+          broadcastTexture: 'classic-flat',
+          broadcastComposite: true,
+        },
+      },
+    },
+  } as Partial<Channel>);
+  const { user } = render(styled, [source]);
+  await user.click(screen.getByRole('button', { name: 'Change…' }));
+  const dialog = screen.getByRole('dialog');
+  const hours = within(dialog).getByRole('spinbutton', { name: 'Hours later' });
+  await user.clear(hours);
+  await user.type(hours, '4');
+  await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+  // Left out, the API keeps the saved picture.
+  expect(setOffset).toHaveBeenCalledWith({
+    path: { id: 's' },
+    body: { sourceChannelId: 'src', hours: 4 },
+  });
+});
+
+test("looks the chosen source can't draw are disabled, with the reason", async () => {
+  const direct = channel('d', 6, {
+    streamMode: 'hls_direct_v2',
+  } as Partial<Channel>);
+  const { user } = render(plain, [source, direct]);
+  await user.click(
+    screen.getByRole('button', { name: 'Play another channel later…' }),
+  );
+  const dialog = screen.getByRole('dialog');
+  const pick = async (name: string) => {
+    await user.click(
+      within(dialog).getByRole('combobox', { name: 'Source channel' }),
+    );
+    await user.click(screen.getByRole('option', { name }));
+  };
+  const lookDisabled = async () => {
+    await user.click(within(dialog).getByRole('combobox', { name: 'Picture' }));
+    const disabled = screen
+      .getByRole('option', { name: 'Its own look: Classic flat' })
+      .getAttribute('aria-disabled');
+    const sameEnabled = screen
+      .getByRole('option', { name: 'Same as the source (recommended)' })
+      .getAttribute('aria-disabled');
+    await user.keyboard('{Escape}');
+    return { disabled, sameEnabled };
+  };
+
+  await pick('6 · Channel 6');
+  expect(await lookDisabled()).toEqual({ disabled: 'true', sameEnabled: null });
+  expect(within(dialog).getByText(/source uses HLS Direct/)).toBeVisible();
+
+  await pick('1 · Channel 1');
+  expect(await lookDisabled()).toEqual({ disabled: null, sameEnabled: null });
+});
+
+// Codex review of #252: Picture & Credits reads the editor store, which kept
+// the old offset for the same channel after linking or stopping.
+test('linking and stopping update the channel the other tabs read', async () => {
+  const setEditing = (c: Channel) =>
+    useStore.setState((state) => ({
+      channelEditor: {
+        ...state.channelEditor,
+        currentEntity: c as never,
+        originalEntity: c as never,
+      },
+    }));
+  setEditing(plain);
+  setOffset.mockResolvedValueOnce({
+    ...plain,
+    offset: { sourceChannelId: 'src', hours: 1 },
+  });
+  const { user, unmount } = render(plain, [source]);
+  await user.click(
+    screen.getByRole('button', { name: 'Play another channel later…' }),
+  );
+  const dialog = screen.getByRole('dialog');
+  await user.click(
+    within(dialog).getByRole('combobox', { name: 'Source channel' }),
+  );
+  await user.click(screen.getByRole('option', { name: '1 · Channel 1' }));
+  await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+  await vi.waitFor(() =>
+    expect(useStore.getState().channelEditor.currentEntity?.offset).toEqual({
+      sourceChannelId: 'src',
+      hours: 1,
+    }),
+  );
+  unmount();
+
+  setEditing(follower);
+  clearOffset.mockResolvedValueOnce({ ...follower, offset: null });
+  const again = render(follower, [source]);
+  await again.user.click(
+    screen.getByRole('button', { name: 'Stop following' }),
+  );
+  await again.user.click(
+    within(screen.getByRole('dialog')).getByRole('button', {
+      name: 'Stop following',
+    }),
+  );
+  await vi.waitFor(() =>
+    expect(useStore.getState().channelEditor.currentEntity?.offset).toBeNull(),
+  );
 });

@@ -171,3 +171,27 @@ test('an offset channel points at its source instead of showing controls', async
   ).toBeVisible();
   expect(screen.queryByRole('combobox', { name: 'CRT look' })).toBeNull();
 });
+
+// Codex review of #252: off Next the warning said to remove the ad lists, but
+// the picker was disabled, so the squeeze could not be saved.
+test('off Next, saved ad lists can be removed but none added', async () => {
+  const { user } = render({
+    useEtvNext: false,
+    creditSqueeze: {
+      enabled: true,
+      backgroundImage: '/artwork/credits.png',
+      advertisementFillerListIds: ['ads'],
+    },
+  });
+  const picker = screen.getByRole('combobox', {
+    name: 'Ads while the credits shrink (optional)',
+  });
+  expect(picker).toBeEnabled();
+  await user.click(picker);
+  await user.keyboard('{Backspace}');
+  expect(saved().creditSqueeze).toEqual({
+    enabled: true,
+    backgroundImage: '/artwork/credits.png',
+  });
+  expect(screen.queryByRole('option', { name: 'Ads' })).toBeNull();
+});
