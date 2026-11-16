@@ -195,3 +195,47 @@ test('off Next, saved ad lists can be removed but none added', async () => {
   });
   expect(screen.queryByRole('option', { name: 'Ads' })).toBeNull();
 });
+
+// Codex review of #252, round 2: a list deleted after it was chosen stayed on
+// the channel but not in the picker, so it couldn't be removed; off Next it
+// then blocked saving a still-image squeeze.
+test('a deleted ad list shows as a chip that can be removed', async () => {
+  const offNext = render({
+    useEtvNext: false,
+    creditSqueeze: {
+      enabled: true,
+      backgroundImage: '/artwork/credits.png',
+      advertisementFillerListIds: ['gone'],
+    },
+  });
+  const picker = () =>
+    screen.getByRole('combobox', {
+      name: 'Ads while the credits shrink (optional)',
+    });
+  expect(picker()).toBeEnabled();
+  expect(screen.getByText('Deleted list')).toBeVisible();
+  await offNext.user.click(picker());
+  await offNext.user.keyboard('{Backspace}');
+  expect(saved().creditSqueeze).toEqual({
+    enabled: true,
+    backgroundImage: '/artwork/credits.png',
+  });
+  offNext.unmount();
+
+  const onNext = render({
+    creditSqueeze: {
+      enabled: true,
+      backgroundImage: '/artwork/credits.png',
+      advertisementFillerListIds: ['ads', 'gone'],
+    },
+  });
+  expect(screen.getByText('Ads')).toBeVisible();
+  expect(screen.getByText('Deleted list')).toBeVisible();
+  await onNext.user.click(picker());
+  await onNext.user.keyboard('{Backspace}');
+  expect(saved().creditSqueeze).toEqual({
+    enabled: true,
+    backgroundImage: '/artwork/credits.png',
+    advertisementFillerListIds: ['ads'],
+  });
+});

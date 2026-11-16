@@ -5,7 +5,8 @@ import {
 } from '@/generated/@tanstack/react-query.gen.ts';
 import { conversionFailureReason } from '@/helpers/nextConversion.ts';
 import { invalidateTaggedQueries } from '@/helpers/queryUtil.ts';
-import { setCurrentChannel } from '@/store/channelEditor/actions.ts';
+import { channelProgrammingQuery } from '@/hooks/useChannelLineup.ts';
+import { replaceCurrentChannel } from '@/store/channelEditor/actions.ts';
 import { Trans, useLingui } from '@lingui/react/macro';
 import {
   Alert,
@@ -81,13 +82,24 @@ export function ChannelOffsetSettings({
     snackbar.enqueueSnackbar(conversionFailureReason(error), {
       variant: 'error',
     });
-  // The other tabs read the editor's copy of this channel, which only reloads
-  // when the channel changes; put the saved one there.
-  const keep = (saved: Channel) => setCurrentChannel(saved);
+  // The editor's copy of this channel and its lineup only reload when a
+  // different channel opens, but linking and stopping rewrite both on the
+  // server: put the saved channel and a fresh lineup there. If the lineup
+  // can't be read, drop it so the Programming page loads it again.
+  const keep = async (saved: Channel) => {
+    const lineup = channelProgrammingQuery(saved.id);
+    const programming = await queryClient
+      .fetchQuery({ ...lineup, staleTime: 0 })
+      .catch(() => {
+        queryClient.removeQueries({ queryKey: lineup.queryKey });
+        return undefined;
+      });
+    replaceCurrentChannel(saved, programming);
+  };
   const link = useMutation({
     ...setChannelOffsetMutation(),
     onSuccess: async (saved) => {
-      keep(saved);
+      await keep(saved);
       setDialog(null);
       await refresh();
       snackbar.enqueueSnackbar(t`Channel now plays its source later`, {
@@ -99,7 +111,7 @@ export function ChannelOffsetSettings({
   const stop = useMutation({
     ...clearChannelOffsetMutation(),
     onSuccess: async (saved) => {
-      keep(saved);
+      await keep(saved);
       setDialog(null);
       await refresh();
       snackbar.enqueueSnackbar(t`Channel no longer follows another channel`, {

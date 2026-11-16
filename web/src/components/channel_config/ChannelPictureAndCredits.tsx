@@ -28,6 +28,7 @@ import type {
   ChannelCreditSqueezeSettings,
   TranscodeConfig,
 } from '@tunarr/types';
+import { uniqBy } from 'lodash-es';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import {
@@ -149,8 +150,18 @@ function PictureAndCreditsControls({
       ? t`HLS Direct passes the video through untouched, so there is nothing to draw on. Choose HLS or MPEG-TS under Channel Stream Mode.`
       : t`This needs a transcode profile with VAAPI hardware acceleration, hardware encoding and hardware filters turned on.`;
 
-  const savedAdLists = (fillerLists.data ?? []).filter((list) =>
-    (creditSqueeze?.advertisementFillerListIds ?? []).includes(list.id),
+  // Built from the IDs the channel stores, so a list deleted since it was
+  // chosen still shows and can be removed.
+  const allAdLists = (fillerLists.data ?? []).map(({ id, name }) => ({
+    id,
+    name,
+  }));
+  const savedAdLists = (creditSqueeze?.advertisementFillerListIds ?? []).map(
+    (id) =>
+      allAdLists.find((list) => list.id === id) ?? {
+        id,
+        name: fillerLists.isPending ? t`Loading…` : t`Deleted list`,
+      },
   );
 
   const crtOn = !!crt?.enabled;
@@ -440,8 +451,13 @@ function PictureAndCreditsControls({
             <Autocomplete
               multiple
               disabled={!onNext && savedAdLists.length === 0}
-              options={onNext ? (fillerLists.data ?? []) : savedAdLists}
+              options={
+                onNext
+                  ? uniqBy([...allAdLists, ...savedAdLists], (list) => list.id)
+                  : savedAdLists
+              }
               getOptionLabel={(list) => list.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
               value={savedAdLists}
               onChange={(_, lists) => {
                 if (!creditSqueeze) return;
