@@ -1373,3 +1373,91 @@ describe('SubtitleExtractorTask cold-cache work budget', () => {
     }
   });
 });
+
+// A guide rebuild starts the lookahead too, and a channel that tops itself
+// up rebuilds the guide every few minutes. Nearly everything in the window
+// was already checked by the last scheduled run.
+describe('SubtitleExtractorTask lookahead after a guide change', () => {
+  beforeEach(() => {
+    SubtitleExtractorTask['clearedPrograms'].clear();
+  });
+
+  async function showing(h: Harness, ids: string[]) {
+    const guides = await h.getChannelGuides(undefined, [CHANNEL_ID]);
+    const first = guides[0]?.programs[0];
+    if (!first) throw new Error('Missing fixture guide');
+    h.getChannelGuides.mockResolvedValue([
+      {
+        id: CHANNEL_ID,
+        programs: ids.map((id, i) => ({
+          ...first,
+          id,
+          start: Date.now() + i * 3600000,
+        })),
+      },
+    ]);
+  }
+
+  async function runAfterGuideChange(h: Harness) {
+    const result = await h.task.run(
+      h.task.schema.parse({ newProgramsOnly: true }),
+    );
+    expect(result.isSuccess()).toBe(true);
+  }
+
+  const loaded = (h: Harness) =>
+    h.getProgramById.mock.calls.map((args) => args[0]);
+
+  it('checks only the programs the last full run did not clear', async () => {
+    const h = makeHarness({ subtitles: [] });
+    await showing(h, ['kept']);
+    await run(h);
+    await showing(h, ['kept', 'added']);
+
+    await runAfterGuideChange(h);
+
+    expect(loaded(h)).toEqual(['kept', 'added']);
+  });
+
+  it('checks everything again on the next full run', async () => {
+    const h = makeHarness({ subtitles: [] });
+    await showing(h, ['kept']);
+    await run(h);
+    await runAfterGuideChange(h);
+
+    await run(h);
+
+    expect(loaded(h)).toEqual(['kept', 'kept']);
+  });
+
+  it('checks everything when no full run has finished yet', async () => {
+    const h = makeHarness({ subtitles: [] });
+    await showing(h, ['kept']);
+
+    await runAfterGuideChange(h);
+
+    expect(loaded(h)).toEqual(['kept']);
+  });
+
+  it('keeps checking a program that still has work to do', async () => {
+    const h = makeHarness({
+      subtitles: [],
+      streamMode: 'hls_direct_v2',
+      useEtvNext: true,
+      enableAutomaticSubtitlePreparation: true,
+    });
+    // The profile wants English text the program does not have yet.
+    h.selectSubtitleStream.mockImplementation(
+      async ({ subtitleStreams }) =>
+        subtitleStreams.find((subtitle) => subtitle.type === 'external') ??
+        null,
+    );
+    await showing(h, ['kept']);
+    await run(h);
+    expect(h.prepareProgramSubtitles).toHaveBeenCalled();
+
+    await runAfterGuideChange(h);
+
+    expect(loaded(h)).toEqual(['kept', 'kept']);
+  });
+});

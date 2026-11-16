@@ -94,6 +94,9 @@ const ExtractionFilter = z.discriminatedUnion('type', [
 
 const SubtitleExtractorTaskRequest = z.object({
   filter: ExtractionFilter.optional(),
+  // Set by a run that a guide change started: check only the programs the
+  // last full run did not already find finished.
+  newProgramsOnly: z.boolean().optional(),
 });
 
 type SubtitleExtractorTaskRequest = z.infer<
@@ -197,6 +200,11 @@ export class SubtitleExtractorTask extends Task2<
     string,
     { source: string; failedAt: number }
   >();
+  // Per database: the programs a lookahead found nothing to do for, each with
+  // the channels and lists it was checked against. A run that a guide change
+  // started skips these. Every full run rebuilds the set, so nothing is
+  // trusted for longer than the hourly schedule, and a restart starts empty.
+  private static clearedPrograms = new Map<string, Map<string, string>>();
   public ID = SubtitleExtractorTask.ID;
 
   schema = SubtitleExtractorTaskRequest;
@@ -241,6 +249,11 @@ export class SubtitleExtractorTask extends Task2<
       );
       return result;
     }
+    const newProgramsOnly = request.newProgramsOnly === true;
+    // Clearing out unreferenced cache entries is the scheduled run's work.
+    if (newProgramsOnly) {
+      return this.runLookahead(request.filter ?? defaultFilter, true);
+    }
     await SubtitleExtractorTask.extractionMutex.runExclusive(async () => {
       const removed = await sweepSubtitleCache(
         path.join(
@@ -257,11 +270,17 @@ export class SubtitleExtractorTask extends Task2<
           removed,
         );
     });
-    const filter = request.filter ?? defaultFilter;
+    return this.runLookahead(request.filter ?? defaultFilter, false);
+  }
+
+  private async runLookahead(
+    filter: Exclude<z.infer<typeof ExtractionFilter>, { type: 'program' }>,
+    newProgramsOnly: boolean,
+  ): Promise<LookaheadPreparationResult | void> {
     switch (filter.type) {
       case 'time':
         return runWithStreamSelectionMemo(
-          () => this.handleTimeFilter(filter),
+          () => this.handleTimeFilter(filter, newProgramsOnly),
           ({ asked, readAttempts }) =>
             this.logger.info(
               'Stream selection lookups: %d asked, %d database read attempts',
@@ -274,11 +293,14 @@ export class SubtitleExtractorTask extends Task2<
           'Subtitle extraction filter type %s not yet implemented',
           filter.type,
         );
-        break;
+        return;
     }
   }
 
-  private async handleTimeFilter(filter: DurationExtractionFilter) {
+  private async handleTimeFilter(
+    filter: DurationExtractionFilter,
+    newProgramsOnly: boolean,
+  ) {
     const now = dayjs();
 
     for (const [key, { failedAt }] of SubtitleExtractorTask.failedExtractions) {
@@ -394,9 +416,27 @@ export class SubtitleExtractorTask extends Task2<
 
     const files = new Map<string, ExtractionFile>();
     const acquisitions = new Map<string, AutomaticPreparation>();
+    const database = path.resolve(this.globalOptions.databaseDirectory);
+    const lastCleared =
+      SubtitleExtractorTask.clearedPrograms.get(database) ??
+      new Map<string, string>();
+    // A full run starts the set over; a run after a guide change adds to it.
+    const cleared = newProgramsOnly ? lastCleared : new Map<string, string>();
+    let checked = 0;
     for (const program of [...scheduled.values()].sort(
       (a, b) => a.start - b.start,
     )) {
+      // A program that turns up on another channel or list is checked again,
+      // because a different profile may apply to it there.
+      const checkedAgainst = JSON.stringify([
+        program.mediaSourceId,
+        [...program.contexts.keys()].sort(),
+      ]);
+      if (newProgramsOnly && lastCleared.get(program.id) === checkedAgainst) {
+        continue;
+      }
+      checked++;
+      cleared.delete(program.id);
       const mediaSource = mediaSources.find(
         (ms) => ms.uuid === program.mediaSourceId,
       );
@@ -415,7 +455,19 @@ export class SubtitleExtractorTask extends Task2<
           'Failed to prepare subtitles for program %s',
           program.id,
         );
+      } else if (!result.get()) {
+        // Nothing to extract and nothing to request: finished until the next
+        // full run. A program with work queued is looked at again each time.
+        cleared.set(program.id, checkedAgainst);
       }
+    }
+    SubtitleExtractorTask.clearedPrograms.set(database, cleared);
+    if (newProgramsOnly) {
+      this.logger.info(
+        'Subtitle lookahead after a guide change: checked %d of %d programs',
+        checked,
+        scheduled.size,
+      );
     }
     // Collect every channel's requirements before reading any media file.
     let deferredFiles = 0;
@@ -720,9 +772,11 @@ export class SubtitleExtractorTask extends Task2<
     mediaSource: MediaSourceWithRelations,
     files: Map<string, ExtractionFile>,
     acquisitions: Map<string, AutomaticPreparation>,
-  ) {
+  ): Promise<boolean> {
+    // Whether this program left work behind: a file to read or text to request.
+    let queuedWork = false;
     const dbProgram = await this.prepareProgram(program.id, mediaSource);
-    if (!dbProgram) return;
+    if (!dbProgram) return false;
     const settings = this.settingsDB.ffmpegSettings();
     const contexts = [...program.contexts.values()];
     const scheduledContent = contexts.some((ctx) => !ctx.fillerListId);
@@ -738,15 +792,15 @@ export class SubtitleExtractorTask extends Task2<
           !isImageBasedSubtitle(sub.codec),
       )
     )
-      return;
-    if (!settings.enableSubtitleExtraction && !allowAcquisition) return;
+      return false;
+    if (!settings.enableSubtitleExtraction && !allowAcquisition) return false;
     // Legacy Direct V2 passes tracks through; Next consumes prepared sidecars.
     const transcodeChannels = contexts.filter(
       ({ channel }) =>
         channel.streamMode !== 'hls_direct_v2' ||
         routesToEtvNext(channel.streamMode, channel.useEtvNext ?? false),
     );
-    if (transcodeChannels.length === 0 && !allowAcquisition) return;
+    if (transcodeChannels.length === 0 && !allowAcquisition) return false;
     const result = await this.streamDetailsFetcher.getStream({
       server: mediaSource,
       lineupItem: { ...dbProgram, mediaSourceId: mediaSource.uuid },
@@ -803,6 +857,7 @@ export class SubtitleExtractorTask extends Task2<
         hints: { allowUnextracted: true },
       });
     const queueAcquisition = (sdh: boolean, reuseExistingText: boolean) => {
+      queuedWork = true;
       const acquisitionKey = JSON.stringify([program.id, sdh]);
       const existing = acquisitions.get(acquisitionKey);
       acquisitions.set(acquisitionKey, {
@@ -911,7 +966,9 @@ export class SubtitleExtractorTask extends Task2<
         programId: dbProgram.uuid,
       });
       files.set(key, file);
+      queuedWork = true;
     }
+    return queuedWork;
   }
 
   private async prepareProgram(
