@@ -2259,6 +2259,10 @@ msgstr ""
 msgid "Deleted custom show"
 msgstr ""
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Deleted list"
+msgstr ""
+
 #: src/components/channels/ChannelsDeleteDialog.tsx
 msgid "Deleting a channel removes all of its programming. This cannot be undone."
 msgstr ""
@@ -4008,6 +4012,7 @@ msgstr ""
 msgid "Loading..."
 msgstr ""
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
 #: src/components/ProgramSearchAutocomplete.tsx
 #: src/components/ui/patterns/AppShell/CommandPalette.tsx
 msgid "Loading…"
