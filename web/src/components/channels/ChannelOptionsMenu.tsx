@@ -26,6 +26,7 @@ import type { PopoverAnchorEl } from '../../types/dom.ts';
 import { ChannelDeleteDialog } from './ChannelDeleteDialog.tsx';
 import { DuplicateChannelProfileDialog } from './DuplicateChannelProfileDialog.tsx';
 import { useChannelBulkActions } from './useChannelBulkActions.ts';
+import { AdBreaksMenuItem } from '../ads/AdBreaksMenuItem.tsx';
 
 type Props = {
   row: Channel;
@@ -135,6 +136,7 @@ export const ChannelOptionsMenu = ({
             </ListItemText>
           </MenuItem>
         ) : null}
+        <AdBreaksMenuItem channelId={channelId} />
 
         <MenuItem
           onClick={(e) => {

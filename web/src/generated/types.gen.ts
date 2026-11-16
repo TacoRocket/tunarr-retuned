@@ -9963,6 +9963,35 @@ export type GetApiFillerListsByIdProgramsResponses = {
 
 export type GetApiFillerListsByIdProgramsResponse = GetApiFillerListsByIdProgramsResponses[keyof GetApiFillerListsByIdProgramsResponses];
 
+export type GetAdPoolsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ad-pools';
+};
+
+export type GetAdPoolsResponses = {
+    /**
+     * Default Response
+     */
+    200: Array<{
+        id: string;
+        name: string;
+        clipCount: number;
+        smartCollectionId: string | null;
+        smartCollectionName: string | null;
+        channels: Array<{
+            id: string;
+            number: number;
+            name: string;
+            adSpots: number;
+            inRecipe: boolean;
+        }>;
+    }>;
+};
+
+export type GetAdPoolsResponse = GetAdPoolsResponses[keyof GetAdPoolsResponses];
+
 export type PostApiProgrammingPresetsData = {
     body?: {
         maxDays?: number;

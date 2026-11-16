@@ -2,10 +2,15 @@ import type {
   RefreshFillerRequest,
   RefreshFillerResult,
 } from '@tunarr/types/api';
+import { podBreaks } from '@tunarr/shared/util';
 import { inject, injectable } from 'inversify';
 import type { LineupRepository } from '../db/channel/LineupRepository.ts';
 import { condensedProgramToLineupItem } from '../db/channel/lineupItemConversion.ts';
-import { isContentItem, type ContentItem } from '../db/derived_types/Lineup.ts';
+import {
+  isContentItem,
+  type ContentItem,
+  type Lineup,
+} from '../db/derived_types/Lineup.ts';
 import { BlockGenerationService } from '../services/scheduling/BlockGenerationService.ts';
 import { ScheduleValidationError } from '../types/errors.ts';
 import { KEYS } from '../types/inject.ts';
@@ -34,26 +39,37 @@ export class RefreshChannelFillerCommand {
     }
 
     const pools = new Set(request.fillerListIds);
-    const positions = original.lineup.items.flatMap((item, index) =>
-      isContentItem(item) &&
-      item.fillerType === 'post' &&
-      item.fillerListId &&
-      pools.has(item.fillerListId)
-        ? [{ index, poolId: item.fillerListId }]
-        : [],
-    );
+    // Fork: only clips in ad breaks are redrawn, by the same rule the Ad
+    // Pools and Ad Breaks pages count with (podBreaks): upstream's ordinary
+    // post-roll looks the same in a saved lineup and is left alone. Each
+    // break's positions are redrawn together so they skip clips already in
+    // the break, as when the schedule was generated. Positions from pools not
+    // being redrawn keep their clip.
+    const items = original.lineup.items;
+    const redrawn = podBreaks(
+      items.map((item) => ({ afterShowPool: afterShowPool(item) })),
+      original.lineup.schedule,
+    )
+      .map((run) =>
+        run.flatMap((index) => {
+          const poolId = afterShowPool(items[index]!);
+          return poolId && pools.has(poolId) ? [{ index, poolId }] : [];
+        }),
+      )
+      .filter((positions) => positions.length > 0);
+    const positions = redrawn.flat();
     for (const poolId of pools) {
       if (!positions.some((position) => position.poolId === poolId)) {
         throw new ScheduleValidationError(
-          `Pool ${poolId} has no saved after-show positions on this channel`,
+          `Pool ${poolId} has no saved ad-break positions on this channel`,
         );
       }
     }
 
     const generated = await this.blocks.generate({
-      entries: positions.map(({ poolId }) => ({
+      entries: redrawn.map((positions) => ({
         type: 'break',
-        positions: [{ fillerListIds: [poolId] }],
+        positions: positions.map(({ poolId }) => ({ fillerListIds: [poolId] })),
       })),
       seed: request.seed,
     });
@@ -85,4 +101,10 @@ export class RefreshChannelFillerCommand {
       seed: generated.seed,
     };
   }
+}
+
+function afterShowPool(item: Lineup['items'][number]): string | null {
+  return isContentItem(item) && item.fillerType === 'post' && item.fillerListId
+    ? item.fillerListId
+    : null;
 }

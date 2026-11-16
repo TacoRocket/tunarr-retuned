@@ -38,6 +38,7 @@ import { embyApiRouter } from './embyApi.ts';
 import { EtvNextApiController } from './etvApi.ts';
 import { ffmpegSettingsRouter } from './ffmpegSettingsApi.js';
 import { fillerListsApi } from './fillerListsApi.js';
+import { adPoolsApi } from './adPoolsApi.ts';
 import { guideRouter } from './guideApi.js';
 import { hdhrSettingsRouter } from './hdhrSettingsApi.js';
 import { jellyfinApiRouter } from './jellyfinApi.js';
@@ -81,6 +82,7 @@ export const apiRouter: RouterPluginAsyncCallback<{
     .register(nativePlaybackApi)
     .register(customShowsApiV2)
     .register(fillerListsApi)
+    .register(adPoolsApi)
     .register(programmingApi)
     .register(mediaSourceRouter)
     .register(ffmpegSettingsRouter)

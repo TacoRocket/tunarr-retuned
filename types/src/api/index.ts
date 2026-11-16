@@ -49,6 +49,7 @@ export * from './CommonSlots.js';
 export * from './BlockProgramming.js';
 export * from './SeedChannel.js';
 export * from './RefreshFiller.js';
+export * from './AdPools.js';
 export * from './RandomSlots.js';
 export * from './Scheduling.js';
 export * from './ShowSchedulingPresets.js';

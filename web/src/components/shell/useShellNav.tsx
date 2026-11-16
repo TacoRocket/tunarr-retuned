@@ -85,6 +85,7 @@ export const useShellNav = (): ShellNav => {
               to: '/library/custom-shows',
             },
             { id: 'fillers', label: t`Filler Lists`, to: '/library/fillers' },
+            { id: 'ads', label: t`Ad Pools`, to: '/library/ads' },
             {
               id: 'smart-collections',
               label: t`Smart Collections`,

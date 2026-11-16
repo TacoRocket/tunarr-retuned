@@ -13,6 +13,10 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid " or "
+msgstr ""
+
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid " Scheduling Strategy"
 msgstr ""
@@ -39,9 +43,29 @@ msgstr ""
 msgid "\"Stealth\" channels are hidden from TV guides, spoofed HDHR, the m3u playlist, etc. The channel can still be streamed directly, used as a redirect target, or exported from the Channels page."
 msgstr ""
 
+#. placeholder {0}: pool.spots
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "{0, plural, one {(# ad spot)} other {(# ad spots)}}"
+msgstr ""
+
 #. placeholder {0}: badge.count
 #: src/components/ui/patterns/AppShell/NavBadge.tsx
 msgid "{0, plural, one {(# health check issue)} other {(# health check issues)}}"
+msgstr ""
+
+#. placeholder {0}: stats.maxAds
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "{0, plural, one {# ad each} other {# ads each}}"
+msgstr ""
+
+#. placeholder {0}: channel.adSpots
+#: src/components/ads/AdPoolsPage.tsx
+msgid "{0, plural, one {# ad spot in saved breaks} other {# ad spots in saved breaks}}"
+msgstr ""
+
+#. placeholder {0}: stats.breaks
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "{0, plural, one {# break} other {# breaks}}"
 msgstr ""
 
 #. placeholder {0}: customShow.contentCount
@@ -217,6 +241,18 @@ msgstr ""
 #. placeholder {0}: choice.views
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "{0} recorded plays on this channel"
+msgstr ""
+
+#. placeholder {0}: stats.minAds
+#. placeholder {1}: stats.maxAds
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "{0}–{1} ads each"
+msgstr ""
+
+#. placeholder {0}: pool.name
+#. placeholder {1}: result.programCount
+#: src/components/ads/AdPoolsPage.tsx
+msgid "{0}: synced {1} clips"
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
@@ -470,6 +506,10 @@ msgstr ""
 msgid "A root path to scan for media. Local sources can search many different paths."
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+msgid "a Smart Collection"
+msgstr ""
+
 #: src/components/channel_config/ChannelPictureAndCredits.tsx
 msgid "A softer standard-definition picture with flat scanlines, like a DVD on a 2000s TV."
 msgstr ""
@@ -535,6 +575,23 @@ msgstr ""
 #: src/components/ui/table/ActionsHeader.tsx
 #: src/pages/settings/TaskSettingsPage.tsx
 msgid "Actions"
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Ad breaks"
+msgstr ""
+
+#: src/components/ads/AdBreaksMenuItem.tsx
+msgid "Ad Breaks"
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Ad pools"
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+#: src/components/shell/useShellNav.tsx
+msgid "Ad Pools"
 msgstr ""
 
 #: src/components/channel_config/AddProgrammingButton.tsx
@@ -779,12 +836,25 @@ msgstr ""
 msgid "Advanced Video Options"
 msgstr ""
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "After each show the channel plays a few ads in a row, then the next show, like streaming TV. A break is as long as its ads; it doesn't pad to the clock. Each spot draws from an <0>ad pool</0>."
+msgstr ""
+
 #: src/components/programming_controls/AddBreaksModal.tsx
 msgid "After Every"
 msgstr ""
 
 #: src/components/programming_controls/AddBreaksModal.tsx
 msgid "after every program"
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "After every show"
+msgstr ""
+
+#. placeholder {0}: recipe.slots.join(', ')
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "After shows in slots {0}"
 msgstr ""
 
 #: src/components/programs/Albums.tsx
@@ -888,6 +958,10 @@ msgstr ""
 
 #: src/components/search/DateSearchValueNode.tsx
 msgid "Amount"
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "An ad break plays a few ads in a row after each show, then goes back to the show, like streaming TV. It doesn't pad to the clock. Each spot in a break draws from a pool. A pool can fill itself from a tag search (a Smart Collection), so new ads show up after a library scan."
 msgstr ""
 
 #. placeholder {0}: error.message
@@ -1247,6 +1321,10 @@ msgstr ""
 msgid "Break Positioning"
 msgstr ""
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Break recipe"
+msgstr ""
+
 #: src/pages/settings/ExtensionsSettingsPage.tsx
 msgid "Browse extensions"
 msgstr ""
@@ -1330,6 +1408,8 @@ msgstr ""
 msgid "Calculating Slots..."
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+#: src/components/ads/AdPoolsPage.tsx
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 #: src/components/channel_config/ChannelOffsetSettings.tsx
 #: src/components/channel_config/ChannelOffsetSettings.tsx
@@ -1631,6 +1711,10 @@ msgstr ""
 
 #: src/components/channel_config/CustomShowProgrammingSelector.tsx
 msgid "Click to preview the items in this Custom Show. Note that only the whole show can be added at once."
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Clips"
 msgstr ""
 
 #: src/components/ui/patterns/AppShell/CommandPalette.tsx
@@ -1995,6 +2079,26 @@ msgstr ""
 msgid "Could not update the extension."
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Couldn't create the pool."
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Couldn't load the ad pools."
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Couldn't load the channel's programming."
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Couldn't redraw the ads."
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Couldn't update the pool."
+msgstr ""
+
 #: src/components/channel_config/WatermarkTimingFields.tsx
 msgid "Counted from the start of each program. If a stream starts partway through a program, it counts from that point. Set to 0 for no limit."
 msgstr ""
@@ -2003,6 +2107,7 @@ msgstr ""
 #~ msgid "Counted from the start of each program. Set to 0 for no limit."
 #~ msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
 #: src/components/smart_collections/SmartCollectionsTable.tsx
 msgid "Create"
 msgstr ""
@@ -2025,6 +2130,10 @@ msgstr ""
 msgid "Create a Next-compatible transcode profile to add a channel."
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Create a Smart Collection under Library first, for example tags = \"/commercials/Ads/Retro Gaming\" AND type = \"other_video\"."
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
 #~ msgid "Create administrator"
 #~ msgstr ""
@@ -2035,6 +2144,10 @@ msgstr ""
 
 #: src/components/programming_controls/AddRerunBlockModal.tsx
 msgid "Create Rerun Block"
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Created the {name} pool"
 msgstr ""
 
 #: src/components/smart_collections/CreateSmartCollectionDialog.tsx
@@ -2259,6 +2372,7 @@ msgstr ""
 msgid "Deleted custom show"
 msgstr ""
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
 #: src/components/channel_config/ChannelPictureAndCredits.tsx
 msgid "Deleted list"
 msgstr ""
@@ -2530,6 +2644,10 @@ msgstr ""
 #: src/components/channels/ChannelsView.tsx
 #: src/components/channels/ChannelsView.tsx
 msgid "Edit Channel Settings"
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Edit clips"
 msgstr ""
 
 #: src/pages/library/EditFillerPage.tsx
@@ -3139,6 +3257,11 @@ msgstr ""
 msgid "File a Bug Report"
 msgstr ""
 
+#. placeholder {0}: pool.name
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Fill {0} from a Smart Collection"
+msgstr ""
+
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Fill to this minimum, from 1 to 168 hours."
 msgstr ""
@@ -3212,6 +3335,10 @@ msgstr ""
 
 #: src/components/channel_config/ChannelFlexConfig.tsx
 msgid "Filler Options"
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Fills from"
 msgstr ""
 
 #: src/components/channel_config/ChannelPictureAndCredits.tsx
@@ -3471,6 +3598,10 @@ msgstr ""
 
 #: src/pages/guide/GuidePage.tsx
 msgid "Guide Start Time"
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Hand-picked"
 msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
@@ -3793,6 +3924,10 @@ msgstr ""
 msgid "Its own look: TV broadcast"
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Its playable clips are copied into the pool, and again after every library scan."
+msgstr ""
+
 #: src/components/channels/useChannelBulkActions.ts
 #: src/components/channels/useChannelBulkActions.ts
 msgid "its source channel"
@@ -3953,6 +4088,10 @@ msgstr ""
 msgid "Linear"
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Link"
+msgstr ""
+
 #: src/components/slot_scheduler/SlotLinkingControl.tsx
 #: src/components/slot_scheduler/SlotLinkingControl.tsx
 msgid "Link Mode"
@@ -3962,8 +4101,16 @@ msgstr ""
 msgid "Link to existing slot"
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Link…"
+msgstr ""
+
 #: src/components/slot_scheduler/SlotLinkingControl.tsx
 msgid "Linked slots advance episode progression together sequentially."
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Linking replaces the pool's hand-picked clips. Unlinking later keeps whatever it has then."
 msgstr ""
 
 #: src/components/base/ProgramViewToggleButton.tsx
@@ -4444,6 +4591,7 @@ msgstr ""
 msgid "Must use a valid URL, or empty."
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
 #: src/components/channels/ChannelsView.tsx
 #: src/components/custom-shows/EditCustomShowForm.tsx
 #: src/components/filler/EditFillerListForm.tsx
@@ -4517,6 +4665,10 @@ msgstr ""
 msgid "New"
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+msgid "New ad pool"
+msgstr ""
+
 #: src/components/channels/ChannelsView.tsx
 #: src/pages/channels/NewChannelPage.tsx
 #: src/pages/welcome/WelcomePage.tsx
@@ -4546,6 +4698,10 @@ msgstr ""
 
 #: src/components/settings/media_source/PlexServerEditDialog.tsx
 msgid "New Plex Server"
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "New pool"
 msgstr ""
 
 #: src/pages/profiles/StreamSelectionProfilePage.tsx
@@ -4591,6 +4747,18 @@ msgstr ""
 #~ msgid "No active sessions"
 #~ msgstr ""
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "No ad breaks in the saved lineup yet."
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "No ad pools yet. Create one from a Smart Collection with New pool. Pools a channel's ad breaks use also show up here."
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "No channel yet"
+msgstr ""
+
 #: src/components/fillers/AssignFillerToChannelsDialog.tsx
 msgid "No channels found. Create a channel first."
 msgstr ""
@@ -4601,6 +4769,10 @@ msgstr ""
 
 #: src/components/channels/useChannelBulkActions.ts
 msgid "No channels were converted. These stay on the legacy engine and still play:"
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "No clock padding: the next show starts as soon as the break ends."
 msgstr ""
 
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
@@ -4844,10 +5016,18 @@ msgstr ""
 msgid "On converts HDR to SDR. SDR fallback keeps compatible 10-bit HDR and converts incompatible HDR, including Dolby Vision profile 5 or 8-bit output, to SDR with a status API label. Off never converts HDR and blocks incompatible programs with a status API label. HDR playback needs an HDR display. Transcode configs can override this default. Applies only to ErsatzTV Next, starting with the next playback session."
 msgstr ""
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "On this channel"
+msgstr ""
+
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
 #: src/components/channels/ChannelCard.tsx
 #: src/components/channels/ChannelsView.tsx
 msgid "On-Demand"
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "On-demand channels can't redraw their ads."
 msgstr ""
 
 #: src/components/channel_config/ChannelOffsetSettings.tsx
@@ -5196,6 +5376,10 @@ msgstr ""
 msgid "Plex (Manual)"
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Pool"
+msgstr ""
+
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Position"
@@ -5486,6 +5670,30 @@ msgstr ""
 
 #: src/components/channel_config/AddProgrammingButton.tsx
 msgid "Redirect..."
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Redraw"
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Redraw ads"
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Redraw picks ads from the checked pools and keeps the shows, schedule, and ad currently on air. Within each break, it avoids repeats among its new picks when another clip is available. A clip kept on air or from an unchecked pool can play again in the same break."
+msgstr ""
+
+#. placeholder {0}: result.refreshedPositions
+#. placeholder {1}: result.matchedPositions
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Redrew {0} of {1} ads"
+msgstr ""
+
+#. placeholder {0}: result.refreshedPositions
+#. placeholder {1}: result.matchedPositions
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Redrew {0} of {1} ads. Your unsaved Programming changes were kept; saving them puts the previous ads back."
 msgstr ""
 
 #: src/hooks/useVersion.tsx
@@ -5930,6 +6138,10 @@ msgstr ""
 
 #: src/components/channel_config/ChannelOffsetSettings.tsx
 msgid "Save or discard your channel changes first."
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Save or reset your programming changes first."
 msgstr ""
 
 #: src/components/smart_collections/CreateSmartCollectionDialog.tsx
@@ -6400,6 +6612,8 @@ msgstr ""
 msgid "Smart collection"
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+#: src/components/ads/AdPoolsPage.tsx
 #: src/components/slot_scheduler/SmartCollectionSlotProgrammingForm.tsx
 msgid "Smart Collection"
 msgstr ""
@@ -6444,6 +6658,10 @@ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Some saved seeds are unavailable. Remove them or choose replacements."
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Some slots also have timed mid-roll breaks. Those are Tunarr's interval breaks inside a show, separate from these ad breaks."
 msgstr ""
 
 #: src/hooks/useQueryErrorSnackbar.tsx
@@ -6768,6 +6986,10 @@ msgstr ""
 msgid "Sync"
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Sync now"
+msgstr ""
+
 #: src/components/custom-shows/EditCustomShowForm.tsx
 msgid "Sync Now"
 msgstr ""
@@ -6920,6 +7142,10 @@ msgstr ""
 msgid "The saved value will be removed when you save."
 msgstr ""
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "The schedule has no break recipe. A recipe is set on a Random Slots show slot; see the ad pods guide for now."
+msgstr ""
+
 #: src/components/LanguagePreferencesList.tsx
 #~ msgid "The selected languages will be considered in order they are selected."
 #~ msgstr ""
@@ -6972,6 +7198,10 @@ msgstr ""
 msgid "There was an error when submitting the form. Please see console logs for details."
 msgstr ""
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "These breaks come from an earlier schedule that has since been edited by hand. They stay as they are; Redraw ads can still refresh their clips."
+msgstr ""
+
 #: src/components/settings/general/WebSettings.tsx
 msgid "These settings are stored in your browser and are saved automatically when changed."
 msgstr ""
@@ -7019,9 +7249,17 @@ msgstr ""
 msgid "This channel plays another channel later. Its credit handling follows that channel; its picture is set under Properties, in Plays another channel later."
 msgstr ""
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "This channel plays another channel's lineup later, so its ad breaks come from there. <0>See that channel's ad breaks</0>."
+msgstr ""
+
 #: src/components/channel_config/LegacyEngineNotice.tsx
 #: src/components/channel_config/LegacyEngineNotice.tsx
 msgid "This channel uses the legacy playback engine"
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "This channel uses Time Slots, which fill each slot to the clock. Ad breaks need a Random Slots schedule with shows counted by episode."
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelPlaybackNotice.tsx
@@ -7105,6 +7343,10 @@ msgstr ""
 msgid "This replaces this channel's programming with the source's. Its name, number and artwork stay."
 msgstr ""
 
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "This schedule pads to the next {padding}-minute mark, so dead air follows each break until the clock catches up. Ad break channels run without clock padding."
+msgstr ""
+
 #: src/components/slot_scheduler/TimeSlotTable.tsx
 #: src/components/slot_scheduler/TimeSlotTable.tsx
 msgid "This show is marked as missing in the database."
@@ -7178,6 +7420,10 @@ msgstr ""
 
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "Time Slots"
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Time Slots channels pick their ads when the schedule is generated. Generate it again for new ones."
 msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingOrganizeOptions.tsx
@@ -7510,6 +7756,7 @@ msgstr ""
 msgid "Unknown library"
 msgstr ""
 
+#: src/components/ads/AdPoolsPage.tsx
 #: src/components/slot_scheduler/SlotLinkingControl.tsx
 msgid "Unlink"
 msgstr ""
@@ -7618,6 +7865,10 @@ msgstr ""
 #. placeholder {0}: allowance.memoryMiB
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
 msgid "use up to {0} MB of memory"
+msgstr ""
+
+#: src/components/ads/AdPoolsPage.tsx
+msgid "Used by"
 msgstr ""
 
 #: src/components/profiles/StreamSelectionProfilesTable.tsx
