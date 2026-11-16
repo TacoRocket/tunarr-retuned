@@ -1473,4 +1473,43 @@ describe('SubtitleExtractorTask lookahead after a guide change', () => {
 
     expect(loaded(h)).toEqual(['late', 'late']);
   });
+
+  // A run after a guide change can still be going when the hourly run starts
+  // and finishes. What the hourly run recorded is the newer answer.
+  it('does not put back the record a later full run replaced', async () => {
+    const h = makeHarness({ subtitles: [] });
+    const loadProgram = h.getProgramById.getMockImplementation();
+    if (!loadProgram) throw new Error('Missing fixture program lookup');
+    await showing(h, ['old']);
+    await run(h);
+
+    // The run after a guide change stops while it loads 'added'.
+    await showing(h, ['old', 'added']);
+    let reachedLookup = () => {};
+    const atLookup = new Promise<void>((resolve) => (reachedLookup = resolve));
+    let finishLookup = () => {};
+    const lookupFinished = new Promise<void>(
+      (resolve) => (finishLookup = resolve),
+    );
+    h.getProgramById.mockImplementationOnce(async (id) => {
+      reachedLookup();
+      await lookupFinished;
+      return loadProgram(id);
+    });
+    const afterGuideChange = runAfterGuideChange(h);
+    await atLookup;
+
+    // Meanwhile 'old' has left the guide and a full run finishes without it.
+    await showing(h, ['other']);
+    await run(h);
+    finishLookup();
+    await afterGuideChange;
+
+    // 'old' is back. The last full run never looked at it.
+    await showing(h, ['old', 'other']);
+    h.getProgramById.mockClear();
+    await runAfterGuideChange(h);
+
+    expect(loaded(h)).toEqual(['old']);
+  });
 });

@@ -31,6 +31,7 @@ describe('UpdateXmlTvTask', () => {
 
     vi.spyOn(GlobalScheduler, 'getScheduledJob').mockReturnValue({
       runNow: vi.fn().mockResolvedValue(undefined),
+      runBesideSchedule: vi.fn().mockResolvedValue(undefined),
     } as unknown as ScheduledTask);
 
     const task = new UpdateXmlTvTask(

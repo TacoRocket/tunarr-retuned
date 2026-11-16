@@ -205,6 +205,15 @@ export class SubtitleExtractorTask extends Task2<
   // started skips these. Every full run rebuilds the set, so nothing is
   // trusted for longer than the hourly schedule, and a restart starts empty.
   private static clearedPrograms = new Map<string, Map<string, string>>();
+
+  private static installedRecord(database: string): Map<string, string> {
+    let record = SubtitleExtractorTask.clearedPrograms.get(database);
+    if (!record) {
+      record = new Map<string, string>();
+      SubtitleExtractorTask.clearedPrograms.set(database, record);
+    }
+    return record;
+  }
   public ID = SubtitleExtractorTask.ID;
 
   schema = SubtitleExtractorTaskRequest;
@@ -417,11 +426,11 @@ export class SubtitleExtractorTask extends Task2<
     const files = new Map<string, ExtractionFile>();
     const acquisitions = new Map<string, AutomaticPreparation>();
     const database = path.resolve(this.globalOptions.databaseDirectory);
-    const lastCleared =
-      SubtitleExtractorTask.clearedPrograms.get(database) ??
-      new Map<string, string>();
-    // A full run starts the set over; a run after a guide change adds to it.
-    const cleared = newProgramsOnly ? lastCleared : new Map<string, string>();
+    // A full run builds its own record and installs it when it ends. A run
+    // after a guide change reads and adds to the installed one. Runs can
+    // overlap, so it looks the record up again for each program and never
+    // installs one itself over what a full run recorded.
+    const ownRecord = newProgramsOnly ? undefined : new Map<string, string>();
     let checked = 0;
     for (const program of [...scheduled.values()].sort(
       (a, b) => a.start - b.start,
@@ -432,7 +441,11 @@ export class SubtitleExtractorTask extends Task2<
         program.mediaSourceId,
         [...program.contexts.keys()].sort(),
       ]);
-      if (newProgramsOnly && lastCleared.get(program.id) === checkedAgainst) {
+      // If a full run replaces the record while this program is being
+      // checked, the answer lands in the record it replaced and is dropped.
+      const cleared =
+        ownRecord ?? SubtitleExtractorTask.installedRecord(database);
+      if (newProgramsOnly && cleared.get(program.id) === checkedAgainst) {
         continue;
       }
       checked++;
@@ -462,7 +475,9 @@ export class SubtitleExtractorTask extends Task2<
         cleared.set(program.id, checkedAgainst);
       }
     }
-    SubtitleExtractorTask.clearedPrograms.set(database, cleared);
+    if (ownRecord) {
+      SubtitleExtractorTask.clearedPrograms.set(database, ownRecord);
+    }
     if (newProgramsOnly) {
       this.logger.info(
         'Subtitle lookahead after a guide change: checked %d of %d programs',
