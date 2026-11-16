@@ -16,7 +16,7 @@ This page covers how your FFmpeg and transcode settings reach the worker. For wh
 
 <!-- SIGNPOST(native-retirement): update when native playback and its stream modes are removed. -->
 
-**New Channel** uses ErsatzTV next. In **Edit Channel → Streaming**, the **Playback engine** setting lets you change an existing channel individually. Select **HLS**, **HLS Direct v2** or **MPEG-TS** to use Next. HLS alt and HLS Direct use Tunarr's native engine.
+**New Channel** uses ErsatzTV next. An existing channel still on Tunarr's native engine shows **Convert to ErsatzTV next** on its edit page, and the Channels page converts several at once. Converting keeps the channel's settings and programming and moves HLS alt and HLS Direct to HLS. Until a channel is converted, its settings are read-only in the web app; its programming stays editable. The **Streaming** tab shows the engine rather than offering a choice, and offers **HLS**, **HLS Direct v2** and **MPEG-TS**. The API still accepts native settings for one more release, as an escape hatch.
 
 ## How settings are translated
 
@@ -33,7 +33,7 @@ A transcode config with any of these cannot back a channel on this backend. The 
 | AC-3 channels | At most 6 (5.1) |
 | Hardware acceleration | `none`, `cuda`, `qsv`, `vaapi`, `videotoolbox` |
 
-New transcode profiles only offer settings Next accepts. For a channel on Next, the **Streaming** tab greys out profiles it can't play and, if the channel's current profile is one of them, says why under the profile picker and won't save until you choose another profile or set the playback engine to Tunarr. New Channel lists only profiles Next can play.
+New transcode profiles only offer settings Next accepts. For a channel on Next, the **Streaming** tab greys out profiles it can't play and, if the channel's current profile is one of them, says why under the profile picker and won't save until you choose another profile. New Channel lists only profiles Next can play.
 
 ### Dropped settings
 

@@ -26,7 +26,8 @@ type Props = {
  * SIGNPOST(native-retirement): remove with native playback.
  *
  * Offers a channel still on Tunarr's native pipeline a one-click move to
- * ErsatzTV next. The channel stays fully editable either way.
+ * ErsatzTV next. Until it converts, the edit page around this notice is
+ * read-only; programming stays editable on its own page.
  */
 export function LegacyEngineNotice({ channel, onConverted }: Props) {
   if (!isLegacyChannel(channel)) return null;
@@ -69,7 +70,10 @@ function ConvertNotice({ channel, onConverted }: Props) {
             </Trans>{' '}
           </>
         )}
-        <Trans>You can switch back under Streaming, in Playback engine.</Trans>
+        <Trans>
+          Its settings are read-only until it's converted. Programming can still
+          be changed.
+        </Trans>
         {/* Under the text rather than beside it, so a phone keeps the text
             readable and the button on one line. */}
         <Box sx={{ mt: 1.5 }}>
@@ -107,13 +111,14 @@ function FollowsSourceNotice({ sourceId }: { sourceId: string }) {
       {sourceName ? (
         <Trans>
           It plays {sourceName} later and uses its playback engine. Convert{' '}
-          {sourceName} to ErsatzTV next, and this channel moves with it.
+          {sourceName} to ErsatzTV next, and this channel moves with it. Until
+          then its settings are read-only.
         </Trans>
       ) : (
         <Trans>
           It plays another channel later and uses that channel's playback
           engine. Convert that channel to ErsatzTV next, and this channel moves
-          with it.
+          with it. Until then its settings are read-only.
         </Trans>
       )}
       <Box sx={{ mt: 1.5 }}>

@@ -18,7 +18,7 @@ import type {
   TranscodeConfig,
 } from '@tunarr/types';
 import { isEmpty, isNil, keys, map, reject, some } from 'lodash-es';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
   FormProvider,
@@ -42,6 +42,7 @@ import { ChannelFlexConfig } from './ChannelFlexConfig.tsx';
 import { ChannelLiveRelaySettings } from './ChannelLiveRelaySettings.tsx';
 import { applyConversionToForm } from './applyConversionToForm.ts';
 import { LegacyEngineNotice } from './LegacyEngineNotice.tsx';
+import { isLegacyChannel } from '@/helpers/nextConversion.ts';
 import { ChannelPropertiesEditor } from './ChannelPropertiesEditor.tsx';
 import ChannelTranscodingConfig, {
   ChannelTranscodeProfileSelect,
@@ -206,6 +207,16 @@ export function EditChannelForm({
     refetchOnWindowFocus: false,
   });
   const [creationError, setCreationError] = useState<string>();
+
+  // SIGNPOST(native-retirement): a channel still on Tunarr's own engine is
+  // read-only here until it's converted; the notice above the tabs converts it.
+  // Keyed to the saved channel, so it lifts as soon as the conversion saves.
+  // The API still accepts edits for one more release, as an escape hatch.
+  const locked = !isNew && isLegacyChannel(channel);
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    formRef.current?.toggleAttribute('inert', locked);
+  }, [locked]);
 
   const createUpdateSuccessCallback = useCallback(
     async (data: Channel) => {
@@ -404,6 +415,9 @@ export function EditChannelForm({
       <FormProvider {...formMethods}>
         <Box
           component="form"
+          ref={formRef}
+          aria-disabled={locked || undefined}
+          sx={locked ? { opacity: 0.7 } : undefined}
           onSubmit={formMethods.handleSubmit(onSubmit, onInvalid)}
         >
           <EditChannelTabPanel value="properties" currentValue={currentTab}>
@@ -520,7 +534,7 @@ export function EditChannelForm({
               {creationError}
             </Alert>
           )}
-          <ChannelEditActions isNewChannel={isNew} />
+          {!locked && <ChannelEditActions isNewChannel={isNew} />}
         </Box>
       </FormProvider>
       {!isNew && (

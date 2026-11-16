@@ -83,7 +83,11 @@ test('a legacy channel is offered a one-click conversion and says when its strea
     screen.getByText('This channel uses the legacy playback engine'),
   ).toBeVisible();
   expect(screen.getByText(/changes from HLS Alt to HLS/)).toBeVisible();
-  expect(screen.getByText(/switch back under Streaming/)).toBeVisible();
+  // The lock: settings wait for the conversion, which can't be undone here.
+  expect(
+    screen.getByText(/settings are read-only until it's converted/),
+  ).toBeVisible();
+  expect(screen.queryByText(/switch back/)).toBeNull();
 
   await user.click(
     screen.getByRole('button', { name: 'Convert to ErsatzTV next' }),

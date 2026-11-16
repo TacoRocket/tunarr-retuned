@@ -42,8 +42,8 @@ warning; streams may fail in ways its schema checks cannot catch.
 
 On the fork's ErsatzTV next backend, **HLS Direct v2** copies each program's
 video and audio when it can, avoiding unnecessary re-encoding. Select that
-stream mode and **ErsatzTV next (Experimental)** under **Playback engine** on
-the channel's Streaming tab.
+stream mode on the channel's Streaming tab. New channels use ErsatzTV next; a
+channel still on Tunarr's own engine converts from its edit page.
 
 The worker can copy H.264 or HEVC video and AAC, AC-3, E-AC-3 or MP3 audio.
 It re-encodes streams it cannot copy, including video with burned-in or image
