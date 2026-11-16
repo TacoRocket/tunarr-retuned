@@ -24,7 +24,9 @@ vi.mock('@/generated/@tanstack/react-query.gen.ts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   setChannelOffsetMutation: () => ({ mutationFn: setOffset }),
   clearChannelOffsetMutation: () => ({ mutationFn: clearOffset }),
-  getApiChannelsByIdProgrammingOptions: (options: { path: { id: string } }) => ({
+  getApiChannelsByIdProgrammingOptions: (options: {
+    path: { id: string };
+  }) => ({
     queryKey: ['programming', options.path.id],
     queryFn: () => loadProgramming(options.path.id),
   }),

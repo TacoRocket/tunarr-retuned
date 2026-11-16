@@ -33,10 +33,10 @@ Bug fixes while native playback is being retired:
 
 What still gets fixed on the native path narrows with each retirement step. Steps follow
 public releases, not `main`: a step starts when the release that carries it ships, and
-that release moves the *now* marker here. Someone running `main` is a step ahead, which
+that release moves the _now_ marker here. Someone running `main` is a step ahead, which
 only helps.
 
-1. **No new native channels in the web app** (#217) — *now*. Existing channels switch by
+1. **No new native channels in the web app** (#217) — _now_. Existing channels switch by
    hand: Streaming → **Playback engine** → ErsatzTV next. Still fixed: security problems,
    and a channel that is plainly broken (won't play, errors out, loses its settings) when
    someone reports it and the fix is reasonable: small and contained, not new machinery.
