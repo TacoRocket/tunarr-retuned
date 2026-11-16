@@ -35,6 +35,7 @@ import { Route as ProfilesTranscodeRouteImport } from './routes/profiles/transco
 import { Route as ProfilesStreamSelectionRouteImport } from './routes/profiles/stream-selection';
 import { Route as LibraryFillersRouteImport } from './routes/library/fillers';
 import { Route as LibraryCustomShowsRouteImport } from './routes/library/custom-shows';
+import { Route as LibraryAdsRouteImport } from './routes/library/ads';
 import { Route as ChannelsTestRouteImport } from './routes/channels_/test';
 import { Route as ChannelsNewRouteImport } from './routes/channels_/new';
 import { Route as ChannelsChannelIdRouteRouteImport } from './routes/channels_/$channelId/route';
@@ -51,6 +52,7 @@ import { Route as ProfilesStreamSelectionProfileIdRouteImport } from './routes/p
 import { Route as MediaProgramTypeProgramIdRouteImport } from './routes/media_/$programType.$programId';
 import { Route as LibrarySmart_collectionsIdRouteImport } from './routes/library/smart_collections/$id';
 import { Route as ChannelsChannelIdWatchRouteImport } from './routes/channels_/$channelId/watch';
+import { Route as ChannelsChannelIdAdBreaksRouteImport } from './routes/channels_/$channelId/ad-breaks';
 import { Route as LibraryFillersNewRouteRouteImport } from './routes/library/fillers_/new/route';
 import { Route as LibraryFillersFillerIdRouteRouteImport } from './routes/library/fillers_/$fillerId/route';
 import { Route as LibraryCustomShowsNewRouteRouteImport } from './routes/library/custom-shows_/new/route';
@@ -200,6 +202,11 @@ const LibraryCustomShowsRoute = LibraryCustomShowsRouteImport.update({
   path: '/library/custom-shows',
   getParentRoute: () => rootRouteImport,
 } as any);
+const LibraryAdsRoute = LibraryAdsRouteImport.update({
+  id: '/library/ads',
+  path: '/library/ads',
+  getParentRoute: () => rootRouteImport,
+} as any);
 const ChannelsTestRoute = ChannelsTestRouteImport.update({
   id: '/channels_/test',
   path: '/channels/test',
@@ -287,6 +294,12 @@ const ChannelsChannelIdWatchRoute = ChannelsChannelIdWatchRouteImport.update({
   path: '/watch',
   getParentRoute: () => ChannelsChannelIdRouteRoute,
 } as any);
+const ChannelsChannelIdAdBreaksRoute =
+  ChannelsChannelIdAdBreaksRouteImport.update({
+    id: '/ad-breaks',
+    path: '/ad-breaks',
+    getParentRoute: () => ChannelsChannelIdRouteRoute,
+  } as any);
 const LibraryFillersNewRouteRoute = LibraryFillersNewRouteRouteImport.update({
   id: '/library/fillers_/new',
   path: '/library/fillers/new',
@@ -404,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/channels/$channelId': typeof ChannelsChannelIdRouteRouteWithChildren;
   '/channels/new': typeof ChannelsNewRoute;
   '/channels/test': typeof ChannelsTestRoute;
+  '/library/ads': typeof LibraryAdsRoute;
   '/library/custom-shows': typeof LibraryCustomShowsRoute;
   '/library/fillers': typeof LibraryFillersRoute;
   '/profiles/stream-selection': typeof ProfilesStreamSelectionRoute;
@@ -428,6 +442,7 @@ export interface FileRoutesByFullPath {
   '/library/custom-shows/new': typeof LibraryCustomShowsNewRouteRouteWithChildren;
   '/library/fillers/$fillerId': typeof LibraryFillersFillerIdRouteRouteWithChildren;
   '/library/fillers/new': typeof LibraryFillersNewRouteRouteWithChildren;
+  '/channels/$channelId/ad-breaks': typeof ChannelsChannelIdAdBreaksRoute;
   '/channels/$channelId/watch': typeof ChannelsChannelIdWatchRoute;
   '/library/smart_collections/$id': typeof LibrarySmart_collectionsIdRoute;
   '/media/$programType/$programId': typeof MediaProgramTypeProgramIdRoute;
@@ -464,6 +479,7 @@ export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute;
   '/channels/new': typeof ChannelsNewRoute;
   '/channels/test': typeof ChannelsTestRoute;
+  '/library/ads': typeof LibraryAdsRoute;
   '/library/custom-shows': typeof LibraryCustomShowsRoute;
   '/library/fillers': typeof LibraryFillersRoute;
   '/profiles/stream-selection': typeof ProfilesStreamSelectionRoute;
@@ -486,6 +502,7 @@ export interface FileRoutesByTo {
   '/system': typeof SystemIndexRoute;
   '/library/custom-shows/$showId': typeof LibraryCustomShowsShowIdRouteRouteWithChildren;
   '/library/fillers/$fillerId': typeof LibraryFillersFillerIdRouteRouteWithChildren;
+  '/channels/$channelId/ad-breaks': typeof ChannelsChannelIdAdBreaksRoute;
   '/channels/$channelId/watch': typeof ChannelsChannelIdWatchRoute;
   '/library/smart_collections/$id': typeof LibrarySmart_collectionsIdRoute;
   '/media/$programType/$programId': typeof MediaProgramTypeProgramIdRoute;
@@ -525,6 +542,7 @@ export interface FileRoutesById {
   '/channels_/$channelId': typeof ChannelsChannelIdRouteRouteWithChildren;
   '/channels_/new': typeof ChannelsNewRoute;
   '/channels_/test': typeof ChannelsTestRoute;
+  '/library/ads': typeof LibraryAdsRoute;
   '/library/custom-shows': typeof LibraryCustomShowsRoute;
   '/library/fillers': typeof LibraryFillersRoute;
   '/profiles/stream-selection': typeof ProfilesStreamSelectionRoute;
@@ -549,6 +567,7 @@ export interface FileRoutesById {
   '/library/custom-shows_/new': typeof LibraryCustomShowsNewRouteRouteWithChildren;
   '/library/fillers_/$fillerId': typeof LibraryFillersFillerIdRouteRouteWithChildren;
   '/library/fillers_/new': typeof LibraryFillersNewRouteRouteWithChildren;
+  '/channels_/$channelId/ad-breaks': typeof ChannelsChannelIdAdBreaksRoute;
   '/channels_/$channelId/watch': typeof ChannelsChannelIdWatchRoute;
   '/library/smart_collections/$id': typeof LibrarySmart_collectionsIdRoute;
   '/media_/$programType/$programId': typeof MediaProgramTypeProgramIdRoute;
@@ -589,6 +608,7 @@ export interface FileRouteTypes {
     | '/channels/$channelId'
     | '/channels/new'
     | '/channels/test'
+    | '/library/ads'
     | '/library/custom-shows'
     | '/library/fillers'
     | '/profiles/stream-selection'
@@ -613,6 +633,7 @@ export interface FileRouteTypes {
     | '/library/custom-shows/new'
     | '/library/fillers/$fillerId'
     | '/library/fillers/new'
+    | '/channels/$channelId/ad-breaks'
     | '/channels/$channelId/watch'
     | '/library/smart_collections/$id'
     | '/media/$programType/$programId'
@@ -649,6 +670,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/channels/new'
     | '/channels/test'
+    | '/library/ads'
     | '/library/custom-shows'
     | '/library/fillers'
     | '/profiles/stream-selection'
@@ -671,6 +693,7 @@ export interface FileRouteTypes {
     | '/system'
     | '/library/custom-shows/$showId'
     | '/library/fillers/$fillerId'
+    | '/channels/$channelId/ad-breaks'
     | '/channels/$channelId/watch'
     | '/library/smart_collections/$id'
     | '/media/$programType/$programId'
@@ -709,6 +732,7 @@ export interface FileRouteTypes {
     | '/channels_/$channelId'
     | '/channels_/new'
     | '/channels_/test'
+    | '/library/ads'
     | '/library/custom-shows'
     | '/library/fillers'
     | '/profiles/stream-selection'
@@ -733,6 +757,7 @@ export interface FileRouteTypes {
     | '/library/custom-shows_/new'
     | '/library/fillers_/$fillerId'
     | '/library/fillers_/new'
+    | '/channels_/$channelId/ad-breaks'
     | '/channels_/$channelId/watch'
     | '/library/smart_collections/$id'
     | '/media_/$programType/$programId'
@@ -772,6 +797,7 @@ export interface RootRouteChildren {
   ChannelsChannelIdRouteRoute: typeof ChannelsChannelIdRouteRouteWithChildren;
   ChannelsNewRoute: typeof ChannelsNewRoute;
   ChannelsTestRoute: typeof ChannelsTestRoute;
+  LibraryAdsRoute: typeof LibraryAdsRoute;
   LibraryCustomShowsRoute: typeof LibraryCustomShowsRoute;
   LibraryFillersRoute: typeof LibraryFillersRoute;
   ProfilesStreamSelectionRoute: typeof ProfilesStreamSelectionRoute;
@@ -979,6 +1005,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LibraryCustomShowsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    '/library/ads': {
+      id: '/library/ads';
+      path: '/library/ads';
+      fullPath: '/library/ads';
+      preLoaderRoute: typeof LibraryAdsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     '/channels_/test': {
       id: '/channels_/test';
       path: '/channels/test';
@@ -1089,6 +1122,13 @@ declare module '@tanstack/react-router' {
       path: '/watch';
       fullPath: '/channels/$channelId/watch';
       preLoaderRoute: typeof ChannelsChannelIdWatchRouteImport;
+      parentRoute: typeof ChannelsChannelIdRouteRoute;
+    };
+    '/channels_/$channelId/ad-breaks': {
+      id: '/channels_/$channelId/ad-breaks';
+      path: '/ad-breaks';
+      fullPath: '/channels/$channelId/ad-breaks';
+      preLoaderRoute: typeof ChannelsChannelIdAdBreaksRouteImport;
       parentRoute: typeof ChannelsChannelIdRouteRoute;
     };
     '/library/fillers_/new': {
@@ -1270,6 +1310,7 @@ const SystemRouteWithChildren =
   SystemRoute._addFileChildren(SystemRouteChildren);
 
 interface ChannelsChannelIdRouteRouteChildren {
+  ChannelsChannelIdAdBreaksRoute: typeof ChannelsChannelIdAdBreaksRoute;
   ChannelsChannelIdWatchRoute: typeof ChannelsChannelIdWatchRoute;
   ChannelsChannelIdIndexRoute: typeof ChannelsChannelIdIndexRoute;
   ChannelsChannelIdProgrammingAddRoute: typeof ChannelsChannelIdProgrammingAddRoute;
@@ -1281,6 +1322,7 @@ interface ChannelsChannelIdRouteRouteChildren {
 
 const ChannelsChannelIdRouteRouteChildren: ChannelsChannelIdRouteRouteChildren =
   {
+    ChannelsChannelIdAdBreaksRoute: ChannelsChannelIdAdBreaksRoute,
     ChannelsChannelIdWatchRoute: ChannelsChannelIdWatchRoute,
     ChannelsChannelIdIndexRoute: ChannelsChannelIdIndexRoute,
     ChannelsChannelIdProgrammingAddRoute: ChannelsChannelIdProgrammingAddRoute,
@@ -1375,6 +1417,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChannelsChannelIdRouteRoute: ChannelsChannelIdRouteRouteWithChildren,
   ChannelsNewRoute: ChannelsNewRoute,
   ChannelsTestRoute: ChannelsTestRoute,
+  LibraryAdsRoute: LibraryAdsRoute,
   LibraryCustomShowsRoute: LibraryCustomShowsRoute,
   LibraryFillersRoute: LibraryFillersRoute,
   ProfilesStreamSelectionRoute: ProfilesStreamSelectionRoute,
