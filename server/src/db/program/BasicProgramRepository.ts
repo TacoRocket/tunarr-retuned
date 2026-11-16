@@ -2,6 +2,7 @@ import type { ProgramExternalIdType } from '@/db/custom_types/ProgramExternalIdT
 import { KEYS } from '@/types/inject.js';
 import type { Maybe } from '@/types/util.js';
 import { isNonEmptyString } from '@/util/index.js';
+import { sql } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 import type { Kysely } from 'kysely';
 import { chunk, isEmpty, uniq } from 'lodash-es';
@@ -26,6 +27,20 @@ import {
   StreamProgramRelations,
 } from './programRelations.ts';
 
+function prepareProgramById(drizzleDB: DrizzleDBAccess) {
+  return drizzleDB.query.program
+    .findFirst({
+      where: (fields, { eq }) => eq(fields.uuid, sql.placeholder('id')),
+      with: {
+        ...MaterializedProgramRelations,
+        ...ProgramStreamRelations,
+      },
+    })
+    .prepare();
+}
+
+type ProgramByIdQuery = ReturnType<typeof prepareProgramById>;
+
 @injectable()
 export class BasicProgramRepository {
   constructor(
@@ -33,14 +48,27 @@ export class BasicProgramRepository {
     @inject(KEYS.DrizzleDB) private drizzleDB: DrizzleDBAccess,
   ) {}
 
+  #programByIdQuery?: ProgramByIdQuery;
+
+  /**
+   * The query behind getProgramById, composed once.
+   *
+   * It joins a dozen relations, and composing its SQL costs about two
+   * milliseconds, several times what running it does. The subtitle lookahead
+   * loads about 900 programs one after another this way on a 33-channel
+   * install, which was two of the three seconds a run took.
+   *
+   * SQLite compiles the query when it is prepared, which can fail for a
+   * passing reason such as a locked database. The query is kept only once
+   * that has succeeded, so a failed lookup is retried by the next one.
+   */
+  #programById(): ProgramByIdQuery {
+    this.#programByIdQuery ??= prepareProgramById(this.drizzleDB);
+    return this.#programByIdQuery;
+  }
+
   async getProgramById(id: string): Promise<Maybe<ProgramOrmWithExternalIds>> {
-    return this.drizzleDB.query.program.findFirst({
-      where: (fields, { eq }) => eq(fields.uuid, id),
-      with: {
-        ...MaterializedProgramRelations,
-        ...ProgramStreamRelations,
-      },
-    });
+    return await this.#programById().execute({ id });
   }
 
   async getLineupProgramById(
