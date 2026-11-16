@@ -450,6 +450,10 @@ msgstr "24-hour"
 msgid "8-bit"
 msgstr "8-bit"
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "A complete extension to start from."
+msgstr "A complete extension to start from."
+
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "A disabled extension keeps its settings, but its actions can't run."
 msgstr "A disabled extension keeps its settings, but its actions can't run."
@@ -870,6 +874,14 @@ msgstr "Amount"
 msgid "An error occurred: {0}"
 msgstr "An error occurred: {0}"
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "An extension is a JavaScript package in a public GitHub repository. This is what we have written up so far for extension API {apiVersion}."
+msgstr "An extension is a JavaScript package in a public GitHub repository. This is what we have written up so far for extension API {apiVersion}."
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "An upcoming program qualifies when its applicable stream-selection profile allows subtitles. Tunarr can prepare a plain English copy even if that profile would choose a different track for playback."
+msgstr "An upcoming program qualifies when its applicable stream-selection profile allows subtitles. Tunarr can prepare a plain English copy even if that profile would choose a different track for playback."
+
 #: src/components/channels/useChannelBulkActions.ts
 msgid "and {more} more"
 msgstr "and {more} more"
@@ -1154,6 +1166,10 @@ msgstr "Basic"
 msgid "Basic button group"
 msgstr "Basic button group"
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Bazarr extension"
+msgstr "Bazarr extension"
+
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Below the target, each new recorded play adds one related pick. What you watch steers the next choice. When nobody watches, the current lineup repeats."
 msgstr "Below the target, each new recorded play adds one related pick. What you watch steers the next choice. When nobody watches, the current lineup repeats."
@@ -1217,6 +1233,10 @@ msgstr "Buffer size effects how frequently ffmpeg reconsiders the output bitrate
 #: src/components/channel_config/AddProgrammingButton.tsx
 msgid "Build a channel from related programs and this channel's recorded plays."
 msgstr "Build a channel from related programs and this channel's recorded plays."
+
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Build an extension"
+msgstr "Build an extension"
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Builder"
@@ -1523,8 +1543,8 @@ msgstr "Choose between 1 and 168 hours."
 #~ msgstr "Choose the transcode configuration to use for this channel. Configure transcode configurations on the <0>FFmpeg settings page</0>."
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "Choose which engine prepares this channel's stream. Both engines support HLS; the stream mode below is a separate choice."
-msgstr "Choose which engine prepares this channel's stream. Both engines support HLS; the stream mode below is a separate choice."
+#~ msgid "Choose which engine prepares this channel's stream. Both engines support HLS; the stream mode below is a separate choice."
+#~ msgstr "Choose which engine prepares this channel's stream. Both engines support HLS; the stream mode below is a separate choice."
 
 #: src/components/custom-shows/EditCustomShowForm.tsx
 msgid "Chooses audio and subtitle streams for programs scheduled from this custom show."
@@ -2762,7 +2782,6 @@ msgid "Errors"
 msgstr "Errors"
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "ErsatzTV next (Experimental)"
 msgstr "ErsatzTV next (Experimental)"
 
@@ -3430,6 +3449,10 @@ msgstr "Higher values make more room for broader metadata connections and connec
 #~ msgid "Higher values make more room for broader metadata connections and occasional picks from the whole library. Zero uses only current interests and the preceding title."
 #~ msgstr "Higher values make more room for broader metadata connections and occasional picks from the whole library. Zero uses only current interests and the preceding title."
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Hit a limit, or need something extensions can't do yet? <0>Tell us what you're trying to build</0>."
+msgstr "Hit a limit, or need something extensions can't do yet? <0>Tell us what you're trying to build</0>."
+
 #: src/pages/settings/FfmpegSettingsPage.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "HLS Direct Output Format"
@@ -3443,6 +3466,10 @@ msgstr "HLS not supported in this browser!"
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "HLS Segment Format"
 msgstr "HLS Segment Format"
+
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "How extensions work"
+msgstr "How extensions work"
 
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "How far past its boundary can a slot's content extend? 'One extra item' allows exactly one more program that crosses the boundary."
@@ -3624,12 +3651,20 @@ msgid "It is still on the legacy engine after saving."
 msgstr "It is still on the legacy engine after saving."
 
 #: src/components/channel_config/LegacyEngineNotice.tsx
-msgid "It plays {sourceName} later and uses its playback engine. Convert {sourceName} to ErsatzTV next, and this channel moves with it."
-msgstr "It plays {sourceName} later and uses its playback engine. Convert {sourceName} to ErsatzTV next, and this channel moves with it."
+#~ msgid "It plays {sourceName} later and uses its playback engine. Convert {sourceName} to ErsatzTV next, and this channel moves with it."
+#~ msgstr "It plays {sourceName} later and uses its playback engine. Convert {sourceName} to ErsatzTV next, and this channel moves with it."
 
 #: src/components/channel_config/LegacyEngineNotice.tsx
-msgid "It plays another channel later and uses that channel's playback engine. Convert that channel to ErsatzTV next, and this channel moves with it."
-msgstr "It plays another channel later and uses that channel's playback engine. Convert that channel to ErsatzTV next, and this channel moves with it."
+msgid "It plays {sourceName} later and uses its playback engine. Convert {sourceName} to ErsatzTV next, and this channel moves with it. Until then its settings are read-only."
+msgstr "It plays {sourceName} later and uses its playback engine. Convert {sourceName} to ErsatzTV next, and this channel moves with it. Until then its settings are read-only."
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+#~ msgid "It plays another channel later and uses that channel's playback engine. Convert that channel to ErsatzTV next, and this channel moves with it."
+#~ msgstr "It plays another channel later and uses that channel's playback engine. Convert that channel to ErsatzTV next, and this channel moves with it."
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "It plays another channel later and uses that channel's playback engine. Convert that channel to ErsatzTV next, and this channel moves with it. Until then its settings are read-only."
+msgstr "It plays another channel later and uses that channel's playback engine. Convert that channel to ErsatzTV next, and this channel moves with it. Until then its settings are read-only."
 
 #: src/components/channel_config/MediaGridItem.tsx
 msgid "Item was not present during the last scan"
@@ -3638,6 +3673,10 @@ msgstr "Item was not present during the last scan"
 #: src/components/channel_config/ChannelFlexConfig.tsx
 msgid "Items from any filler list will not be chosen more frequently than this cooldown setting."
 msgstr "Items from any filler list will not be chosen more frequently than this cooldown setting."
+
+#: src/components/channel_config/LegacyEngineNotice.tsx
+msgid "Its settings are read-only until it's converted. Programming can still be changed."
+msgstr "Its settings are read-only until it's converted. Programming can still be changed."
 
 #: src/components/channels/useChannelBulkActions.ts
 #: src/components/channels/useChannelBulkActions.ts
@@ -4687,6 +4726,10 @@ msgstr "Only profiles ErsatzTV next can play are listed. Your preview stays here
 msgid "Only the ErsatzTV next engine can send fMP4. This channel sends MPEG-TS."
 msgstr "Only the ErsatzTV next engine can send fMP4. This channel sends MPEG-TS."
 
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "Only those a channel will show (recommended)"
+msgstr "Only those a channel will show (recommended)"
+
 #: src/pages/ErrorPage.tsx
 msgid "Oops!"
 msgstr "Oops!"
@@ -4807,6 +4850,10 @@ msgstr "Override the default {0} device path (defaults to <0>/dev/dri/renderD128
 msgid "Overview"
 msgstr "Overview"
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Package interface"
+msgstr "Package interface"
+
 #: src/components/programming_controls/AddPaddingModal.tsx
 #: src/components/programming_controls/AddPaddingModal.tsx
 #: src/components/programming_controls/AddPaddingModal.tsx
@@ -4901,8 +4948,6 @@ msgid "Play a Toonami Aftermath feed or a supported Spelunkr channel instead of 
 msgstr "Play a Toonami Aftermath feed or a supported Spelunkr channel instead of library programming. Use an empty, standalone channel. Spelunkr requires HLS with the ErsatzTV next playback engine."
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
-#: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Playback engine"
 msgstr "Playback engine"
 
@@ -4968,6 +5013,14 @@ msgstr "Preferred languages in priority order. Type a code to add custom."
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "Preferred subtitle languages"
 msgstr "Preferred subtitle languages"
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "Prepare English for every eligible program"
+msgstr "Prepare English for every eligible program"
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "Prepare subtitles for upcoming programs"
+msgstr "Prepare subtitles for upcoming programs"
 
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Preparing"
@@ -6335,6 +6388,10 @@ msgstr "Stream selection profiles control which audio and subtitle streams play.
 msgid "Streaming"
 msgstr "Streaming"
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Style guide"
+msgstr "Style guide"
+
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 #~ msgid "Submit"
 #~ msgstr "Submit"
@@ -6556,6 +6613,10 @@ msgstr "The image will be rendered at its actual size without any scaling applie
 msgid "The loaded version of the Tunarr UI does not match the server. Reload the browser to get the latest. If this message persists, clear your browser cache and reload."
 msgstr "The loaded version of the Tunarr UI does not match the server. Reload the browser to get the latest. If this message persists, clear your browser cache and reload."
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "The manifest, code, service requests, limits and sandbox."
+msgstr "The manifest, code, service requests, limits and sandbox."
+
 #: src/components/UnavailableLibraryIndicator.tsx
 msgid "The media server stopped reporting this library on {since}. Its programs and channel schedules are preserved. Tunarr will not scan it until the server reports it again."
 msgstr "The media server stopped reporting this library on {since}. Its programs and channel schedules are preserved. Tunarr will not scan it until the server reports it again."
@@ -6769,8 +6830,8 @@ msgid "This slot's custom show was deleted, so the slot cannot be scheduled. Cho
 msgstr "This slot's custom show was deleted, so the slot cannot be scheduled. Choose another show or remove the slot."
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or MPEG-TS to use ErsatzTV next."
-msgstr "This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or MPEG-TS to use ErsatzTV next."
+#~ msgid "This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or MPEG-TS to use ErsatzTV next."
+#~ msgstr "This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or MPEG-TS to use ErsatzTV next."
 
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 msgid "Threads"
@@ -6976,8 +7037,12 @@ msgid "Try these rules against a program, including unsaved changes."
 msgstr "Try these rules against a program, including unsaved changes."
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
-msgid "Tunarr"
-msgstr "Tunarr"
+#~ msgid "Tunarr"
+#~ msgstr "Tunarr"
+
+#: src/components/channel_config/ChannelTranscodingConfig.tsx
+msgid "Tunarr (being retired)"
+msgstr "Tunarr (being retired)"
 
 #. placeholder {0}: version.tunarr
 #: src/components/ui/patterns/AppShell/HelpMenu.tsx
@@ -7455,9 +7520,21 @@ msgstr "Welcome to Tunarr Retuned!"
 #~ msgid "West feeds are delayed three hours. Some feeds may be unavailable through the public endpoint. The guide uses the source schedule where available, with the channel's usual placeholder title otherwise."
 #~ msgstr "West feeds are delayed three hours. Some feeds may be unavailable through the public endpoint. The guide uses the source schedule where available, with the channel's usual placeholder title otherwise."
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "What an extension can and can't do, and what is planned."
+msgstr "What an extension can and can't do, and what is planned."
+
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "What makes an extension easy to set up, trust and support."
+msgstr "What makes an extension easy to set up, trust and support."
+
 #: src/pages/system/TroubleshootPage.tsx
 msgid "What the ErsatzTV next worker recorded the last few times this channel failed to play an item. Attach it to a bug report."
 msgstr "What the ErsatzTV next worker recorded the last few times this channel failed to play an item. Attach it to a bug report."
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "When an upcoming program has no usable English text subtitle, Tunarr looks for one in your Plex, Jellyfin or Emby library, then reads an English image subtitle (PGS) with OCR. Later airings reuse the result. New work starts for at most ten minutes each hour. OCR needs the Linux container."
+msgstr "When an upcoming program has no usable English text subtitle, Tunarr looks for one in your Plex, Jellyfin or Emby library, then reads an English image subtitle (PGS) with OCR. Later airings reuse the result. New work starts for at most ten minutes each hour. OCR needs the Linux container."
 
 #: src/components/channel_config/WatermarkTimingFields.tsx
 msgid "When enabled, intermittent watermarks fade in immediately when a stream is initialized. When disabled, the first watermark fade-in occurs after a full period."
@@ -7478,6 +7555,11 @@ msgstr "Which audio track(s) to select when the condition holds"
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "Which subtitle track(s) to select when the condition holds"
 msgstr "Which subtitle track(s) to select when the condition holds"
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "Which subtitles"
+msgstr "Which subtitles"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Whole programs may extend slightly beyond this length."
@@ -7534,8 +7616,8 @@ msgstr "You can change any setting below before shuffling."
 #~ msgstr "You can still preview lineups here."
 
 #: src/components/channel_config/LegacyEngineNotice.tsx
-msgid "You can switch back under Streaming, in Playback engine."
-msgstr "You can switch back under Streaming, in Playback engine."
+#~ msgid "You can switch back under Streaming, in Playback engine."
+#~ msgstr "You can switch back under Streaming, in Playback engine."
 
 #: src/pages/library/FillerListsPage.tsx
 msgid "You have no Filler Lists. Create your first Filler List <0>here.</0>"
