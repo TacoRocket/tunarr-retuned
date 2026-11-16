@@ -116,24 +116,46 @@ export const safeSetCurrentChannel = (
   useStore.setState((state) => {
     const channelEditor = state.channelEditor;
     if (channelEditor.currentEntity?.id !== channel.id) {
-      channelEditor.currentEntity = channel;
-      channelEditor.originalEntity = channel;
-      channelEditor.programsLoaded = false;
-      channelEditor.dirty.programs = false;
-      channelEditor.programList = [];
-      channelEditor.originalProgramList = [];
-      channelEditor.schedule = undefined;
-      channelEditor.generatedLineupApplied = false;
-      channelEditor.seedGrowth = undefined;
-      channelEditor.originalSeedGrowth = undefined;
-      channelEditor.programLookup = {};
-      if (programming) {
-        updateProgramList(state, programming);
-      }
+      replaceChannel(state, channel, programming);
     } else if (!channelEditor.programsLoaded && programming) {
       updateProgramList(state, programming);
     }
   });
+
+/**
+ * Fork: put a channel the server just rewrote into the editor, dropping the
+ * lineup loaded for it before, exactly as opening a different channel does.
+ * Without programming, the Programming page loads it again.
+ */
+export const replaceCurrentChannel = (
+  channel: Omit<Channel, 'programs'>,
+  programming?: CondensedChannelProgramming,
+) =>
+  useStore.setState((state) => {
+    replaceChannel(state, channel, programming);
+  });
+
+function replaceChannel(
+  state: Draft<State>,
+  channel: Omit<Channel, 'programs'>,
+  programming?: CondensedChannelProgramming,
+) {
+  const channelEditor = state.channelEditor;
+  channelEditor.currentEntity = channel;
+  channelEditor.originalEntity = channel;
+  channelEditor.programsLoaded = false;
+  channelEditor.dirty.programs = false;
+  channelEditor.programList = [];
+  channelEditor.originalProgramList = [];
+  channelEditor.schedule = undefined;
+  channelEditor.generatedLineupApplied = false;
+  channelEditor.seedGrowth = undefined;
+  channelEditor.originalSeedGrowth = undefined;
+  channelEditor.programLookup = {};
+  if (programming) {
+    updateProgramList(state, programming);
+  }
+}
 
 export const setCurrentChannelProgramming = (
   programming: CondensedChannelProgramming,

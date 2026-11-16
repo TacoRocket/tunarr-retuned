@@ -44,6 +44,7 @@ import {
   nextProfileProblems,
 } from '../settings/ffmpeg/nextTranscodeSupport.ts';
 import { WatermarkTimingFields } from './WatermarkTimingFields.tsx';
+import { ChannelPictureAndCredits } from './ChannelPictureAndCredits.tsx';
 
 const watermarkPositionOptions: {
   value: Watermark['position'];
@@ -380,6 +381,8 @@ export default function ChannelTranscodingConfig({
             </FormHelperText>
           </FormControl>
         </Box>
+        {/* Fork: CRT look and final-credit handling. */}
+        <ChannelPictureAndCredits transcodeConfigs={transcodeConfigs} />
         <Box>
           <Typography sx={{ mb: 1 }} variant="h5">
             <Trans>Audio &amp; Subtitles</Trans>

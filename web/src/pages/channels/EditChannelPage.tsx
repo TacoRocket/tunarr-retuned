@@ -74,9 +74,10 @@ export default function EditChannelPage({ initialTab }: Props) {
         </Box>
         {/* Keyed by channel: following a link to another channel's editor
             reuses this route, and the form must load that channel's values
-            rather than keep the previous channel's. */}
+            rather than keep the previous channel's. The offset is part of the
+            key because linking or unlinking re-copies settings server-side. */}
         <EditChannelForm
-          key={channel.id}
+          key={`${channel.id}:${JSON.stringify(channel.offset ?? null)}`}
           channel={channel}
           transcodeConfigs={transcodeConfigs}
           isNew={false}
