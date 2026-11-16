@@ -56,4 +56,6 @@ A daily time overrides `rescanIntervalHours` for library scans only. Channel sch
 
 The time must be 24-hour `HH:mm` and the timezone must be an IANA name. Both values are required together, and the Scanner page refuses an invalid or partial pair when you save. With neither set, the existing interval and half-hour offset remain unchanged.
 
+A save that would leave library scans without a schedule is refused before anything changes: for example, clearing the daily time while the rescan interval is 0 or a fraction of an hour. The saved settings and the next scan stay as they were. If a time edited by hand into `settings.json` can't be read, Tunarr still loads the rest of the file, scans follow the interval, and the log says why.
+
 The existing `node-schedule` calendar rule follows the selected timezone through daylight saving changes: 03:00 in Chicago is 08:00 UTC in summer and 09:00 UTC in winter. Times skipped by a spring clock change have no invocation that day; repeated fall times follow `node-schedule` behavior. Choose a time such as 03:00 outside that transition window. Missed scans while Tunarr is stopped are not replayed.

@@ -1,7 +1,7 @@
 import { z } from 'zod/v4';
 import { GlobalMediaSourceSettingsSchema } from '@tunarr/types/schemas';
 import {
-  dailyLibraryScanRule,
+  checkLibraryScanSave,
   scheduleLibraryScans,
 } from '../services/startup/LibraryScanSchedule.ts';
 import type { RouterPluginAsyncCallback } from '../types/serverType.js';
@@ -55,20 +55,14 @@ export const settingsApi: RouterPluginAsyncCallback = async (fastify) => {
       const { dailyScanTime, dailyScanTimeZone } = req.body;
       const changesDailyScan =
         dailyScanTime !== undefined || dailyScanTimeZone !== undefined;
-      if (changesDailyScan) {
-        // The pair is checked as it will be saved, so a saved time always
-        // schedules.
-        const current = req.serverCtx.settings.globalMediaSourceSettings();
-        try {
-          dailyLibraryScanRule(
-            dailyScanTime === undefined ? current.dailyScanTime : dailyScanTime,
-            dailyScanTimeZone === undefined
-              ? current.dailyScanTimeZone
-              : dailyScanTimeZone,
-          );
-        } catch (e) {
-          return res.status(400).send({ message: (e as Error).message });
-        }
+      // Checked as it will be saved, before anything is saved or unscheduled.
+      try {
+        checkLibraryScanSave(
+          req.serverCtx.settings.globalMediaSourceSettings(),
+          req.body,
+        );
+      } catch (e) {
+        return res.status(400).send({ message: (e as Error).message });
       }
       await req.serverCtx.settings.directUpdate((file) => {
         Object.assign(file.settings.mediaSource, req.body);

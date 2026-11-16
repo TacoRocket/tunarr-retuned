@@ -231,9 +231,12 @@ export const GlobalMediaSourceSettingsSchema = z.object({
     .describe(
       'Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.',
     ),
+  // Fork: plain text here, because this schema also loads settings.json and
+  // one unreadable value there makes the whole file fall back to defaults.
+  // Saves through the API are checked strictly (settingsApi), and startup
+  // falls back to the interval (LibraryScanSchedule).
   dailyScanTime: z
     .string()
-    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
     .nullable()
     .default(null)
     .describe(

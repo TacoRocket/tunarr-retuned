@@ -1,3 +1,5 @@
+import type { GlobalMediaSourceSettings } from '@tunarr/types/schemas';
+import parser from 'cron-parser';
 import { RecurrenceRule } from 'node-schedule';
 import { container } from '../../container.ts';
 import type { ISettingsDB } from '../../db/interfaces/ISettingsDB.ts';
@@ -69,17 +71,62 @@ export function libraryScanSchedule(
   }
 }
 
+type ScanFields = Pick<
+  GlobalMediaSourceSettings,
+  'rescanIntervalHours' | 'dailyScanTime' | 'dailyScanTimeZone'
+>;
+
+// The interval also drives collection and custom show syncing. It is checked
+// with the scheduler's own cron parser, which refuses 0 and fractions.
+function checkRescanInterval(hours: number) {
+  try {
+    parser.parseExpression(hoursCrontab(hours, 30));
+  } catch (cause) {
+    throw new Error(
+      'The rescan interval must be a whole number of hours, 1 or more',
+      { cause },
+    );
+  }
+}
+
+// Checks a scanner settings save before anything is saved or unscheduled, so
+// a refused save leaves the running library scan as it was. It checks what
+// the save changes and, when the daily time changes, the schedule that will
+// replace the running one; an older value the save doesn't touch is left to
+// the startup fallback rather than blocking an unrelated save.
+export function checkLibraryScanSave(
+  current: ScanFields,
+  changes: Partial<ScanFields>,
+) {
+  const next = { ...current, ...changes };
+  if (changes.rescanIntervalHours !== undefined) {
+    checkRescanInterval(next.rescanIntervalHours);
+  }
+  if (
+    changes.dailyScanTime !== undefined ||
+    changes.dailyScanTimeZone !== undefined
+  ) {
+    const daily = dailyLibraryScanRule(
+      next.dailyScanTime,
+      next.dailyScanTimeZone,
+    );
+    if (!daily) checkRescanInterval(next.rescanIntervalHours);
+  }
+}
+
 // Replaces the scheduled library scan, at startup and after the daily time is
-// saved, so a new time applies without a restart.
+// saved, so a new time applies without a restart. The new schedule is worked
+// out before the running one is cancelled.
 export function scheduleLibraryScans(
   settingsDB: Pick<ISettingsDB, 'globalMediaSourceSettings'>,
 ) {
+  const schedule = libraryScanSchedule(settingsDB);
   GlobalScheduler.clearTasks(ScanLibrariesTask.ID);
   GlobalScheduler.scheduleTask(
     ScanLibrariesTask.ID,
     new ScheduledTask(
       ScanLibrariesTask,
-      libraryScanSchedule(settingsDB),
+      schedule,
       container.get<() => ScanLibrariesTask>(ScanLibrariesTask.KEY),
       undefined,
     ),

@@ -193,4 +193,50 @@ describe('SettingsDBFactory', () => {
       expect((await readSettings()).migration.onboardingComplete).toBe(false);
     });
   });
+
+  // Codex review of #254: a daily scan time edited by hand into settings.json
+  // and unreadable made the whole file fail to load, and startup wrote
+  // defaults over the rest of it.
+  test('an unreadable daily scan time keeps every other setting', async () => {
+    new (await loadFactory())(options).get();
+    type Written = {
+      settings: {
+        mediaSource: Record<string, unknown>;
+        ffmpeg: Record<string, unknown>;
+      };
+    };
+    const written = JSON.parse(
+      await fs.readFile(settingsPath, 'utf-8'),
+    ) as Written;
+    written.settings.mediaSource.rescanIntervalHours = 9;
+    written.settings.mediaSource.repairReaddedItems = true;
+    written.settings.mediaSource.dailyScanTime = '25:00';
+    written.settings.mediaSource.dailyScanTimeZone = 'UTC';
+    written.settings.ffmpeg.ffmpegExecutablePath = '/opt/custom/ffmpeg';
+    await fs.writeFile(settingsPath, JSON.stringify(written));
+
+    vi.resetModules();
+    const settings = new (await loadFactory())(options).get();
+
+    expect(settings.ffmpegSettings().ffmpegExecutablePath).toBe(
+      '/opt/custom/ffmpeg',
+    );
+    expect(settings.globalMediaSourceSettings()).toMatchObject({
+      rescanIntervalHours: 9,
+      repairReaddedItems: true,
+      dailyScanTime: '25:00',
+      dailyScanTimeZone: 'UTC',
+    });
+    const after = JSON.parse(
+      await fs.readFile(settingsPath, 'utf-8'),
+    ) as Written;
+    expect(after.settings.mediaSource).toMatchObject({
+      rescanIntervalHours: 9,
+      repairReaddedItems: true,
+      dailyScanTime: '25:00',
+    });
+    expect(after.settings.ffmpeg.ffmpegExecutablePath).toBe(
+      '/opt/custom/ffmpeg',
+    );
+  });
 });
