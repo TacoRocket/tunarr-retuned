@@ -7,6 +7,7 @@ import {
   BuiltInStreamSelectionProfile,
   StreamSelectionProfileResolver,
 } from './StreamSelectionProfileResolver.ts';
+import { runWithStreamSelectionMemo } from './streamSelectionRunMemo.ts';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -84,6 +85,60 @@ function createResolver(opts: {
 // ── resolveChain() ──────────────────────────────────────────────────────────
 
 describe('StreamSelectionProfileResolver', () => {
+  describe('inside a stream selection run', () => {
+    it('reads each profile from the database once for the whole run', async () => {
+      const { resolver, spies } = createResolver({
+        fillerProfile: makeProfile('filler'),
+        channelProfile: makeProfile('channel'),
+      });
+
+      await runWithStreamSelectionMemo(async () => {
+        for (const channelId of ['ch-1', 'ch-1', 'ch-1', 'ch-2']) {
+          await resolver.resolveChain({ channelId, fillerListId: 'filler-1' });
+        }
+      });
+
+      expect(spies.filler).toHaveBeenCalledTimes(1);
+      expect(spies.channel).toHaveBeenCalledTimes(2);
+      expect(spies.byId).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads the database again once the run has ended', async () => {
+      const { resolver, spies } = createResolver({
+        channelProfile: makeProfile('channel'),
+      });
+
+      await runWithStreamSelectionMemo(() =>
+        resolver.resolveChain({ channelId: 'ch-1' }),
+      );
+      await resolver.resolveChain({ channelId: 'ch-1' });
+      await resolver.resolveChain({ channelId: 'ch-1' });
+
+      expect(spies.channel).toHaveBeenCalledTimes(3);
+    });
+
+    it('counts a failed database read and its retry in the run summary', async () => {
+      const { resolver, spies } = createResolver({});
+      const error = new Error('channel lookup failed');
+      spies.channel.mockRejectedValueOnce(error);
+      const context = { channelId: 'ch-1' };
+      const summary = vi.fn();
+
+      await runWithStreamSelectionMemo(async () => {
+        await expect(resolver.resolveChain(context)).rejects.toBe(error);
+        await resolver.resolveChain(context);
+        await resolver.resolveChain(context);
+      }, summary);
+
+      expect(spies.channel).toHaveBeenCalledTimes(2);
+      expect(spies.byId).toHaveBeenCalledTimes(1);
+      expect(summary).toHaveBeenCalledExactlyOnceWith({
+        asked: 5,
+        readAttempts: 3,
+      });
+    });
+  });
+
   describe('resolveChain', () => {
     it('orders profiles from most to least specific', async () => {
       const program = makeProfile('program');
