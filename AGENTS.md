@@ -18,10 +18,21 @@ New playback and streaming work goes in the ErsatzTV next worker (TacoRocket/nex
 Tunarr's Next integration (playout mapping, channel config, sessions), whichever owns the
 behavior. Tunarr keeps scheduling, recommendations and application-wide features.
 
-Fixes to the native path, until it is removed:
+Bug fixes while native playback is being retired:
 
-- While native playback is still available, small fixes that keep existing channels working
-  are allowed. Keep them in this fork; do not open upstream PRs for the native pipeline.
+- Fix bugs on the Next path or in engine-neutral code (scheduling, lineups, settings, the
+  channel editor). A bug that happens only on a channel still on the native engine is
+  won't fix: the answer is to convert that channel to Next (Edit → **Convert to ErsatzTV
+  next**). Review findings follow the same rule: one that affects only native channels is
+  closed as won't fix, not raised as a change request.
+- Keep fixes engine-neutral. Don't add native-only handling to shared code, such as an
+  off-Next branch in the channel editor or a native fallback in a new feature.
+- Two exceptions:
+  - Security problems, at any time.
+  - Small, obviously safe native fixes during the conversion window, while people move
+    their channels over: until the release that locks native channels in the web app
+    (#258). A few lines and no new code paths. Anything bigger is still won't fix.
+- Keep native fixes in this fork; do not open upstream PRs for the native pipeline.
 - Once this fork disables native playback, fix only problems this fork's own code causes.
   Problems in upstream's native code are not fixed here.
 - After upstream removes the pipeline, nothing more is done to it.
