@@ -10,7 +10,6 @@ import {
   RollSeedChannelsTask,
   RollingSeedRefreshMinutes,
 } from '../../tasks/RollSeedChannelsTask.ts';
-import { ScanLibrariesTask } from '../../tasks/ScanLibrariesTask.ts';
 import { IndexSimilarityTask } from '../../tasks/IndexSimilarityTask.ts';
 import { ScheduledTask } from '../../tasks/ScheduledTask.ts';
 import { SubtitleExtractorTask } from '../../tasks/SubtitleExtractorTask.ts';
@@ -18,7 +17,6 @@ import { SyncCollectionsTask } from '../../tasks/SyncCollectionsTask.ts';
 import { SyncCustomShowsTask } from '../../tasks/SyncCustomShowsTask.ts';
 import { UpdateXmlTvTask } from '../../tasks/UpdateXmlTvTask.ts';
 import { autoFactoryKey, KEYS } from '../../types/inject.ts';
-import { getEnvVar, TUNARR_ENV_VARS } from '../../util/env.ts';
 import { InjectLogger } from '../../util/inject.ts';
 import type { Logger } from '../../util/logging/LoggerFactory.ts';
 import { LoggerFactory } from '../../util/logging/LoggerFactory.ts';
@@ -30,7 +28,7 @@ import {
 } from '../Scheduler.ts';
 import { ChannelLineupMigratorStartupTask } from './ChannelLineupMigratorStartupTask.ts';
 import { SimpleStartupTask } from './IStartupTask.ts';
-import { dailyLibraryScanRule } from './LibraryScanSchedule.ts';
+import { scheduleLibraryScans } from './LibraryScanSchedule.ts';
 
 @injectable()
 export class ScheduleJobsStartupTask extends SimpleStartupTask {
@@ -44,10 +42,6 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
   }
 
   getPromise(): Promise<void> {
-    const scanRule = dailyLibraryScanRule(
-      getEnvVar(TUNARR_ENV_VARS.LIBRARY_SCAN_DAILY_TIME),
-      getEnvVar(TUNARR_ENV_VARS.LIBRARY_SCAN_TIME_ZONE),
-    );
     const xmlTvSettings = this.settingsDB.xmlTvSettings();
 
     GlobalScheduler.scheduleTask(
@@ -121,19 +115,7 @@ export class ScheduleJobsStartupTask extends SimpleStartupTask {
       ),
     );
 
-    GlobalScheduler.scheduleTask(
-      ScanLibrariesTask.ID,
-      new ScheduledTask(
-        ScanLibrariesTask,
-        scanRule ??
-          hoursCrontab(
-            this.settingsDB.globalMediaSourceSettings().rescanIntervalHours,
-            30,
-          ),
-        container.get<() => ScanLibrariesTask>(ScanLibrariesTask.KEY),
-        undefined,
-      ),
-    );
+    scheduleLibraryScans(this.settingsDB);
 
     GlobalScheduler.scheduleTask(
       SyncCollectionsTask.ID,

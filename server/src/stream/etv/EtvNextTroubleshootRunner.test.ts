@@ -168,6 +168,7 @@ async function makeRunner({
       sessionId: channelUuid,
       timeoutMs,
       subtitleMode: 'burn',
+      featureFlags: { get: () => false },
     });
 
   return { run, spawn, killed, outputDirectory, playoutWriter };

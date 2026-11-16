@@ -386,7 +386,6 @@ export function toChannelConfig({
         tone_mapping:
           transcodeConfig.nextToneMappingMode ??
           ffmpegSettings.nextToneMappingMode,
-        hdr_vaapi_lut: process.env.TUNARR_VAAPI_HABLE_LUT === '1',
         ...(transcodeConfig.nextPreserveSourceAspect
           ? { preserve_source_aspect: true }
           : {}),

@@ -13349,6 +13349,9 @@ export type GetApiSystemFeatureFlagsResponses = {
             disableSearchSnapshotInBackup: boolean;
             disableVulkan: boolean;
             disableVaapiPad: boolean;
+            vaapiHableLut: boolean;
+            vaapiDefaultScaling: boolean;
+            disableCrtDirectNv12: boolean;
         };
         metadata: Array<{
             key: string;
@@ -13371,6 +13374,9 @@ export type PutApiSystemFeatureFlagsData = {
         disableVulkan?: boolean;
         disableVaapiPad?: boolean;
         xmltvCreditImagesEnabled?: boolean;
+        vaapiHableLut?: boolean;
+        vaapiDefaultScaling?: boolean;
+        disableCrtDirectNv12?: boolean;
     };
     path?: never;
     query?: never;
@@ -13390,6 +13396,9 @@ export type PutApiSystemFeatureFlagsResponses = {
             disableSearchSnapshotInBackup: boolean;
             disableVulkan: boolean;
             disableVaapiPad: boolean;
+            vaapiHableLut: boolean;
+            vaapiDefaultScaling: boolean;
+            disableCrtDirectNv12: boolean;
         };
         metadata: Array<{
             key: string;
@@ -15386,6 +15395,14 @@ export type GetApiSettingsMediaSourceResponses = {
          * Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.
          */
         repairReaddedItemsOnStartup: boolean;
+        /**
+         * Scan libraries once a day at this 24-hour HH:mm time instead of every rescanIntervalHours. Needs dailyScanTimeZone. Collection and custom show syncing still follow the interval.
+         */
+        dailyScanTime: string | null;
+        /**
+         * IANA time zone for dailyScanTime, such as America/Chicago.
+         */
+        dailyScanTimeZone: string | null;
     };
 };
 
@@ -15397,11 +15414,24 @@ export type PutApiSettingsMediaSourceData = {
         rescanIntervalHours?: number;
         repairReaddedItems?: boolean;
         repairReaddedItemsOnStartup?: boolean;
+        dailyScanTime?: string | null;
+        dailyScanTimeZone?: string | null;
     };
     path?: never;
     query?: never;
     url: '/api/settings/media-source';
 };
+
+export type PutApiSettingsMediaSourceErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        message: string;
+    };
+};
+
+export type PutApiSettingsMediaSourceError = PutApiSettingsMediaSourceErrors[keyof PutApiSettingsMediaSourceErrors];
 
 export type PutApiSettingsMediaSourceResponses = {
     /**
@@ -15418,6 +15448,14 @@ export type PutApiSettingsMediaSourceResponses = {
          * Also repair at startup, once Tunarr is online. Requires repairReaddedItems. Off by default, so a large Trash never adds work while Tunarr starts.
          */
         repairReaddedItemsOnStartup: boolean;
+        /**
+         * Scan libraries once a day at this 24-hour HH:mm time instead of every rescanIntervalHours. Needs dailyScanTimeZone. Collection and custom show syncing still follow the interval.
+         */
+        dailyScanTime: string | null;
+        /**
+         * IANA time zone for dailyScanTime, such as America/Chicago.
+         */
+        dailyScanTimeZone: string | null;
     };
 };
 

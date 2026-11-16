@@ -1,4 +1,8 @@
 import { getBooleanEnvVar, TUNARR_ENV_VARS } from '../util/env.ts';
+import {
+  repairDailyScan,
+  repairForkFeatureFlags,
+} from './forkSettingsRepair.ts';
 import type {
   ISettingsDB,
   ReadableFfmpegSettings,
@@ -61,11 +65,18 @@ export const defaultXmlTvSettings = (dbBasePath: string): XmlTvSettings => ({
 });
 
 // Seed from Compose only until the first saved value, including an explicit false.
-const storedMediaSourceSettings = GlobalMediaSourceSettingsSchema.extend({
-  plexNotificationsEnabled: z
-    .boolean()
-    .default(() => getBooleanEnvVar(TUNARR_ENV_VARS.PLEX_NOTIFICATIONS, false)),
-});
+// Fork: a daily scan time edited into the file that can't be read is reset
+// on its own instead of failing the whole file (forkSettingsRepair.ts).
+const storedMediaSourceSettings = z.preprocess(
+  (raw) => repairDailyScan(raw),
+  GlobalMediaSourceSettingsSchema.extend({
+    plexNotificationsEnabled: z
+      .boolean()
+      .default(() =>
+        getBooleanEnvVar(TUNARR_ENV_VARS.PLEX_NOTIFICATIONS, false),
+      ),
+  }),
+);
 
 export const SettingsSchema = z.object({
   clientId: z.string(),
@@ -135,7 +146,10 @@ export const SettingsFileSchema = z.object({
       ),
     }),
   }),
-  featureFlags: FeatureFlagsSchema.default(() => FeatureFlagsSchema.parse({})),
+  // Fork: an unreadable fork switch is turned off instead of failing the file.
+  featureFlags: z
+    .preprocess((raw) => repairForkFeatureFlags(raw), FeatureFlagsSchema)
+    .default(() => FeatureFlagsSchema.parse({})),
   pendingOperations: PendingOperationsSchema.default(() =>
     PendingOperationsSchema.parse({}),
   ),

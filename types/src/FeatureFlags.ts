@@ -1,4 +1,8 @@
 import { z } from 'zod/v4';
+import {
+  ForkFeatureFlagMetadata,
+  ForkFeatureFlagsShape,
+} from './ForkFeatureFlags.js';
 
 export const FeatureFlagsSchema = z.object({
   proxyArtwork: z.boolean().default(false),
@@ -8,6 +12,7 @@ export const FeatureFlagsSchema = z.object({
   disableSearchSnapshotInBackup: z.boolean().default(false),
   disableVulkan: z.boolean().default(false),
   disableVaapiPad: z.boolean().default(false),
+  ...ForkFeatureFlagsShape,
 });
 
 export type FeatureFlags = z.infer<typeof FeatureFlagsSchema>;
@@ -17,7 +22,8 @@ export type FeatureFlagMeta = {
   key: FeatureFlagKey;
   displayName: string;
   description: string;
-  envVar: string;
+  // Fork: flags without a variable are set only in Settings → Features.
+  envVar?: string;
   category: 'experimental' | 'escape-hatch';
 };
 
@@ -78,4 +84,5 @@ export const FeatureFlagMetadata: FeatureFlagMeta[] = [
     envVar: 'TUNARR_DISABLE_VAAPI_PAD',
     category: 'escape-hatch',
   },
+  ...ForkFeatureFlagMetadata,
 ];

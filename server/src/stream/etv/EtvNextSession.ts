@@ -287,6 +287,7 @@ export class EtvNextSession extends Session<EtvNextSessionOptions> {
         ? { ...this.channel, hlsSegmentType: 'mpegts' }
         : this.channel,
       this.#ffmpegRuntime,
+      this.featureFlagService,
     );
     if (await this.#isLiveFeed()) {
       forkLiveFeedFallback(

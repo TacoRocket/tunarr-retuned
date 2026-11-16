@@ -1,5 +1,9 @@
 import { z } from 'zod/v4';
 import { GlobalMediaSourceSettingsSchema } from '@tunarr/types/schemas';
+import {
+  checkLibraryScanSave,
+  scheduleLibraryScans,
+} from '../services/startup/LibraryScanSchedule.ts';
 import type { RouterPluginAsyncCallback } from '../types/serverType.js';
 
 const fields = GlobalMediaSourceSettingsSchema.shape;
@@ -35,17 +39,37 @@ export const settingsApi: RouterPluginAsyncCallback = async (fastify) => {
             repairReaddedItems: fields.repairReaddedItems.removeDefault(),
             repairReaddedItemsOnStartup:
               fields.repairReaddedItemsOnStartup.removeDefault(),
+            dailyScanTime: fields.dailyScanTime.removeDefault(),
+            dailyScanTimeZone: fields.dailyScanTimeZone.removeDefault(),
           })
           .partial(),
+        // Shaped like fastify's own validation errors, which carry `message`
+        // too; a string schema would turn those into 500s.
         response: {
           200: GlobalMediaSourceSettingsSchema,
+          400: z.object({ message: z.string() }),
         },
       },
     },
     async (req, res) => {
+      const { dailyScanTime, dailyScanTimeZone } = req.body;
+      const changesDailyScan =
+        dailyScanTime !== undefined || dailyScanTimeZone !== undefined;
+      // Checked as it will be saved, before anything is saved or unscheduled.
+      try {
+        checkLibraryScanSave(
+          req.serverCtx.settings.globalMediaSourceSettings(),
+          req.body,
+        );
+      } catch (e) {
+        return res.status(400).send({ message: (e as Error).message });
+      }
       await req.serverCtx.settings.directUpdate((file) => {
         Object.assign(file.settings.mediaSource, req.body);
       });
+      if (changesDailyScan) {
+        scheduleLibraryScans(req.serverCtx.settings);
+      }
       return res.send(req.serverCtx.settings.globalMediaSourceSettings());
     },
   );

@@ -295,7 +295,7 @@ before enabling the option elsewhere.
 
 ## VAAPI driver-default scaling (fork option)
 
-Set `TUNARR_VAAPI_DEFAULT_SCALING=1` on the server to request
+Turn on **Driver-Default VAAPI Scaling** on Settings → Features to request
 `mode=default` on `scale_vaapi` for video resizing, anamorphic correction, Broadcast
 CRT pre-scaling and bitmap subtitle resizing. FFmpeg normally requests `hq`
 when the mode is omitted. Intel's driver can use its dedicated scaler for the
@@ -305,8 +305,8 @@ engine on every GPU.
 
 The option leaves format-only conversions, shaders, color settings, dimensions
 and encoder settings unchanged. Scaling pixels can differ from HQ; this is a
-picture-quality trial, not a byte-identical replacement. Unset the variable or
-set it to `0` and restart the server to restore the previous scaling commands.
+picture-quality trial, not a byte-identical replacement. Switch it off to
+restore the previous scaling commands; streams that start afterwards use them.
 No profile migration or FFmpeg rebuild is required.
 
 CRT channels instead use their processing tier: Quality keeps baseline scaling;
@@ -322,24 +322,22 @@ override the bundled worker.
 
 ## Fixed-Hable VAAPI LUT (fork option)
 
-`TUNARR_VAAPI_HABLE_LUT=1` selects the optional `tonemap_vaapi_lut` filter for
-10-bit, limited-range BT.2020 non-constant-luminance/PQ video. Tone mapping and
+**Fast HDR Conversion (VAAPI)** on Settings → Features selects the
+optional `tonemap_vaapi_lut` filter for 10-bit, limited-range BT.2020 non-constant-luminance/PQ video. Tone mapping and
 hardware filters must already be enabled. The FFmpeg image must be built with
 `VAAPI_HABLE_LUT=1`, which bundles the filter and its table; no extra volume or
 host installation is needed.
 
-Unset or `0` keeps the configured tone mapper, which defaults to OpenCL. The
-flag is read at runtime, so the same staged image can be enabled or disabled
-with a container environment change and restart. The environment option itself
-does not change the database.
+Off keeps the configured tone mapper, which defaults to OpenCL. Streams that
+start after a change use the new choice; nothing in the database changes.
 HLG, video identified as Dolby Vision, and unknown or different color encodings
 retain their current path. For CRT-enabled channels, Performance and Experimental allow this LUT, which
 keeps DVD Broadcast in the CRT look on eligible HDR10. Quality retains the
 configured tone mapper and the HDR CRT bypass.
 Non-CRT channels retain the global opt-in behavior. If FFmpeg lacks the
 filter, Tunarr logs a warning and uses the configured tone mapper. If the driver
-cannot run the selected LUT, FFmpeg reports an error; turn the flag off to return
-to the previous route.
+cannot run the selected LUT, FFmpeg reports an error; switch the option off to
+return to the previous route.
 
 This is a fixed 1000-nit Hable transform with BT.709 NV12 output. It does not
 include normal OpenCL's scene adaptation and is not an exact picture match to
@@ -780,7 +778,7 @@ are skipped when HDR is preserved.
 
 These controls apply only to ErsatzTV Next. Tunarr's own playback pipeline does
 not use the profile's video bit depth field and retains its existing tone-mapping
-controls. The existing `TUNARR_VAAPI_HABLE_LUT=1` option is also passed to Next as
+controls. **Fast HDR Conversion (VAAPI)** is also passed to Next as
 `normalization.video.hdr_vaapi_lut`; it chooses the optional VAAPI Hable LUT when
 an item needs tone mapping, without changing the selected mode.
 

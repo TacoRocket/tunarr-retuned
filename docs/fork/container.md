@@ -47,23 +47,19 @@ devices:
   - /dev/dri:/dev/dri
 ```
 
-The image includes the optional filters, but does not enable hardware-specific trials globally. Add only the options you want to the service's existing `environment` list:
+The image includes the optional filters. Three hardware options are switches on **Settings → Features**:
 
-```yaml
-# Optional driver-default scaling instead of the usual HQ scaling request.
-- TUNARR_VAAPI_DEFAULT_SCALING=1
+| Switch | Default |
+| --- | --- |
+| Fast HDR Conversion (VAAPI) | Off |
+| Driver-Default VAAPI Scaling | Off |
+| Disable Direct NV12 for CRT | Off (direct NV12 on) |
 
-# Optional direct NV12 output for eligible Broadcast shader paths.
-# This Native mode has only been validated with Intel ANV.
-- TUNARR_CRT_DIRECT_NV12=1
-- ETV_VAAPI_DIRECT_NV12=1
-- TUNARR_CRT_NV12_OUTPUT=native
+They have no container variables. The earlier `TUNARR_VAAPI_HABLE_LUT` and `TUNARR_VAAPI_DEFAULT_SCALING` are no longer read: if you set them, turn on the matching switch and remove them from your Compose file. If one of these switches is edited by hand in `settings.json` to anything but `true` or `false`, Tunarr turns it off, keeps the rest of the file, and logs which switch it changed.
 
-# Optional fixed-Hable VAAPI HDR conversion; leave unset to retain OpenCL.
-- TUNARR_VAAPI_HABLE_LUT=1
-```
+CRT channels on Performance or Experimental write their picture straight to NV12 whenever this image's FFmpeg supports it. That skips one conversion and gives the same picture, so it needs no switch to turn on. It has been checked on Intel only; if a GPU shows a broken or miscolored CRT picture, turn on **Disable Direct NV12 for CRT**. The earlier `TUNARR_CRT_DIRECT_NV12`, `ETV_VAAPI_DIRECT_NV12`, `TUNARR_CRT_NV12_OUTPUT` and `ETV_INLINE_NV12_RTZ` variables are no longer read; remove them from your Compose file.
 
-Direct output does not remove shader work: shaders still use the programmable GPU, and encoding can use the dedicated video encoder. It avoids an intermediate conversion on eligible paths. Native mode is not a general cross-driver default. The fixed-Hable option handles eligible HDR10 material, lacks OpenCL's scene adaptation, and is not an exact picture match. Only Intel Gen12 has been exercised for that option. Unsupported hardware may fail; remove the corresponding option to restore the previous route.
+Direct output does not remove shader work: shaders still use the programmable GPU, and encoding can use the dedicated video encoder. Fast HDR conversion handles eligible HDR10 material, lacks OpenCL's scene adaptation, and is not an exact picture match; only Intel Gen12 has been exercised for it. Driver-default scaling lets Intel use its dedicated scaler, and its pixels can differ slightly from the usual high-quality request.
 
 Picture styles are channel settings, separate from these runtime options. See [CRT looks](crt.md) for picture controls and the [transcoding settings reference](transcoding.md) for scaling and HDR limits. Ad pods are covered in [Scheduling](scheduling.md#after-show-ad-pods).
 
@@ -83,7 +79,7 @@ The application and FFmpeg source revisions come from our tested custom setup. T
 
 Keep versioned images and a matching configuration backup for rollback. Reverting an image alone does not undo database migrations. This first release does not publish a moving `latest` tag or deploy anything automatically.
 
-CRT processing defaults to Quality even with these runtime flags. Select
+CRT processing defaults to Quality, which uses none of these shortcuts. Select
 Performance to use eligible hardware optimizations or Experimental to try
 additional shortcuts that can slightly change the picture. See
 [processing tiers](crt.md#processing-tiers).

@@ -26,6 +26,7 @@ import {
 } from './EtvNextForkSettings.ts';
 import type { FfmpegInfo } from '../../ffmpeg/ffmpegInfo.ts';
 import type { FfmpegRuntimeCapabilities } from '../../ffmpeg/FfmpegRuntimeCapabilities.ts';
+import type { FeatureFlagService } from '../../services/FeatureFlagService.ts';
 import { EtvNextWorkspace } from './EtvNextWorkspace.ts';
 
 /**
@@ -110,6 +111,7 @@ export class EtvNextTroubleshootRunner {
     sessionId,
     timeoutMs,
     subtitleMode,
+    featureFlags,
   }: {
     channel: ChannelOrmWithTranscodeConfig;
     lineupItem: StreamLineupItem;
@@ -120,6 +122,9 @@ export class EtvNextTroubleshootRunner {
 
     /** Matches the live channel, so the run burns or converts as it would. */
     subtitleMode: SubtitleMode;
+
+    /** Settings → Features, read as live sessions read it. */
+    featureFlags: Pick<FeatureFlagService, 'get'>;
   }): Promise<EtvNextTroubleshootRun> {
     const workspace = new EtvNextWorkspace(baseDirectory, sessionId);
     await workspace.initialize();
@@ -155,6 +160,7 @@ export class EtvNextTroubleshootRunner {
         config,
         channel,
         ffmpegRuntime,
+        featureFlags,
       );
       notes.push(
         ...[...mapping.ignored, ...forkIgnored].map(

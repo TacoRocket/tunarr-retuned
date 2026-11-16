@@ -193,4 +193,91 @@ describe('SettingsDBFactory', () => {
       expect((await readSettings()).migration.onboardingComplete).toBe(false);
     });
   });
+
+  // Codex review of #254: a value edited by hand into settings.json that the
+  // schema can't read made the whole file fail to load, and startup wrote
+  // defaults over all of it. Unreadable fork values are reset on their own
+  // (the daily scan to 03:30 nightly, a Features switch to off) and the rest
+  // of the file is kept.
+  describe('hand-edited values it cannot read', () => {
+    type Written = {
+      settings: {
+        mediaSource: Record<string, unknown>;
+        ffmpeg: Record<string, unknown>;
+      };
+      featureFlags: Record<string, unknown>;
+    };
+    const readFile = async () =>
+      JSON.parse(await fs.readFile(settingsPath, 'utf-8')) as Written;
+    // Writes a settings file with these values, then starts again.
+    const editAndRestart = async (edit: (file: Written) => void) => {
+      new (await loadFactory())(options).get();
+      const file = await readFile();
+      file.settings.mediaSource.rescanIntervalHours = 9;
+      file.settings.mediaSource.repairReaddedItems = true;
+      file.settings.ffmpeg.ffmpegExecutablePath = '/opt/custom/ffmpeg';
+      edit(file);
+      await fs.writeFile(settingsPath, JSON.stringify(file));
+      vi.resetModules();
+      return new (await loadFactory())(options).get();
+    };
+    const serverZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    test.each([
+      ['an impossible time', '25:00'],
+      ['a number', 330],
+      ['the wrong format', '3:30pm'],
+    ])('%s resets the daily scan to 03:30 in its zone', async (_, time) => {
+      const settings = await editAndRestart((file) => {
+        file.settings.mediaSource.dailyScanTime = time;
+        file.settings.mediaSource.dailyScanTimeZone = 'America/Chicago';
+      });
+      const expected = {
+        rescanIntervalHours: 9,
+        repairReaddedItems: true,
+        dailyScanTime: '03:30',
+        dailyScanTimeZone: 'America/Chicago',
+      };
+      expect(settings.globalMediaSourceSettings()).toMatchObject(expected);
+      expect(settings.ffmpegSettings().ffmpegExecutablePath).toBe(
+        '/opt/custom/ffmpeg',
+      );
+      const after = await readFile();
+      expect(after.settings.mediaSource).toMatchObject(expected);
+      expect(after.settings.ffmpeg.ffmpegExecutablePath).toBe(
+        '/opt/custom/ffmpeg',
+      );
+    });
+
+    test("a time without a readable zone keeps the time in the server's zone", async () => {
+      const settings = await editAndRestart((file) => {
+        file.settings.mediaSource.dailyScanTime = '04:15';
+        file.settings.mediaSource.dailyScanTimeZone = 42;
+      });
+      expect(settings.globalMediaSourceSettings()).toMatchObject({
+        rescanIntervalHours: 9,
+        dailyScanTime: '04:15',
+        dailyScanTimeZone: serverZone,
+      });
+    });
+
+    test('a Features switch that is not true or false is turned off', async () => {
+      const settings = await editAndRestart((file) => {
+        file.featureFlags.vaapiHableLut = 'yes';
+        file.featureFlags.vaapiDefaultScaling = true;
+      });
+      expect(settings.globalMediaSourceSettings()).toMatchObject({
+        rescanIntervalHours: 9,
+        repairReaddedItems: true,
+      });
+      const after = await readFile();
+      expect(after.featureFlags).toMatchObject({
+        vaapiHableLut: false,
+        vaapiDefaultScaling: true,
+      });
+      expect(after.settings.ffmpeg.ffmpegExecutablePath).toBe(
+        '/opt/custom/ffmpeg',
+      );
+    });
+  });
 });

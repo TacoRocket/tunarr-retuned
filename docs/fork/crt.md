@@ -107,9 +107,9 @@ is no longer accepted.
 **Review your existing CRT channels before restarting playback.** Quality is the
 new default, but it does not preserve every earlier tuning choice:
 
-- Quality restores filtered color and baseline scaling, even if the server's
-  `TUNARR_VAAPI_DEFAULT_SCALING` option is enabled. That option still applies to
-  channels without CRT.
+- Quality restores filtered color and baseline scaling, even if
+  **Driver-Default VAAPI Scaling** is on in Settings → Features. That option
+  still applies to channels without CRT.
 - Performance restores eligible hardware optimizations while keeping filtered
   color and separate grain processing.
 - Experimental is closest to an installation already using optimized output,

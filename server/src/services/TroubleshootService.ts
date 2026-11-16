@@ -689,6 +689,7 @@ export class TroubleshootService {
           channel,
           this.featureFlagService.get('webvttSidecarEnabled'),
         ),
+        featureFlags: this.featureFlagService,
       });
 
       this.activeSessions.set(sessionId, run.outputDirectory);

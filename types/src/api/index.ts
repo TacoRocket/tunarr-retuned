@@ -747,6 +747,10 @@ export const UpdateFeatureFlagsRequestSchema = z.object({
   disableVulkan: z.boolean().optional(),
   disableVaapiPad: z.boolean().optional(),
   xmltvCreditImagesEnabled: z.boolean().optional(),
+  // Fork runtime options (ForkFeatureFlags.ts).
+  vaapiHableLut: z.boolean().optional(),
+  vaapiDefaultScaling: z.boolean().optional(),
+  disableCrtDirectNv12: z.boolean().optional(),
 });
 
 export type UpdateFeatureFlagsRequest = z.infer<

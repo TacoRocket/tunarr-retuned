@@ -3916,6 +3916,10 @@ msgstr "媒体库片段（尚未实现）"
 msgid "Library programming"
 msgstr ""
 
+#: src/pages/settings/ScannerSettingsPage.tsx
+msgid "Library scans run once a day at this time instead of on the interval above. Collections and custom shows still sync on the interval. Half past the hour keeps scans clear of the hourly library refresh."
+msgstr ""
+
 #. placeholder {0}: library.name
 #: src/routes/media_sources_/$mediaSourceId/libraries_.$libraryId.tsx
 msgid "Library: {0}"
@@ -5969,6 +5973,10 @@ msgstr "扫描"
 msgid "Scan {0}"
 msgstr "扫描 {0}"
 
+#: src/pages/settings/ScannerSettingsPage.tsx
+msgid "Scan once a day at a set time"
+msgstr ""
+
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Scan your libraries"
 msgstr ""
@@ -7139,6 +7147,10 @@ msgstr "线程数"
 msgid "Thumbnail URL"
 msgstr "缩略图链接"
 
+#: src/pages/settings/ScannerSettingsPage.tsx
+msgid "Time"
+msgstr ""
+
 #: src/components/slot_scheduler/MidRollConfigPanel.tsx
 msgid "Time before first break"
 msgstr "第一段广告前的时间"
@@ -7170,6 +7182,10 @@ msgstr "时段"
 #: src/components/channel_config/ChannelProgrammingOrganizeOptions.tsx
 msgid "Time Slots..."
 msgstr "时段…"
+
+#: src/pages/settings/ScannerSettingsPage.tsx
+msgid "Time zone"
+msgstr ""
 
 #: src/pages/system/SystemLogsPage.tsx
 msgid "Timestamp"
