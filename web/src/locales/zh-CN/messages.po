@@ -5689,6 +5689,12 @@ msgstr ""
 msgid "Redrew {0} of {1} ads"
 msgstr ""
 
+#. placeholder {0}: result.refreshedPositions
+#. placeholder {1}: result.matchedPositions
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Redrew {0} of {1} ads. Your unsaved Programming changes were kept; saving them puts the previous ads back."
+msgstr ""
+
 #: src/hooks/useVersion.tsx
 msgid "Refresh"
 msgstr "刷新"

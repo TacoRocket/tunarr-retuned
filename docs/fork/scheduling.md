@@ -379,7 +379,9 @@ Commercial, promo and closer are example assignments, not required roles. A supp
 
 Breaks keep the clips they were given until the schedule is generated again. To pick fresh ones without touching the shows, open the channel's **Ad Breaks** page and use **Redraw ads**. It lists the pools behind the channel's saved breaks, with how many ad spots each fills; untick any you want to keep as they are, then **Redraw**. The ad on screen right now isn't changed, and each break is redrawn as a whole, so it still skips clips it already has.
 
-Redraw works on any looping channel with saved after-show ads, including a schedule you've since edited by hand. It isn't offered for Time Slots or on-demand channels, and a channel that plays another one later follows its source: redraw the source. Save or reset any open programming changes first. From a script: `POST /api/channels/{id}/programming/refresh-fillers` with `{"fillerListIds": ["..."]}`.
+Redraw works on any looping channel with saved after-show ads, including a schedule you've since edited by hand. It isn't offered for Time Slots or on-demand channels, and a channel that plays another one later follows its source: redraw the source. Save or reset any open programming changes first. If you edit Programming while a Redraw is still running, your edits are kept; saving them puts the previous ads back. From a script: `POST /api/channels/{id}/programming/refresh-fillers` with `{"fillerListIds": ["..."]}`.
+
+Only clips that are clearly part of an ad break are counted or redrawn. A saved lineup records an ad only as "a clip from this list after a show", which looks the same as Tunarr's ordinary one-clip post-roll filler, even when both use the same list. So on a Random Slots channel a run of ads counts as a break when it matches the break recipe spot by spot, and on a lineup you've edited by hand when it has two or more ads. A lone ad that an ordinary post-roll could have placed is left as it is.
 
 ## Skip the end credits
 
