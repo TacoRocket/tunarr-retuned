@@ -2,9 +2,10 @@ import type { ProgramExternalIdType } from '@/db/custom_types/ProgramExternalIdT
 import { KEYS } from '@/types/inject.js';
 import type { Maybe } from '@/types/util.js';
 import { isNonEmptyString } from '@/util/index.js';
+import { sql } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 import type { Kysely } from 'kysely';
-import { chunk, isEmpty, uniq } from 'lodash-es';
+import { chunk, isEmpty, once, uniq } from 'lodash-es';
 import { throttledAccumulate, throttledLoop } from '../../util/seq.ts';
 import type { ProgramExternalId } from '../schema/ProgramExternalId.ts';
 import { ProgramGroupingType } from '../schema/ProgramGrouping.ts';
@@ -33,14 +34,28 @@ export class BasicProgramRepository {
     @inject(KEYS.DrizzleDB) private drizzleDB: DrizzleDBAccess,
   ) {}
 
+  /**
+   * The query behind getProgramById, composed once.
+   *
+   * It joins a dozen relations, and composing its SQL costs about two
+   * milliseconds, several times what running it does. The subtitle lookahead
+   * loads about 900 programs one after another this way on a 33-channel
+   * install, which was two of the three seconds a run took.
+   */
+  #programById = once(() =>
+    this.drizzleDB.query.program
+      .findFirst({
+        where: (fields, { eq }) => eq(fields.uuid, sql.placeholder('id')),
+        with: {
+          ...MaterializedProgramRelations,
+          ...ProgramStreamRelations,
+        },
+      })
+      .prepare(),
+  );
+
   async getProgramById(id: string): Promise<Maybe<ProgramOrmWithExternalIds>> {
-    return this.drizzleDB.query.program.findFirst({
-      where: (fields, { eq }) => eq(fields.uuid, id),
-      with: {
-        ...MaterializedProgramRelations,
-        ...ProgramStreamRelations,
-      },
-    });
+    return await this.#programById().execute({ id });
   }
 
   async getLineupProgramById(
