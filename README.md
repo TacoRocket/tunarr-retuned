@@ -6,7 +6,7 @@
 
 <p align="center"><strong>Tunarr, with extensions, real commercial breaks and a CRT picture.</strong></p>
 
-<p align="center">A fork of <a href="https://github.com/chrisbenincasa/tunarr">Tunarr</a> that stays close to upstream and adds the things below. New channels use ErsatzTV next. Existing channels keep their playback engine on upgrade, and the channel editor offers a one-click move to ErsatzTV next.</p>
+<p align="center">A fork of <a href="https://github.com/chrisbenincasa/tunarr">Tunarr</a> that stays close to upstream and adds the things below. New channels use ErsatzTV next. Existing channels keep their playback engine on upgrade, and the channel editor offers a one-click move to ErsatzTV next; until then their settings are read-only.</p>
 
 <p align="center">
   <a href="https://github.com/TacoRocket/tunarr-retuned/releases"><img src="https://img.shields.io/github/v/release/TacoRocket/tunarr-retuned?include_prereleases&style=flat&logo=github&color=lightseagreen&label=retuned%20release" alt="Retuned Release"></a>

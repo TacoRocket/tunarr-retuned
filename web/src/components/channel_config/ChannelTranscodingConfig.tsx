@@ -232,52 +232,17 @@ export default function ChannelTranscodingConfig({
               channel.
             </Trans>
           </Typography>
-          {/* SIGNPOST(native-retirement): the engine choice goes with native playback. */}
-          {isNew ? (
-            <Box sx={{ my: 2 }}>
-              <Typography variant="subtitle2">{t`Playback engine`}</Typography>
-              <Typography>{t`ErsatzTV next (Experimental)`}</Typography>
-            </Box>
-          ) : (
-            <FormControl margin="normal" fullWidth>
-              <InputLabel id="playback-engine-label">{t`Playback engine`}</InputLabel>
-              <Controller
-                control={control}
-                name="useEtvNext"
-                render={({ field: { value, onChange, ref, ...field } }) => (
-                  <Select
-                    {...field}
-                    inputRef={ref}
-                    labelId="playback-engine-label"
-                    label={t`Playback engine`}
-                    aria-describedby="playback-engine-help"
-                    value={supportsEtvNext && value ? 'etv-next' : 'tunarr'}
-                    onChange={(event) =>
-                      onChange(event.target.value === 'etv-next')
-                    }
-                    disabled={!supportsEtvNext}
-                  >
-                    <MenuItem value="tunarr">{t`Tunarr`}</MenuItem>
-                    <MenuItem value="etv-next">{t`ErsatzTV next (Experimental)`}</MenuItem>
-                  </Select>
-                )}
-              />
-              <FormHelperText id="playback-engine-help">
-                {!supportsEtvNext ? (
-                  <Trans>
-                    This stream mode uses Tunarr. Choose HLS, HLS Direct v2 or
-                    MPEG-TS to use ErsatzTV next.
-                  </Trans>
-                ) : (
-                  <Trans>
-                    Choose which engine prepares this channel's stream. Both
-                    engines support HLS; the stream mode below is a separate
-                    choice.
-                  </Trans>
-                )}
-              </FormHelperText>
-            </FormControl>
-          )}
+          {/* SIGNPOST(native-retirement): shown, not chosen. Channels move to
+              ErsatzTV next with Convert and don't move back; a legacy channel's
+              edit page is read-only until then. */}
+          <Box sx={{ my: 2 }}>
+            <Typography variant="subtitle2">{t`Playback engine`}</Typography>
+            <Typography>
+              {isNew || usesEtvNext
+                ? t`ErsatzTV next (Experimental)`
+                : t`Tunarr (being retired)`}
+            </Typography>
+          </Box>
           <Stack direction={{ sm: 'column', md: 'row' }} useFlexGap spacing={2}>
             <FormControl margin="normal">
               <InputLabel>{t`Channel Stream Mode`}</InputLabel>
@@ -289,18 +254,14 @@ export default function ChannelTranscodingConfig({
                     label={t`Channel Stream Mode`}
                     {...field}
                   >
+                    {/* SIGNPOST(native-retirement): HLS Alt and HLS Direct
+                        only show as a legacy channel's saved mode. */}
                     {ChannelStreamModeOptions.filter(
                       (opt) =>
-                        !isNew || EtvNextRoutableModes.includes(opt.value),
+                        EtvNextRoutableModes.includes(opt.value) ||
+                        opt.value === field.value,
                     ).map((opt) => (
-                      <MenuItem
-                        key={opt.value}
-                        value={opt.value}
-                        disabled={
-                          usesEtvNext &&
-                          !EtvNextRoutableModes.includes(opt.value)
-                        }
-                      >
+                      <MenuItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </MenuItem>
                     ))}

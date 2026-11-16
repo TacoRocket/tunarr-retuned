@@ -13,9 +13,8 @@ tracks Spelunkr.
 
 ## Choose a feed
 
-Create an empty, standalone channel. For Toonami, select **HLS** to transcode, or choose
-**ErsatzTV next (Experimental)** as the playback engine and **HLS Direct v2**
-to copy compatible source video and audio. Do not add library programs, redirects,
+Create an empty, standalone channel. For Toonami, select **HLS** to transcode, or
+**HLS Direct v2** to copy compatible source video and audio. Do not add library programs, redirects,
 or a schedule. For an initial transcode check, use software
 H.264 video and AAC audio. Hardware encoding and CRT settings use the existing
 pipeline but have not been validated for this source.
@@ -120,9 +119,9 @@ that window; it cannot restore content the provider no longer serves.
 
 ## Toonami with the ErsatzTV next backend
 
-A relay channel can also use the experimental ErsatzTV next backend. Choose
-**ErsatzTV next (Experimental)** under **Playback engine** on the channel's
-Streaming tab. Tunarr looks up the feed's current address for
+A relay channel can also use the experimental ErsatzTV next backend, which new
+channels use; a channel still on Tunarr's own engine converts from its edit
+page. Tunarr looks up the feed's current address for
 each item and hands it to the worker as a live source. If the lookup fails, the
 channel shows a ten-second error screen and asks again.
 
