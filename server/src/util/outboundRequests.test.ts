@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import {
   BlockedOutboundUrlError,
   checkOutboundUrl,
   classifyUpstreamError,
+  guardedAgents,
   isBlockedOutboundUrlError,
   outboundRedirectGuard,
   outboundRequestGuard,
@@ -185,6 +188,114 @@ describe('outboundRequestGuard agent lookup', () => {
     // distinction that matters.
     expect(error).toBeDefined();
     expect(isBlockedOutboundUrlError(error)).toBe(false);
+  });
+});
+
+describe('outboundRequestGuard connections', () => {
+  // A local server that counts the connections opened to it.
+  async function countingServer() {
+    const counts = { connections: 0 };
+    const server = http.createServer((_, res) => res.end('ok'));
+    server.on('connection', () => counts.connections++);
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
+    const { port } = server.address() as AddressInfo;
+    const close = async () => {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    };
+    return { counts, port, close };
+  }
+
+  // A library scan makes thousands of requests to one media server. Opening a
+  // connection for each costs a TCP and TLS handshake every time.
+  it('reuses one connection for back-to-back requests to the same server', async () => {
+    const { counts, port, close } = await countingServer();
+
+    try {
+      for (let i = 0; i < 3; i++) {
+        await axios.get(`http://127.0.0.1:${port}/`, {
+          ...outboundRequestGuard,
+        });
+      }
+    } finally {
+      await close();
+    }
+
+    expect(counts.connections).toBe(1);
+  });
+
+  // Requests to a media server normally carry a timeout. The Jellyfin and
+  // Emby sign-in calls do not, and a slow sign-in must not be cut off by the
+  // limit meant for a connection nobody is using.
+  it('lets a slow request with no timeout finish on a reused connection', async () => {
+    const idleMs = 150;
+    const config = { ...outboundRedirectGuard, ...guardedAgents(idleMs) };
+    let connections = 0;
+    let firstClosed = () => {};
+    const closed = new Promise<void>((resolve) => (firstClosed = resolve));
+    const server = http.createServer((req, res) => {
+      // Slow enough to outlast the idle limit several times over.
+      setTimeout(() => res.end('ok'), req.url === '/slow' ? idleMs * 4 : 0);
+    });
+    // The server would hold an idle connection for a minute, so only the
+    // client's own limit can close one sooner.
+    server.keepAliveTimeout = 60_000;
+    server.on('connection', (socket) => {
+      if (++connections === 1) {
+        socket.on('close', firstClosed);
+      }
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
+    const { port } = server.address() as AddressInfo;
+    const base = `http://127.0.0.1:${port}`;
+
+    try {
+      await axios.get(`${base}/`, { ...config, timeout: 60_000 });
+      const slow = await axios.post(`${base}/slow`, {}, config);
+
+      expect(slow.status).toBe(200);
+      expect(connections).toBe(1);
+
+      // Left alone, the client closes the connection itself.
+      await closed;
+      await axios.get(`${base}/`, { ...config, timeout: 60_000 });
+      expect(connections).toBe(2);
+    } finally {
+      config.httpAgent.destroy();
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  // The guards act when a connection is opened. One held open to an allowed
+  // server must not carry, or excuse, a request to a refused destination.
+  it('still refuses a blocked destination while a connection is held open', async () => {
+    const { counts, port, close } = await countingServer();
+    const attempt = (url: string) =>
+      axios
+        .get(url, { ...outboundRequestGuard, timeout: 3000 })
+        .then(() => undefined)
+        .catch((e: unknown) => e);
+
+    try {
+      await axios.get(`http://127.0.0.1:${port}/`, { ...outboundRequestGuard });
+
+      const literal = await attempt(`http://169.254.169.254:${port}/`);
+      const resolved = await attempt(`http://rebind.example:${port}/`);
+      expect(isBlockedOutboundUrlError(literal)).toBe(true);
+      expect(isBlockedOutboundUrlError(resolved)).toBe(true);
+
+      // The held connection is still the one in use afterwards.
+      await axios.get(`http://127.0.0.1:${port}/`, { ...outboundRequestGuard });
+    } finally {
+      await close();
+    }
+
+    expect(counts.connections).toBe(1);
   });
 });
 

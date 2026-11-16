@@ -296,6 +296,81 @@ function guardAgentConnections<T extends http.Agent>(agent: T): T {
 }
 
 /**
+ * The settings of Node's own default agent, which these agents replace. An
+ * agent built without them opens a connection per request: a library scan
+ * makes thousands of requests to one media server and paid a TCP and TLS
+ * handshake for each. An idle connection is closed after five seconds.
+ *
+ * Both guards act when a connection is opened, and a connection is only
+ * reused for the host and port it was opened to, so a reused one has already
+ * passed them.
+ */
+const IdleConnectionTimeoutMs = 5000;
+
+/**
+ * `reuseSocket` is a documented hook on http.Agent and https.Agent, called
+ * when a pooled connection is attached to a new request, but it is not
+ * declared on the type.
+ */
+type AgentWithReuseSocket = {
+  reuseSocket: (socket: unknown, request: http.ClientRequest) => void;
+};
+
+/**
+ * Stops the idle limit from cutting off a request that is in progress.
+ *
+ * The limit is a timer on the connection. Node leaves it running when it
+ * hands a pooled connection to a request that has no timeout of its own, and
+ * follow-redirects leaves a "destroy on timeout" listener on a connection
+ * from any earlier request that did have one. Together, a slow request with
+ * no timeout, sent on a reused connection, was reset after the idle limit
+ * while the server was still answering. The Jellyfin and Emby sign-in calls
+ * are such requests.
+ *
+ * Clearing the timer at the handoff leaves an active request with only the
+ * timeout its caller gave it. The agent starts the timer again when the
+ * connection goes back into the pool.
+ */
+function clearIdleTimerOnReuse<T extends http.Agent>(agent: T): T {
+  const target = agent as T & AgentWithReuseSocket;
+  const reuseSocket = target.reuseSocket.bind(target);
+
+  target.reuseSocket = (socket: unknown, request: http.ClientRequest) => {
+    reuseSocket(socket, request);
+    if (socket instanceof net.Socket) {
+      socket.setTimeout(0);
+    }
+  };
+
+  return agent;
+}
+
+/**
+ * The guarded agents, keeping connections open between requests and closing
+ * one that has sat idle for `idleTimeoutMs`.
+ */
+export function guardedAgents(idleTimeoutMs = IdleConnectionTimeoutMs) {
+  const connectionReuse = {
+    keepAlive: true,
+    scheduling: 'lifo',
+    timeout: idleTimeoutMs,
+  } as const;
+
+  return {
+    httpAgent: clearIdleTimerOnReuse(
+      guardAgentConnections(
+        new http.Agent({ ...connectionReuse, lookup: guardedLookup }),
+      ),
+    ),
+    httpsAgent: clearIdleTimerOnReuse(
+      guardAgentConnections(
+        new https.Agent({ ...connectionReuse, lookup: guardedLookup }),
+      ),
+    ),
+  };
+}
+
+/**
  * Axios config that applies the destination guard to a request and to every
  * redirect it follows.
  *
@@ -318,8 +393,7 @@ function guardAgentConnections<T extends http.Agent>(agent: T): T {
  */
 export const outboundRequestGuard = {
   ...outboundRedirectGuard,
-  httpAgent: guardAgentConnections(new http.Agent({ lookup: guardedLookup })),
-  httpsAgent: guardAgentConnections(new https.Agent({ lookup: guardedLookup })),
+  ...guardedAgents(),
 } as const;
 
 /**
