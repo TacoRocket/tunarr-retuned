@@ -5,7 +5,7 @@ import { isNonEmptyString } from '@/util/index.js';
 import { sql } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 import type { Kysely } from 'kysely';
-import { chunk, isEmpty, once, uniq } from 'lodash-es';
+import { chunk, isEmpty, uniq } from 'lodash-es';
 import { throttledAccumulate, throttledLoop } from '../../util/seq.ts';
 import type { ProgramExternalId } from '../schema/ProgramExternalId.ts';
 import { ProgramGroupingType } from '../schema/ProgramGrouping.ts';
@@ -27,12 +27,28 @@ import {
   StreamProgramRelations,
 } from './programRelations.ts';
 
+function prepareProgramById(drizzleDB: DrizzleDBAccess) {
+  return drizzleDB.query.program
+    .findFirst({
+      where: (fields, { eq }) => eq(fields.uuid, sql.placeholder('id')),
+      with: {
+        ...MaterializedProgramRelations,
+        ...ProgramStreamRelations,
+      },
+    })
+    .prepare();
+}
+
+type ProgramByIdQuery = ReturnType<typeof prepareProgramById>;
+
 @injectable()
 export class BasicProgramRepository {
   constructor(
     @inject(KEYS.Database) private db: Kysely<DB>,
     @inject(KEYS.DrizzleDB) private drizzleDB: DrizzleDBAccess,
   ) {}
+
+  #programByIdQuery?: ProgramByIdQuery;
 
   /**
    * The query behind getProgramById, composed once.
@@ -41,18 +57,15 @@ export class BasicProgramRepository {
    * milliseconds, several times what running it does. The subtitle lookahead
    * loads about 900 programs one after another this way on a 33-channel
    * install, which was two of the three seconds a run took.
+   *
+   * SQLite compiles the query when it is prepared, which can fail for a
+   * passing reason such as a locked database. The query is kept only once
+   * that has succeeded, so a failed lookup is retried by the next one.
    */
-  #programById = once(() =>
-    this.drizzleDB.query.program
-      .findFirst({
-        where: (fields, { eq }) => eq(fields.uuid, sql.placeholder('id')),
-        with: {
-          ...MaterializedProgramRelations,
-          ...ProgramStreamRelations,
-        },
-      })
-      .prepare(),
-  );
+  #programById(): ProgramByIdQuery {
+    this.#programByIdQuery ??= prepareProgramById(this.drizzleDB);
+    return this.#programByIdQuery;
+  }
 
   async getProgramById(id: string): Promise<Maybe<ProgramOrmWithExternalIds>> {
     return await this.#programById().execute({ id });

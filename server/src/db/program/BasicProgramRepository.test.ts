@@ -1,7 +1,8 @@
 import { faker } from '@faker-js/faker';
+import Database, { SqliteError } from 'better-sqlite3';
 import tmp from 'tmp-promise';
 import { v4 } from 'uuid';
-import { test as baseTest, describe, expect, vi } from 'vitest';
+import { afterEach, test as baseTest, describe, expect, vi } from 'vitest';
 import { bootstrapTunarr } from '../../bootstrap.ts';
 import { setGlobalOptions } from '../../globals.ts';
 import { copyPreMigratedDb } from '../../testing/testDbFactory.ts';
@@ -60,6 +61,12 @@ async function insertProgram(drizzle: DrizzleDBAccess, title: string) {
 }
 
 describe('BasicProgramRepository.getProgramById', () => {
+  // The tests share one database handle, so a spy left on it would keep
+  // counting into the next test.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   // The query joins a dozen relations. Composing its SQL costs more than
   // running it, and callers such as the subtitle lookahead load hundreds of
   // programs one after another.
@@ -90,5 +97,31 @@ describe('BasicProgramRepository.getProgramById', () => {
     ]);
     expect(missing).toBeUndefined();
     expect(composed).toHaveBeenCalledTimes(1);
+  });
+
+  // SQLite compiles the query when it is prepared, and that can fail for a
+  // passing reason such as a locked database. A failed attempt must not be
+  // kept as the one attempt.
+  test('prepares the query again after preparing it failed', async ({
+    drizzle,
+    repo,
+  }) => {
+    const akira = await insertProgram(drizzle, 'Akira');
+    const composed = vi.spyOn(drizzle.query.program, 'findFirst');
+    vi.spyOn(Database.prototype, 'prepare').mockImplementationOnce(() => {
+      throw new SqliteError('database is locked', 'SQLITE_BUSY');
+    });
+
+    await expect(repo.getProgramById(akira)).rejects.toThrow(
+      'database is locked',
+    );
+
+    const afterFailure = await repo.getProgramById(akira);
+    const reused = await repo.getProgramById(akira);
+
+    expect(afterFailure?.uuid).toBe(akira);
+    expect(reused?.uuid).toBe(akira);
+    // Once for the failed attempt, once for the one that is kept.
+    expect(composed).toHaveBeenCalledTimes(2);
   });
 });
