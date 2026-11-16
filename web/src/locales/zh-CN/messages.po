@@ -450,13 +450,29 @@ msgstr "24 小时制"
 msgid "8-bit"
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "A complete extension to start from."
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "A disabled extension keeps its settings, but its actions can't run."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "A light CRT texture. Flat screen, keeps the picture sharp."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "A PNG or JPEG Tunarr can read inside its container. Mount your artwork folder, for example ./artwork:/artwork:ro."
 msgstr ""
 
 #: src/components/settings/media_source/LocalMediaEditDialog.tsx
 msgid "A root path to scan for media. Local sources can search many different paths."
 msgstr "要扫描媒体文件的根路径。本地媒体源可以配置多个路径。"
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "A softer standard-definition picture with flat scanlines, like a DVD on a 2000s TV."
+msgstr ""
 
 #: src/components/settings/extensions/ExtensionSourcesDialog.tsx
 msgid "A source is a public GitHub repository that lists extensions. Turning one on only shows its listings; installing still needs your click."
@@ -737,6 +753,14 @@ msgstr "调整权重"
 #~ msgid "Administrator sign-in"
 #~ msgstr ""
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Ads during the credits need ErsatzTV next. Remove the filler lists or switch the playback engine, or Save will be refused."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Ads while the credits shrink (optional)"
+msgstr ""
+
 #: src/components/channel_config/plex/PlexProgrammingFilterToolbar.tsx
 #~ msgid "Advanced"
 #~ msgstr "Advanced"
@@ -870,6 +894,18 @@ msgstr "数量"
 msgid "An error occurred: {0}"
 msgstr "发生错误：{0}"
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "An extension is a JavaScript package in a public GitHub repository. This is what we have written up so far for extension API {apiVersion}."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "An old-TV look for the picture, and what this channel does when a program reaches its final credits."
+msgstr ""
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "An upcoming program qualifies when its applicable stream-selection profile allows subtitles. Tunarr can prepare a plain English copy even if that profile would choose a different track for playback."
+msgstr ""
+
 #: src/components/channels/useChannelBulkActions.ts
 msgid "and {more} more"
 msgstr ""
@@ -961,6 +997,10 @@ msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "At least the minimum, up to 168 hours. Whole movies or episodes can exceed this limit."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "At the final credits"
 msgstr ""
 
 #: src/pages/system/StatusPage.tsx
@@ -1113,6 +1153,10 @@ msgstr "返回"
 msgid "Back to Programming"
 msgstr "返回节目编排"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Background image"
+msgstr ""
+
 #: src/components/settings/general/GeneralSettingsForm.tsx
 msgid "Backups"
 msgstr "备份"
@@ -1153,6 +1197,10 @@ msgstr "Basic"
 #: src/components/custom-shows/CustomShowSortToolsMenu.tsx
 msgid "Basic button group"
 msgstr "基础按钮组"
+
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Bazarr extension"
+msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "Below the target, each new recorded play adds one related pick. What you watch steers the next choice. When nobody watches, the current lineup repeats."
@@ -1218,6 +1266,10 @@ msgstr "缓冲区大小影响 ffmpeg 重新评估输出码率的频率。<0>了�
 msgid "Build a channel from related programs and this channel's recorded plays."
 msgstr ""
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Build an extension"
+msgstr ""
+
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Builder"
 msgstr "编排器"
@@ -1278,6 +1330,8 @@ msgid "Calculating Slots..."
 msgstr "正在计算时段…"
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+#: src/components/channel_config/ChannelOffsetSettings.tsx
 #: src/components/channels/BulkAssignFillersDialog.tsx
 #: src/components/channels/BulkAssignFillersDialog.tsx
 #: src/components/channels/ChannelDeleteDialog.tsx
@@ -1364,6 +1418,10 @@ msgstr ""
 msgid "Change the verbosity of specific categories of logs. Useful if debugging a specific feature."
 msgstr "调整特定日志分类的详细程度，便于调试具体功能。"
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Change…"
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionAccessGuide.tsx
 msgid "Changes"
 msgstr ""
@@ -1416,6 +1474,14 @@ msgstr "频道名称"
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
 msgid "Channel name is required"
 msgstr "必须填写频道名称"
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Channel no longer follows another channel"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Channel now plays its source later"
+msgstr ""
 
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
 msgid "Channel Number"
@@ -1534,6 +1600,10 @@ msgstr ""
 msgid "Chooses audio and subtitle streams when programs from this list play as filler."
 msgstr ""
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Classic flat"
+msgstr ""
+
 #: src/components/channel_config/SelectedProgrammingActions.tsx
 #: src/components/search/SearchFieldRestrictMenu.tsx
 #: src/components/ui/patterns/CollectionView/SelectionBar.tsx
@@ -1548,6 +1618,10 @@ msgstr "全部清除"
 
 #: src/components/ui/table/DataTable.tsx
 msgid "Clear filters"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Clear scanlines, a bit of color bleed and glow."
 msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingDeleteOptions.tsx
@@ -1606,6 +1680,10 @@ msgstr "完全随机化节目顺序。"
 #: src/pages/system/SystemLogsPage.tsx
 msgid "Component"
 msgstr "组件"
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Composite-video signal feel"
+msgstr ""
 
 #: src/components/profiles/condition/ConditionEditor.tsx
 #: src/pages/system/TroubleshootPage.tsx
@@ -1962,8 +2040,17 @@ msgstr "创建重播块"
 msgid "Creates a new collection"
 msgstr "创建新合集"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "CRT look"
+msgstr ""
+
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 msgid "Currently has no effect on either playback engine."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Curved screen and heavy texture. Loud on purpose."
 msgstr ""
 
 #: src/components/guide/TvGuide.tsx
@@ -2390,6 +2477,10 @@ msgstr "时长必须大于 0。"
 msgid "Duration must be numeric"
 msgstr "时长必须为数字"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "DVD broadcast (480 lines)"
+msgstr ""
+
 #: src/components/slot_scheduler/EditRandomSlotDialogContent.tsx
 msgid "Dynamic"
 msgstr "动态"
@@ -2636,6 +2727,10 @@ msgstr "为你的本地媒体源输入名称"
 msgid "Enter a number of minutes, 0 or more."
 msgstr ""
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Enter a whole number of hours from 0 to 168."
+msgstr ""
+
 #: src/components/settings/media_source/EmbyServerEditDialog.tsx
 msgid "Enter your Emby password to generate a new access token."
 msgstr "输入你的 Emby 密码以生成新的访问令牌。"
@@ -2831,6 +2926,10 @@ msgstr "排除季"
 msgid "Existing query: {filterString}"
 msgstr "当前查询：{filterString}"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Experimental"
+msgstr ""
+
 #: src/pages/settings/FeaturesSettingsPage.tsx
 msgid "Experimental Features"
 msgstr "实验性功能"
@@ -2938,6 +3037,10 @@ msgstr "功能开关已保存！"
 #: src/components/shell/useShellNav.tsx
 msgid "Features"
 msgstr "功能"
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Fewer options"
+msgstr ""
 
 #: src/components/shell/useShellNav.tsx
 msgid "FFmpeg"
@@ -3106,6 +3209,11 @@ msgstr "垫片列表是你希望在「弹性时间」内播放的视频集合。
 msgid "Filler Options"
 msgstr "垫片选项"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Film grain"
+msgstr ""
+
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 #: src/components/search/PointAndClickSearchBuilder.tsx
@@ -3246,6 +3354,10 @@ msgstr "频率"
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 msgid "From 0 to 100%. Above this movie airtime share, extend toward the limit with related episodes. This is a soft trigger, not a quota."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Full"
 msgstr ""
 
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
@@ -3430,10 +3542,18 @@ msgstr ""
 #~ msgid "Higher values make more room for broader metadata connections and occasional picks from the whole library. Zero uses only current interests and the preceding title."
 #~ msgstr ""
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Hit a limit, or need something extensions can't do yet? <0>Tell us what you're trying to build</0>."
+msgstr ""
+
 #: src/pages/settings/FfmpegSettingsPage.tsx
 #: src/pages/settings/FfmpegSettingsPage.tsx
 msgid "HLS Direct Output Format"
 msgstr "HLS 直连输出格式"
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "HLS Direct passes the video through untouched, so there is nothing to draw on. Choose HLS or MPEG-TS under Channel Stream Mode."
+msgstr ""
 
 #: src/components/Video.tsx
 msgid "HLS not supported in this browser!"
@@ -3442,6 +3562,14 @@ msgstr "当前浏览器不支持 HLS！"
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "HLS Segment Format"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Hours later"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "How extensions work"
 msgstr ""
 
 #: src/pages/channels/TimeSlotEditorPage.tsx
@@ -3639,6 +3767,26 @@ msgstr "上次扫描时该条目不存在"
 msgid "Items from any filler list will not be chosen more frequently than this cooldown setting."
 msgstr "任何垫片列表中的条目，其被选中的频率都不会高于此冷却时间设置。"
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Its own look: Classic flat"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Its own look: DVD broadcast"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Its own look: Strong"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Its own look: Subtle"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Its own look: TV broadcast"
+msgstr ""
+
 #: src/components/channels/useChannelBulkActions.ts
 #: src/components/channels/useChannelBulkActions.ts
 msgid "its source channel"
@@ -3769,9 +3917,15 @@ msgstr ""
 msgid "Library: {0}"
 msgstr "媒体库：{0}"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
 #: src/components/settings/DarkModeButton.tsx
 msgid "Light"
 msgstr "浅色"
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Like an East Coast/West Coast feed: this channel shows another channel's lineup a set number of hours later, with nothing to program here."
+msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingSort.tsx
 #~ msgid "Like Random Shuffle, but tries to preserve the sequence of episodes for each TV show. If a TV show has multiple instances of its episodes, they are also cycled appropriately."
@@ -4185,6 +4339,10 @@ msgstr ""
 msgid "More actions for {0}"
 msgstr ""
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "More options"
+msgstr ""
+
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "Most channels (e.g. 7.1 surround)"
 msgstr ""
@@ -4321,6 +4479,14 @@ msgstr "至少需要一个路径"
 msgid "Needs setup"
 msgstr ""
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Needs the ErsatzTV next playback engine."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Needs the ErsatzTV next playback engine. Remove these lists to keep a still-image squeeze."
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionStatusPill.tsx
 msgid "Needs update"
 msgstr ""
@@ -4428,6 +4594,10 @@ msgstr ""
 
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "No condition"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "No CRT look"
 msgstr ""
 
 #: src/pages/settings/ExtensionsSettingsPage.tsx
@@ -4633,6 +4803,8 @@ msgid "of the following"
 msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 #: src/components/settings/extensions/ExtensionSourcesDialog.tsx
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
@@ -4642,6 +4814,10 @@ msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "Off — use channel programming"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Offset and on-demand channels can't be followed."
 msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
@@ -4662,6 +4838,10 @@ msgstr ""
 #: src/components/channels/ChannelsView.tsx
 msgid "On-Demand"
 msgstr "点播"
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "On-demand channels only move while someone watches, so they can't follow a schedule."
+msgstr ""
 
 #: src/components/channel_config/ChannelPropertiesEditor.tsx
 msgid "On-Demand channels resume from where you left off. Programming is paused when the channel is not streaming.<0/><1>NOTE:</1> While the channel is inactive, the TV Guide for the channel will be empty."
@@ -4685,6 +4865,10 @@ msgstr ""
 
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 msgid "Only the ErsatzTV next engine can send fMP4. This channel sends MPEG-TS."
+msgstr ""
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "Only those a channel will show (recommended)"
 msgstr ""
 
 #: src/pages/ErrorPage.tsx
@@ -4759,6 +4943,10 @@ msgstr "时段内节目的排列顺序"
 msgid "Organize"
 msgstr "整理"
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Other channels play this one later, so it can't follow another channel itself."
+msgstr ""
+
 #: src/components/profiles/condition/types.ts
 msgid "Other Video"
 msgstr ""
@@ -4806,6 +4994,10 @@ msgstr "覆盖默认的 {0} 设备路径（Linux 下默认为 <0>/dev/dri/render
 #: src/components/programs/ProgramDetailsDialog.tsx
 msgid "Overview"
 msgstr "概览"
+
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Package interface"
+msgstr ""
 
 #: src/components/programming_controls/AddPaddingModal.tsx
 #: src/components/programming_controls/AddPaddingModal.tsx
@@ -4863,6 +5055,14 @@ msgstr "路径替换"
 msgid "Percentage-Based"
 msgstr "按百分比"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Performance"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Performance and Experimental ask the GPU's video engines to do more of the work. Experimental can change fine color detail and grain slightly."
+msgstr ""
+
 #: src/pages/channels/TimeSlotEditorPage.tsx
 #: src/pages/channels/TimeSlotEditorPage.tsx
 msgid "Period"
@@ -4871,6 +5071,15 @@ msgstr "周期"
 #: src/components/programming_controls/RemoveShowsModal.tsx
 msgid "Pick specific programming to remove from the channel."
 msgstr "选择要从频道中移除的特定节目。"
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Picture"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Picture & Credits"
+msgstr ""
 
 #: src/pages/system/TroubleshootPage.tsx
 msgid "Pipeline"
@@ -4900,6 +5109,18 @@ msgstr "平台"
 msgid "Play a Toonami Aftermath feed or a supported Spelunkr channel instead of library programming. Use an empty, standalone channel. Spelunkr requires HLS with the ErsatzTV next playback engine."
 msgstr ""
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Play another channel later"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Play another channel later…"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Play them through"
+msgstr ""
+
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
 #: src/components/channel_config/ChannelTranscodingConfig.tsx
@@ -4914,6 +5135,26 @@ msgstr "播放列表"
 #: src/components/channel_config/plex/PlexProgrammingSelector.tsx
 #~ msgid "Playlists"
 #~ msgstr "Playlists"
+
+#. placeholder {0}: source.name
+#. placeholder {1}: channel.offset.hours
+#. placeholder {2}: source.name
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Plays {0} {1} hours later. Its programming, clock and most settings follow {2}; its name, number, artwork and picture are its own."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Plays ads from these filler lists in the main picture while the credits shrink."
+msgstr ""
+
+#. placeholder {0}: channel.offset.hours
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Plays another channel {0} hours later."
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Plays another channel later"
+msgstr ""
 
 #: src/components/channel_config/ChannelProgrammingSort.tsx
 #~ msgid "Plays shows in a random order, one episode at a time, keeping each show's episodes in sequence. Each show starts at a random episode. Use Block Shuffle to start every show at its first episode or to loop shorter shows."
@@ -4969,6 +5210,14 @@ msgstr ""
 msgid "Preferred subtitle languages"
 msgstr ""
 
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "Prepare English for every eligible program"
+msgstr ""
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "Prepare subtitles for upcoming programs"
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "Preparing"
 msgstr ""
@@ -4989,6 +5238,11 @@ msgstr "预设"
 #: src/components/settings/UnsavedNavigationAlert.tsx
 msgid "Proceed"
 msgstr "继续"
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Processing"
+msgstr ""
 
 #: src/pages/system/TroubleshootPage.tsx
 #~ msgid "Profile"
@@ -5127,6 +5381,10 @@ msgstr ""
 #: src/components/settings/ffmpeg/TranscodeConfigVideoSettingsForm.tsx
 msgid "QSV Device"
 msgstr "QSV 设备"
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Quality (recommended)"
+msgstr ""
 
 #: src/components/MediaSourceLibraryTable.tsx
 #: src/components/MediaSourceLibraryTable.tsx
@@ -5600,12 +5858,17 @@ msgstr "运行中…"
 msgid "Running…"
 msgstr ""
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Same as the source (recommended)"
+msgstr ""
+
 #: src/components/settings/ffmpeg/TranscodeConfigAudioSettingsForm.tsx
 msgid "Sample rate cannot be changed when copying input audio"
 msgstr "复制输入音频时无法修改采样率"
 
 #: src/components/channel_config/ChannelEditActions.tsx
 #: src/components/channel_config/ChannelEditActions.tsx
+#: src/components/channel_config/ChannelOffsetSettings.tsx
 #: src/components/channel_config/ChannelProgrammingConfig.tsx
 #: src/components/custom-shows/EditCustomShowForm.tsx
 #: src/components/filler/EditFillerListForm.tsx
@@ -5655,6 +5918,10 @@ msgstr ""
 msgid "Save or discard channel changes before configuring the live feed."
 msgstr ""
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Save or discard your channel changes first."
+msgstr ""
+
 #: src/components/smart_collections/CreateSmartCollectionDialog.tsx
 msgid "Save Smart Collection"
 msgstr "保存智能合集"
@@ -5699,6 +5966,15 @@ msgstr "扫描 {0}"
 
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Scan your libraries"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Scanlines"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Scanlines, glow and color bleed, drawn by your GPU."
 msgstr ""
 
 #: src/components/shell/useShellNav.tsx
@@ -6034,6 +6310,10 @@ msgstr ""
 msgid "Shows take turns in a fixed order."
 msgstr ""
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Shrink them over a background image (credit squeeze)"
+msgstr ""
+
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 #: src/components/programming_controls/AddReplicateModal.tsx
 #: src/components/programming_controls/ShuffleProgrammingModal.tsx
@@ -6075,6 +6355,10 @@ msgstr "时长短于此值的节目跳过中插广告"
 
 #: src/pages/welcome/WelcomePage.tsx
 msgid "Skip Setup"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Skip to the next program"
 msgstr ""
 
 #: src/hooks/useRouteName.ts
@@ -6134,6 +6418,10 @@ msgstr ""
 
 #: src/components/channel_config/ChannelLiveRelaySettings.tsx
 msgid "Snickelodeon West"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Softer still, like catching it live on cable."
 msgstr ""
 
 #: src/components/settings/ffmpeg/TranscodeConfigsTable.tsx
@@ -6208,6 +6496,11 @@ msgstr "原声"
 msgid "Source"
 msgstr "来源"
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Source channel"
+msgstr ""
+
 #: src/components/MediaSourceLibraryTable.tsx
 #~ msgid "Source Type"
 #~ msgstr "来源类型"
@@ -6279,6 +6572,15 @@ msgstr "隐身模式"
 #~ msgid "Stealth?"
 #~ msgstr "隐身？"
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Stop following"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Stop following?"
+msgstr ""
+
 #: src/components/MediaSourceLibraryTable.tsx
 msgid "Stop syncing this library"
 msgstr ""
@@ -6335,6 +6637,18 @@ msgstr ""
 msgid "Streaming"
 msgstr "播放中"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Strong"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Stronger, like Classic flat"
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "Style guide"
+msgstr ""
+
 #: src/components/settings/ffmpeg/TranscodeConfigSettingsForm.tsx
 #~ msgid "Submit"
 #~ msgstr "提交"
@@ -6379,6 +6693,10 @@ msgstr "字幕"
 
 #: src/components/profiles/StreamSelectionPreviewPanel.tsx
 msgid "Subtitles:"
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Subtle"
 msgstr ""
 
 #: src/pages/system/TroubleshootPage.tsx
@@ -6520,6 +6838,10 @@ msgstr "测试转码"
 msgid "The address changed, so the saved value won't be sent there. Enter it again."
 msgstr ""
 
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "The channel keeps the programming it has now and becomes an ordinary channel again."
+msgstr ""
+
 #: src/components/programming_controls/AddRestrictHoursModal.tsx
 msgid "The channel's regular programming between the specified hours. Flex time will fill up the remaining hours."
 msgstr "频道在指定时段内的常规节目安排，其余时间由弹性时间填充。"
@@ -6556,6 +6878,10 @@ msgstr "图片将按实际尺寸渲染，不做任何缩放。"
 msgid "The loaded version of the Tunarr UI does not match the server. Reload the browser to get the latest. If this message persists, clear your browser cache and reload."
 msgstr "当前加载的 Tunarr 界面版本与服务器不匹配。请刷新浏览器以获取最新版本。若此提示持续出现，请清除浏览器缓存后重新加载。"
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "The manifest, code, service requests, limits and sandbox."
+msgstr ""
+
 #: src/components/UnavailableLibraryIndicator.tsx
 msgid "The media server stopped reporting this library on {since}. Its programs and channel schedules are preserved. Tunarr will not scan it until the server reports it again."
 msgstr ""
@@ -6583,6 +6909,14 @@ msgstr ""
 #: src/components/LanguagePreferencesList.tsx
 #~ msgid "The selected languages will be considered in order they are selected."
 #~ msgstr "所选语言将按选择的先后顺序依次生效。"
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "The source uses HLS Direct, which passes the video through untouched, so this channel can't draw a look of its own."
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "The source's transcode profile can't draw a look: it needs VAAPI hardware acceleration, hardware encoding and hardware filters turned on."
+msgstr ""
 
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "The status check could not finish."
@@ -6663,6 +6997,14 @@ msgstr ""
 msgid "This channel number has already been used"
 msgstr "该频道号已被占用"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "This channel plays {name} later. Its credit handling follows {name}; its picture is set under Properties, in Plays another channel later."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "This channel plays another channel later. Its credit handling follows that channel; its picture is set under Properties, in Plays another channel later."
+msgstr ""
+
 #: src/components/channel_config/LegacyEngineNotice.tsx
 #: src/components/channel_config/LegacyEngineNotice.tsx
 msgid "This channel uses the legacy playback engine"
@@ -6716,9 +7058,17 @@ msgstr "当某个时段没有节目可显示时（例如安排了较长的弹性
 msgid "This is used by iptv clients to categorize the channels. You can leave it as 'tunarr' if you don't need this sort of classification."
 msgstr "IPTV 客户端用此字段对频道分类。如果不需要此类分类，保留为 tunarr 即可。"
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "This look won't be drawn: {blockerText} Turn it off, or change the stream mode or transcode profile."
+msgstr ""
+
 #: src/components/channel_config/ProgrammingSelector.tsx
 msgid "This media source has no enabled or scanned libraries. Enable libraries for this source on the <0>Media Sources</0> page or manually trigger scans on the <1>Library</1> page."
 msgstr "此媒体源没有已启用或已扫描的媒体库。请在<0>媒体源</0>页面启用该来源的媒体库，或在<1>媒体库</1>页面手动触发扫描。"
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "This needs a transcode profile with VAAPI hardware acceleration, hardware encoding and hardware filters turned on."
+msgstr ""
 
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "This option is disabled because it would calculate a schedule that is too long."
@@ -6735,6 +7085,10 @@ msgstr ""
 
 #: src/components/settings/extensions/ExtensionEditDialog.tsx
 msgid "This removes the extension, its settings and its saved credentials from this server. Your channels and media are not changed. You can install it again from its source."
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "This replaces this channel's programming with the source's. Its name, number and artwork stay."
 msgstr ""
 
 #: src/components/slot_scheduler/TimeSlotTable.tsx
@@ -7072,6 +7426,10 @@ msgstr "调谐器数量"
 msgid "Turn the extension on to run its actions."
 msgstr ""
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "TV broadcast (360 lines)"
+msgstr ""
+
 #: src/components/programming_controls/AddBlockShuffleModal.tsx
 msgid "TV shows are grouped by show"
 msgstr "剧集按剧名分组"
@@ -7182,6 +7540,10 @@ msgstr "链接"
 msgid "Use {0}"
 msgstr ""
 
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Use a PNG or JPEG path inside the container, such as /artwork/credits.png."
+msgstr ""
+
 #: src/components/settings/extensions/ExtensionAdminAccess.tsx
 #~ msgid "Use at least 12 characters."
 #~ msgstr ""
@@ -7246,6 +7608,14 @@ msgstr ""
 #: src/components/settings/media_source/JelllyfinServerEditDialog.tsx
 msgid "Username"
 msgstr "用户名"
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Uses final-credit markers from your media server. Programs without one play to the end."
+msgstr ""
+
+#: src/components/channel_config/ChannelPictureAndCredits.tsx
+msgid "Uses final-credit markers from your media server. With ads, an episode's ending chapter also works: the ads stop at the end of the chapter and the episode returns full screen for its preview or the rest of the story. Programs with neither play to the end."
+msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
 #~ msgid "Uses similar titles from a provider, such as the Potion extension, when one is ready; metadata until then."
@@ -7455,8 +7825,20 @@ msgstr ""
 #~ msgid "West feeds are delayed three hours. Some feeds may be unavailable through the public endpoint. The guide uses the source schedule where available, with the channel's usual placeholder title otherwise."
 #~ msgstr ""
 
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "What an extension can and can't do, and what is planned."
+msgstr ""
+
+#: src/components/settings/extensions/ExtensionAuthorGuide.tsx
+msgid "What makes an extension easy to set up, trust and support."
+msgstr ""
+
 #: src/pages/system/TroubleshootPage.tsx
 msgid "What the ErsatzTV next worker recorded the last few times this channel failed to play an item. Attach it to a bug report."
+msgstr ""
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "When an upcoming program has no usable English text subtitle, Tunarr looks for one in your Plex, Jellyfin or Emby library, then reads an English image subtitle (PGS) with OCR. Later airings reuse the result. New work starts for at most ten minutes each hour. OCR needs the Linux container."
 msgstr ""
 
 #: src/components/channel_config/WatermarkTimingFields.tsx
@@ -7477,6 +7859,15 @@ msgstr ""
 
 #: src/components/profiles/StreamSelectionRuleEditor.tsx
 msgid "Which subtitle track(s) to select when the condition holds"
+msgstr ""
+
+#: src/pages/settings/FfmpegSettingsPage.tsx
+#: src/pages/settings/FfmpegSettingsPage.tsx
+msgid "Which subtitles"
+msgstr ""
+
+#: src/components/channel_config/ChannelOffsetSettings.tsx
+msgid "Whole hours, 0 to 168 (a week). 0 plays it at the same time."
 msgstr ""
 
 #: src/components/programming_controls/SeedChannelDialog.tsx
