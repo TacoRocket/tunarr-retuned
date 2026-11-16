@@ -5261,10 +5261,6 @@ msgstr "周期"
 msgid "Pick specific programming to remove from the channel."
 msgstr "选择要从频道中移除的特定节目。"
 
-#: src/components/ads/ChannelAdBreaksPage.tsx
-msgid "Picks new clips for the saved breaks from their pools. The shows and the schedule stay as they are, and the ad on screen right now isn't changed. Each break is redrawn as a whole, so it still skips clips it already has."
-msgstr ""
-
 #: src/components/channel_config/ChannelOffsetSettings.tsx
 #: src/components/channel_config/ChannelOffsetSettings.tsx
 msgid "Picture"
@@ -5681,6 +5677,10 @@ msgstr ""
 
 #: src/components/ads/ChannelAdBreaksPage.tsx
 msgid "Redraw ads"
+msgstr ""
+
+#: src/components/ads/ChannelAdBreaksPage.tsx
+msgid "Redraw picks ads from the checked pools and keeps the shows, schedule, and ad currently on air. Within each break, it avoids repeats among its new picks when another clip is available. A clip kept on air or from an unchecked pool can play again in the same break."
 msgstr ""
 
 #. placeholder {0}: result.refreshedPositions

@@ -377,7 +377,7 @@ Commercial, promo and closer are example assignments, not required roles. A supp
 
 ### Redraw the ads
 
-Breaks keep the clips they were given until the schedule is generated again. To pick fresh ones without touching the shows, open the channel's **Ad Breaks** page and use **Redraw ads**. It lists the pools behind the channel's saved breaks, with how many ad spots each fills; untick any you want to keep as they are, then **Redraw**. The ad on screen right now isn't changed, and each break is redrawn as a whole, so it still skips clips it already has.
+Breaks keep the clips they were given until the schedule is generated again. To pick fresh ones without touching the shows, open the channel's **Ad Breaks** page and use **Redraw ads**. It lists the pools behind the channel's saved breaks, with how many ad spots each fills. Untick any pools whose ads you want to keep, then select **Redraw**. The ad currently on air stays in place. Within each break, Redraw avoids repeats among its new picks when another clip is available. A clip kept on air or from an unchecked pool can play again in the same break.
 
 Redraw works on any looping channel with saved after-show ads, including a schedule you've since edited by hand. It isn't offered for Time Slots or on-demand channels, and a channel that plays another one later follows its source: redraw the source. Save or reset any open programming changes first. If you edit Programming while a Redraw is still running, your edits are kept; saving them puts the previous ads back. From a script: `POST /api/channels/{id}/programming/refresh-fillers` with `{"fillerListIds": ["..."]}`.
 

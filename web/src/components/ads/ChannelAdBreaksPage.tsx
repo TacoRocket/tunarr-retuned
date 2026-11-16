@@ -328,10 +328,10 @@ function RedrawAds({
     <>
       <Typography variant="body2" sx={{ mb: 1 }}>
         <Trans>
-          Picks new clips for the saved breaks from their pools. The shows and
-          the schedule stay as they are, and the ad on screen right now isn't
-          changed. Each break is redrawn as a whole, so it still skips clips it
-          already has.
+          Redraw picks ads from the checked pools and keeps the shows, schedule,
+          and ad currently on air. Within each break, it avoids repeats among
+          its new picks when another clip is available. A clip kept on air or
+          from an unchecked pool can play again in the same break.
         </Trans>
       </Typography>
       <FormGroup>
